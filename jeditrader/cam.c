@@ -6,9 +6,9 @@ double last_x;
 double last_y;
 
 void cam_load_default(struct Cam *cam) {
-  cam->eye = HMM_Vec3(-8.837565, -0.14128147, -12.928104);
-  cam->direction = HMM_Vec3(0.0017142299, -0.3728435, -0.9278927);
-  cam->up = HMM_Vec3(0.0, 0.0, 1.0);
+  cam->eye = (vec3) {-8.837565, -0.14128147, -12.928104 };
+  cam->direction = (vec3) {0.0017142299, -0.3728435, -0.9278927 };
+  cam->up = (vec3) {0.0, 0.0, 1.0};
   cam->pitch = -1.1887205;
   cam->yaw = -9.429376;
 };
@@ -19,22 +19,22 @@ void cam_handle_input(GLFWwindow* window, double loop_time, struct Cam *cam) {
   float cameraSpeed = (float)loop_time * 3;
   if (glfwGetKey(window, GLFW_KEY_W)) {
     if (mouse2_down_check) {
-      cam->eye = HMM_SubtractVec3(cam->eye, HMM_MultiplyVec3f(cam->direction, cameraSpeed));
+      cam->eye = vec3_sub(cam->eye, vec3_multf(cam->direction, cameraSpeed));
     } else {
-      cam->eye = HMM_SubtractVec3(cam->eye, HMM_MultiplyVec3f(cam->direction, cameraSpeed));
+      cam->eye = vec3_sub(cam->eye, vec3_multf(cam->direction, cameraSpeed));
     }
   }
   if (glfwGetKey(window, GLFW_KEY_S)) {
-    cam->eye = HMM_AddVec3(cam->eye, HMM_MultiplyVec3f(cam->direction, cameraSpeed));
+    cam->eye = vec3_add(cam->eye, vec3_multf(cam->direction, cameraSpeed));
   }
   if (glfwGetKey(window, GLFW_KEY_A)) {
-    cam->eye = HMM_SubtractVec3(cam->eye, HMM_MultiplyVec3f(HMM_Cross(cam->direction, cam->up), cameraSpeed * 2));
+    cam->eye = vec3_sub(cam->eye, vec3_multf(cross(cam->direction, cam->up), cameraSpeed * 2));
   }
   if (glfwGetKey(window, GLFW_KEY_D)) {
-    cam->eye = HMM_AddVec3(cam->eye, HMM_MultiplyVec3f(HMM_Cross(cam->direction, cam->up), cameraSpeed * 2));
+    cam->eye = vec3_add(cam->eye, vec3_multf(cross(cam->direction, cam->up), cameraSpeed * 2));
   }
   if (glfwGetKey(window, GLFW_KEY_SPACE)) {
-    cam->eye = HMM_SubtractVec3(cam->eye, HMM_MultiplyVec3f(cam->up, cameraSpeed));
+    cam->eye = vec3_sub(cam->eye, vec3_multf(cam->up, cameraSpeed));
   }
 
   double xoff, yoff;
@@ -60,15 +60,15 @@ void cam_handle_input(GLFWwindow* window, double loop_time, struct Cam *cam) {
   cam->pitch += (dy * mouseSpeed);// % (2*HMM_PI);
   cam->yaw   += (dx * mouseSpeed);// % (2*HMM_PI);
   
-  if (cam->pitch > HMM_PI/2 - 0.1) {
-    cam->pitch = HMM_PI/2 - 0.1;
-  } else if (cam->pitch < 0.1 - HMM_PI/2) {
-    cam->pitch = 0.1 - HMM_PI/2;
+  if (cam->pitch > PI/2 - 0.1) {
+    cam->pitch = PI/2 - 0.1;
+  } else if (cam->pitch < 0.1 - PI/2) {
+    cam->pitch = 0.1 - PI/2;
   }
 
-  cam->direction = HMM_NormalizeVec3(HMM_Vec3(
-    HMM_SINF(cam->yaw) * HMM_COSF(cam->pitch),
-    HMM_COSF(cam->yaw) * HMM_COSF(cam->pitch),
-    HMM_SINF(cam->pitch)
-  ));
+  cam->direction = vec3_norm((vec3) {
+    sinf(cam->yaw) * cosf(cam->pitch),
+    cosf(cam->yaw) * cosf(cam->pitch),
+    sinf(cam->pitch)
+  });
 }

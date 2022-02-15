@@ -71,8 +71,7 @@ void init_buffers(GLFWwindow *window) {
   int width, height;
   glfwGetWindowSize(window, &width, &height);
   double ratio = (double)width / (double)height;
-  x *= ratio;
-  vertices[6] = x;
+  vertices[6] *= ratio;
   glGenBuffers(1, &vbo);
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
@@ -82,8 +81,8 @@ void init_buffers(GLFWwindow *window) {
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), NULL);
   glEnableVertexAttribArray(1);
-  int offset = 3 * sizeof(float);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), &offset);
+  size_t offset = 3 * sizeof(float);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)offset);
 }
 
 void axes_init(GLFWwindow *window) {
@@ -92,12 +91,12 @@ void axes_init(GLFWwindow *window) {
   init_buffers(window);
 }
 
-void axes_render_frame(hmm_mat4 g_world) {
+void axes_render_frame(mat4 g_world) {
   glUseProgram(program);
   glBindVertexArray(vao);
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
   //glBufferSubData(GL_ARRAY_BUFFER, 6 * 6 * sizeof(float), 8 * 6 * sizeof(float), get_selection_vertices())
-  glUniformMatrix4fv(uni_world, 1, GL_FALSE, (const float*)(&g_world));
+  glUniformMatrix4fv(uni_world, 1, GL_TRUE, (const float*)(&g_world));
   glDrawArrays(GL_LINES, 0, sizeof(vertices)/sizeof(float));
 }
 

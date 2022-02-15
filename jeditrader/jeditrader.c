@@ -146,40 +146,16 @@ void error_callback_glfw(int error, const char *description) {
   fprintf(stderr, "Error: %s\n", description);
 }
 
-hmm_mat4 look_at(struct Cam* cam) {
-  hmm_mat4 res;
-
-  hmm_vec3 z = HMM_NormalizeVec3(cam->direction);
-  hmm_vec3 x = HMM_NormalizeVec3(HMM_Cross(cam->up, z));
-  hmm_vec3 y = HMM_Cross(z, x);
-
-  res.Elements[0][0] = x.X;
-  res.Elements[0][1] = x.Y;
-  res.Elements[0][2] = x.Z;
-  res.Elements[0][3] = HMM_DotVec3(x, cam->eye);
-
-  res.Elements[1][0] = y.X;
-  res.Elements[1][1] = y.Y;
-  res.Elements[1][2] = y.Z;
-  res.Elements[1][3] = HMM_DotVec3(y, cam->eye);
-
-  res.Elements[2][0] = z.X;
-  res.Elements[2][1] = z.Y;
-  res.Elements[2][2] = z.Z;
-  res.Elements[2][3] = HMM_DotVec3(z, cam->eye);
-
-  res.Elements[3][0] = 0.0f;
-  res.Elements[3][1] = 0.0f;
-  res.Elements[3][2] = 0.0f;
-  res.Elements[3][3] = 1.0f;
-
-  return res;
-}
-
 void render_frame(GLFWwindow* window) {
   struct Cam cam;
   cam_load_default(&cam);
-  hmm_mat4 g_world = look_at(&cam);
+
+  int width, height;
+  glfwGetWindowSize(window, &width, &height);
+  float aspect_ratio = (float)width / (float)height;
+  mat4 perspective = perspective_project(45, aspect_ratio, 0.1, 1000);
+  mat4 look = look_at(cam.eye, cam.direction, cam.up);
+  mat4 g_world = mat4_mult(look, perspective);
   axes_render_frame(g_world);
 }
 

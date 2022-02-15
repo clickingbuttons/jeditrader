@@ -4,9 +4,9 @@
 #include <GLFW/glfw3.h>
 
 struct Cam {
-  hmm_vec3 eye;
-  hmm_vec3 direction;
-  hmm_vec3 up;
+  vec3 eye;
+  vec3 direction;
+  vec3 up;
   float pitch;
   float yaw;
 };
