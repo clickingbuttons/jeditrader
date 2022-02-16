@@ -1,15 +1,15 @@
 #pragma once
 #include "linalg.h"
+#include "window.h"
 
-#include <GLFW/glfw3.h>
-
-struct Cam {
+typedef struct Cam {
   vec3 eye;
   vec3 direction;
   vec3 up;
   float pitch;
   float yaw;
-};
+} Cam;
 
-void cam_load_default(struct Cam *cam);
-void cam_handle_input(GLFWwindow* window, double loop_time, struct Cam *cam);
+Cam cam_default();
+void cam_handle_input(Window* window, double loop_time, Cam *cam);
+

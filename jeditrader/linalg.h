@@ -10,6 +10,9 @@
 #define PI 3.14159265358979323846
 #define PIf32 __f32(3.141592653589793238462643383279502884)
 
+#define min(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define max(X, Y) (((X) > (Y)) ? (X) : (Y))
+
 typedef union vec2 {
   struct {
     float x, y;
@@ -110,6 +113,19 @@ typedef union vec4 {
 
   __m128 internal_elements_sse;
 } vec4;
+
+// Convienence
+static vec2 Vec2(float x, float y) {
+  return (vec2) { x, y };
+}
+
+static vec3 Vec3(float x, float y, float z) {
+  return (vec3) { x, y, z };
+}
+
+static vec4 Vec4(float x, float y, float z, float w) {
+  return (vec4) { x, y, z, w };
+}
 
 typedef union mat4 {
   float data[4][4];
@@ -546,7 +562,7 @@ static inline mat4 perspective_project(float FOV, float aspect_ratio,
                                        float z_near, float z_far) {
   mat4 res = {0};
   float z_range = z_near - z_far;
-  float tanFOV = tanf(to_rads(45.0f / 2.0f));
+  float tanFOV = tanf(to_rads(FOV / 2.0f));
   float f = 1.0f / tanFOV;
 
   float A = (-z_far - z_near) / z_range;
@@ -559,24 +575,6 @@ static inline mat4 perspective_project(float FOV, float aspect_ratio,
   res.data[3][2] = 1.0f;
 
   return res;
-  /*
-  mat4 res = {0};
-
-  // See
-  //
-  https://www.khronos.org/registry/open_g_l-Refpages/gl2.1/xhtml/glu_perspective.xml
-
-  float Cotangent = 1.0f / tanf(FOV * (PIf32 / 360.0f));
-
-  res.data[0][0] = Cotangent / aspect_ratio;
-  res.data[1][1] = Cotangent;
-  res.data[2][3] = -1.0f;
-  res.data[2][2] = (near + far) / (near - far);
-  res.data[3][2] = (2.0f * near * far) / (near - far);
-  res.data[3][3] = 0.0f;
-
-  return res;
-  */
 }
 
 static inline mat4 look_at(vec3 eye, vec3 direction, vec3 up) {
