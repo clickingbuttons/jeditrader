@@ -571,8 +571,8 @@ static inline mat4 perspective_project(float FOV, float aspect_ratio,
   res.data[0][0] = f / aspect_ratio;
   res.data[1][1] = f;
   res.data[2][2] = A;
-  res.data[2][3] = B;
-  res.data[3][2] = 1.0f;
+  res.data[3][2] = B;
+  res.data[2][3] = 1.0f;
 
   return res;
 }
@@ -585,23 +585,23 @@ static inline mat4 look_at(vec3 eye, vec3 direction, vec3 up) {
   vec3 y = cross(z, x);
 
   res.data[0][0] = x.x;
-  res.data[0][1] = x.y;
-  res.data[0][2] = x.z;
-  res.data[0][3] = vec3_dot(x, eye);
-
-  res.data[1][0] = y.x;
+  res.data[1][0] = x.y;
+  res.data[2][0] = x.z;
+  res.data[3][0] = vec3_dot(x, eye);
+                
+  res.data[0][1] = y.x;
   res.data[1][1] = y.y;
-  res.data[1][2] = y.z;
-  res.data[1][3] = vec3_dot(y, eye);
-
-  res.data[2][0] = z.x;
-  res.data[2][1] = z.y;
+  res.data[2][1] = y.z;
+  res.data[3][1] = vec3_dot(y, eye);
+                
+  res.data[0][2] = z.x;
+  res.data[1][2] = z.y;
   res.data[2][2] = z.z;
-  res.data[2][3] = vec3_dot(z, eye);
-
-  res.data[3][0] = 0.0f;
-  res.data[3][1] = 0.0f;
-  res.data[3][2] = 0.0f;
+  res.data[3][2] = vec3_dot(z, eye);
+                
+  res.data[0][3] = 0.0f;
+  res.data[1][3] = 0.0f;
+  res.data[2][3] = 0.0f;
   res.data[3][3] = 1.0f;
 
   return res;

@@ -9,8 +9,6 @@
 #include <time.h>
 
 void render_frame(Window* window) {
-  Chart* chart = window->chart;
-
   axes_render_frame(window->chart->g_world);
 }
 

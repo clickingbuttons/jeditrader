@@ -14,5 +14,6 @@ typedef struct Chart {
 } Chart;
 
 Chart chart_create(int width, int height);
+void chart_resize(Chart* c);
 void chart_update(Chart* c);
 

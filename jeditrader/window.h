@@ -22,3 +22,4 @@ typedef struct Window {
 Window window_create(char *title);
 
 void window_update(Window *window);
+

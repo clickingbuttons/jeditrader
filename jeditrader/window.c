@@ -4,12 +4,19 @@
 
 #include "window.h"
 
-void window_size_callback(GLFWwindow *glfwWindow, int width, int height) {
-  Window* window = (Window*)glfwWindow;
+void window_resize(Window *window, int width, int height) {
+  printf("resize: %dx%d\n", width, height);
   window->width = width;
   window->height = height;
   window->aspect_ratio = (double)width / (double)height;
-  printf("resize: %dx%d\n", width, height);
+
+  if (window->chart != NULL) {
+    window->chart->width = width;
+    window->chart->height = height;
+    window->chart->aspect_ratio = window->aspect_ratio;
+    chart_resize(window->chart);
+  }
+  glfwMakeContextCurrent(window->window);
   glViewport(0, 0, width, height);
 }
 
@@ -110,11 +117,12 @@ void error_callback_gl(GLenum source, GLenum type, GLuint id, GLenum severity,
 
 Window window_create(char *title) {
   Window res = { 0 };
-  //glfwWindowHint(GLFW_SAMPLES, 16);
-  //glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-  //glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE); // for mac
-  //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  glfwWindowHint(GLFW_SAMPLES, 16);
+  // 3.3 is start of modern API
+  // 4.1 is July 26, 2010 and last version OSX supports
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE); // for mac
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // for debugging on i3
 
   res.width = 1920;
@@ -139,8 +147,6 @@ Window window_create(char *title) {
   printf("Renderer: %s\n", glGetString(GL_RENDERER));
   printf("OpenGL version supported: %s\n", glGetString(GL_VERSION));
 
-  glfwSetWindowSizeCallback(res.window, window_size_callback);
-
   return res;
 }
 
@@ -162,6 +168,12 @@ void window_update(Window *window) {
   for (size_t i = 0; i < num_mouse_buttons; i++) {
     // https://github.com/glfw/glfw/blob/df8d7bc892937a8b0f7c604c92a9f64f383cf48c/src/input.c#L684
     window->mouse_cur[i] = glfwGetMouseButton(window->window, i);
+  }
+
+  int width, height;
+  glfwGetWindowSize(window->window, &width, &height);
+  if (width != window->width || height != window->height) {
+    window_resize(window, width, height);
   }
 }
 
