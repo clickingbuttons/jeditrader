@@ -10,15 +10,8 @@
 
 void render_frame(Window* window) {
   Chart* chart = window->chart;
-  mat4 perspective = perspective_project(45, chart->aspect_ratio, 0.1, 1000);
-  mat4 look = look_at(chart->cam.eye, chart->cam.direction, chart->cam.up);
-  mat4 g_world = mat4_mult(look, perspective);
 
-  axes_render_frame(g_world);
-}
-
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
-  axes_mouse_button_callback(window, button, action, mods);
+  axes_render_frame(window->chart->g_world);
 }
 
 void error_callback_glfw(int error, const char *description) {
@@ -41,7 +34,7 @@ int main(int argc, char *argv[]) {
   printf("Initializing objects\n");
   Chart chart = chart_create(window.width, window.height);
   window.chart = &chart;
-  axes_init(&window);
+  axes_init(window.chart);
 
   printf("Starting main loop\n");
   glClearColor(0.2, 0.3, 0.3, 1.0);
@@ -50,12 +43,18 @@ int main(int argc, char *argv[]) {
 
   u64 frame = 0;
   while (!glfwWindowShouldClose(window.window)) {
-
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    // Update state with input
+    axes_update(&window);
+
+    // Render
     render_frame(&window);
     glfwSwapBuffers(window.window);
+
+    // Grab new input
     glfwPollEvents();
+    window_update(&window);
 
     frame += 1;
   }

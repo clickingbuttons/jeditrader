@@ -1,7 +1,8 @@
+#include <GL/glew.h>
+
 #include "axes.h"
 #include "linalg.h"
 #include "cam.h"
-#include "window.h"
 #include "chart.h"
 
 #include <stdio.h>
@@ -127,8 +128,8 @@ void init_program() {
   }
 }
 
-void init_buffers(Window *window) {
-  vertices[1][0] *= window->aspect_ratio;
+void init_buffers(Chart *chart) {
+  vertices[1][0] *= chart->aspect_ratio;
   glGenBuffers(1, &vbo);
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
@@ -142,10 +143,10 @@ void init_buffers(Window *window) {
   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)offset);
 }
 
-void axes_init(Window *window) {
+void axes_init(Chart *chart) {
   init_program();
   uni_world = glGetUniformLocation(program, "gWorld");
-  init_buffers(window);
+  init_buffers(chart);
 }
 
 void axes_render_frame(mat4 g_world) {
@@ -154,7 +155,7 @@ void axes_render_frame(mat4 g_world) {
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
   sel_write_vertices();
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
-  glUniformMatrix4fv(uni_world, 1, GL_TRUE, (const float*)(&g_world));
+  glUniformMatrix4fv(uni_world, 1, GL_FALSE, (const float*)(&g_world));
   glDrawArrays(GL_LINES, 0, sizeof(vertices)/sizeof(float));
 }
 
@@ -183,17 +184,19 @@ vec2 world_coords_xy(Window* window, struct Cam* cam) {
   // Step 1: 3d Normalised Device Coordinates
   double x = (2.0 * xoff) / (float)window->width - 1.0;
   double y = 1.0 - (2.0 * yoff) / (float)window->height;
+  printf("x y %f %f\n", x, y);
   // Step 2: 4d Homogeneous Clip Coordinates
   vec4 ray_clip = (vec4) { x, y, -1.0, 1.0 };
   // Step 3: 4d Eye (Camera) Coordinates
-  // TODO: config for keys and FOV
-  mat4 projection_matrix = perspective_project(45.0f, window->aspect_ratio, 0.1, 1000);
-  vec4 ray_eye = mat4_mult_vec4(mat4_transpose(projection_matrix), ray_clip);
-  ray_eye.z = 1.0;
-  ray_eye.w = 0.0;
+  printf("proj\n");
+  mat4_print(mat4_transpose(window->chart->perspective));
+  vec4 ray_eye = mat4_mult_vec4(mat4_transpose(window->chart->perspective), ray_clip);
+  ray_eye.z = 1.0f;
+  ray_eye.w = 0.0f;
+  printf("ray_eye %f %f %f %f\n", ray_eye.x, ray_eye.y, ray_eye.z, ray_eye.w);
   // Step 4: 4d World Coordinates
-  mat4 view_matrix = look_at(cam->eye, cam->direction, cam->up);
-  vec4 ray_world = mat4_mult_vec4(mat4_transpose(view_matrix), ray_eye);
+  vec4 ray_world = mat4_mult_vec4(mat4_transpose(window->chart->look), ray_eye);
+  printf("ray_world %f %f %f %f\n", ray_world.x, ray_world.y, ray_world.z, ray_world.w);
 
   // Map coords to point on xy plane
   vec2 xy_point = line_plane_collision(Vec3(0, 0, 1), Vec3(0, 0, 0), ray_world.xyz, cam->eye);
@@ -202,23 +205,24 @@ vec2 world_coords_xy(Window* window, struct Cam* cam) {
   return xy_point;
 }
 
-void axes_mouse_button_callback(GLFWwindow* glfwWindow, int button, int action, int mods) {
-  Window* window = (Window *)glfwWindow;
-  if (button == GLFW_MOUSE_BUTTON_1) {
-    if (sel_started && sel_ended) {
-      sel_reset();
-    }
+void axes_update(Window* window) {
+  bool button1_last = window->mouse_last[GLFW_MOUSE_BUTTON_1];
+  bool button1_cur = window->mouse_cur[GLFW_MOUSE_BUTTON_1];
+  if (button1_last != button1_cur) {
     vec2 xy_point = world_coords_xy(window, &window->chart->cam);
+    printf("xy_point %f %f\n", xy_point.x, xy_point.y);
     if (xy_point.x != 0.0f && xy_point.y != 0.0f) {
-      if (!sel_started && action == GLFW_PRESS) {
+      if (!sel_started && button1_cur == GLFW_PRESS) {
         sel_started = true;
         sel_start = xy_point;
-      } else if (action == GLFW_RELEASE) {
+      } else if (button1_cur == GLFW_RELEASE) {
         sel_ended = true;
         sel_end = xy_point;
       }
     }
-  } else {
+  }
+  if (sel_started && sel_ended) {
+    printf("sel_reset()\n");
     sel_reset();
   }
 }

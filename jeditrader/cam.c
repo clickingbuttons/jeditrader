@@ -15,32 +15,32 @@ Cam cam_default() {
   };
 }
 
-void cam_handle_input(Window* window, double loop_time, struct Cam *cam) {
-  bool mouse2_down_check = glfwGetMouseButton(window->window, GLFW_MOUSE_BUTTON_2);
+void cam_handle_input(GLFWwindow* window, double loop_time, struct Cam *cam) {
+  bool mouse2_down_check = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2);
 
   float cameraSpeed = (float)loop_time * 3;
-  if (glfwGetKey(window->window, GLFW_KEY_W)) {
+  if (glfwGetKey(window, GLFW_KEY_W)) {
     if (mouse2_down_check) {
       cam->eye = vec3_sub(cam->eye, vec3_multf(cam->direction, cameraSpeed));
     } else {
       cam->eye = vec3_sub(cam->eye, vec3_multf(cam->direction, cameraSpeed));
     }
   }
-  if (glfwGetKey(window->window, GLFW_KEY_S)) {
+  if (glfwGetKey(window, GLFW_KEY_S)) {
     cam->eye = vec3_add(cam->eye, vec3_multf(cam->direction, cameraSpeed));
   }
-  if (glfwGetKey(window->window, GLFW_KEY_A)) {
+  if (glfwGetKey(window, GLFW_KEY_A)) {
     cam->eye = vec3_sub(cam->eye, vec3_multf(cross(cam->direction, cam->up), cameraSpeed * 2));
   }
-  if (glfwGetKey(window->window, GLFW_KEY_D)) {
+  if (glfwGetKey(window, GLFW_KEY_D)) {
     cam->eye = vec3_add(cam->eye, vec3_multf(cross(cam->direction, cam->up), cameraSpeed * 2));
   }
-  if (glfwGetKey(window->window, GLFW_KEY_SPACE)) {
+  if (glfwGetKey(window, GLFW_KEY_SPACE)) {
     cam->eye = vec3_sub(cam->eye, vec3_multf(cam->up, cameraSpeed));
   }
 
   double xoff, yoff;
-  glfwGetCursorPos(window->window, &xoff, &yoff);
+  glfwGetCursorPos(window, &xoff, &yoff);
   double dx = xoff - last_x;
   double dy = yoff - last_y;
   last_x = xoff;
@@ -48,11 +48,11 @@ void cam_handle_input(Window* window, double loop_time, struct Cam *cam) {
 
   if (!mouse2_down && mouse2_down_check) {
     mouse2_down = true;
-    glfwSetInputMode(window->window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     return;
   } else if (mouse2_down && !mouse2_down_check) {
     mouse2_down = false;
-    glfwSetInputMode(window->window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   }
   if (!mouse2_down) {
     return;

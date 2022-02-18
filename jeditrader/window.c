@@ -1,6 +1,8 @@
-#include "window.h"
-
+#include <GL/glew.h>
+#include <string.h>
 #include <stdio.h>
+
+#include "window.h"
 
 void window_size_callback(GLFWwindow *glfwWindow, int width, int height) {
   Window* window = (Window*)glfwWindow;
@@ -108,7 +110,7 @@ void error_callback_gl(GLenum source, GLenum type, GLuint id, GLenum severity,
 
 Window window_create(char *title) {
   Window res = { 0 };
-  glfwWindowHint(GLFW_SAMPLES, 16);
+  //glfwWindowHint(GLFW_SAMPLES, 16);
   //glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   //glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
   //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE); // for mac
@@ -140,5 +142,26 @@ Window window_create(char *title) {
   glfwSetWindowSizeCallback(res.window, window_size_callback);
 
   return res;
+}
+
+void window_update(Window *window) {
+  // TODO: cleverly find keys and mouse buttons on _GLFWwindow
+  // https://github.com/glfw/glfw/blob/df8d7bc892937a8b0f7c604c92a9f64f383cf48c/src/internal.h#L549
+
+  size_t num_keys = sizeof(window->keyboard_cur);
+  memcpy(window->keyboard_last, window->keyboard_cur, num_keys);
+
+  for (size_t i = GLFW_KEY_SPACE; i < num_keys; i++) {
+    // https://github.com/glfw/glfw/blob/df8d7bc892937a8b0f7c604c92a9f64f383cf48c/src/input.c#L661
+    window->keyboard_cur[i] = glfwGetKey(window->window, i);
+  }
+
+  size_t num_mouse_buttons = sizeof(window->mouse_cur);
+  memcpy(window->mouse_last, window->mouse_cur, num_mouse_buttons);
+
+  for (size_t i = 0; i < num_mouse_buttons; i++) {
+    // https://github.com/glfw/glfw/blob/df8d7bc892937a8b0f7c604c92a9f64f383cf48c/src/input.c#L684
+    window->mouse_cur[i] = glfwGetMouseButton(window->window, i);
+  }
 }
 
