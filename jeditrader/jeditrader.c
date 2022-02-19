@@ -4,6 +4,7 @@
 #include "window.h"
 #include "cam.h"
 #include "chart.h"
+#include "platform.h"
 
 #include <stdio.h>
 #include <time.h>
@@ -40,11 +41,17 @@ int main(int argc, char *argv[]) {
   // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
   u64 frame = 0;
+  u64 loop_time_nanos_start = get_nanotime();
+  u64 loop_time_nanos = 0;
   while (!glfwWindowShouldClose(window.window)) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Update state with input
-    axes_update(&window.chart->axes, &window);
+    if (loop_time_nanos > 0) {
+      axes_update(&window.chart->axes, &window);
+      cam_update(&window.chart->cam, &window, loop_time_nanos);
+      chart_update(window.chart);
+    }
 
     // Render
     render_frame(&window);
@@ -55,6 +62,9 @@ int main(int argc, char *argv[]) {
     window_update(&window);
 
     frame += 1;
+    u64 nanotime = get_nanotime();
+    loop_time_nanos = nanotime - loop_time_nanos_start;
+    loop_time_nanos_start = nanotime;
   }
 
   glfwDestroyWindow(window.window);

@@ -7,7 +7,8 @@ Chart chart_create(int width, int height) {
   res.width = width;
   res.height = height;
   res.aspect_ratio = (double)width / (double)height;
-  res.cam = cam_default();
+  res.cam = (Cam) {};
+  cam_default(&res.cam);
   res.axes = axes_default();
 
   chart_resize(&res);

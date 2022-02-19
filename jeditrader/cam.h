@@ -5,7 +5,6 @@
 
 #include <GLFW/glfw3.h>
 
-Cam cam_default();
-void cam_update(Window* window);
-void cam_handle_input(GLFWwindow* window, double loop_time, struct Cam *cam);
+void cam_default(Cam* cam);
+void cam_update(Cam* cam, Window* window, double loop_time);
 
