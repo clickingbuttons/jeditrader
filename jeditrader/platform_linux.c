@@ -1,8 +1,6 @@
 #include "platform.h"
 
-
 #ifdef __unix__
-#define _POSIX_C_SOURCE 200809L
 #include <time.h>
 #include <stdio.h>
 #endif

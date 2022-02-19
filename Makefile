@@ -3,13 +3,13 @@ TARGET_EXEC ?= jeditrader
 
 BUILD_DIR ?= ./build
 SRC_DIR ?= ./jeditrader
-LDFLAGS ?= -lglfw -lGL -lGLEW -lm 
+LDFLAGS ?= -lglfw -lGL -lGLEW -lm
 
 SRCS := $(shell find $(SRC_DIR) -name *.c)
 OBJS := $(SRCS:%=$(BUILD_DIR)/obj/%.o)
 DEPS := $(OBJS:.o=.d)
 
-CFLAGS += -std=c11 -MMD -MP
+CFLAGS += -std=c11 -MMD -MP -ffast-math
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)

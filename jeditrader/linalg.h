@@ -8,10 +8,10 @@
 #include <xmmintrin.h>
 
 #define PI 3.14159265358979323846
-#define PIf32 __f32(3.141592653589793238462643383279502884)
+#define PIf32 3.141592653589793238462643383279502884f
 
-#define min(X, Y) (((X) < (Y)) ? (X) : (Y))
-#define max(X, Y) (((X) > (Y)) ? (X) : (Y))
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 
 typedef union vec2 {
   struct {
@@ -651,7 +651,7 @@ static inline mat4 scale(vec3 scale) {
   return res;
 }
 
-static void mat4_print(mat4 mat) {
+static inline void mat4_print(mat4 mat) {
   for (int i = 0; i < 4; i++) {
     for (int j = 0; j < 4; j++) {
       printf("%f ", mat.data[i][j]);

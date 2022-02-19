@@ -22,123 +22,121 @@ void window_resize(Window *window, int width, int height) {
 
 void error_callback_gl(GLenum source, GLenum type, GLuint id, GLenum severity,
                        GLsizei length, const GLchar *msg, const void *data) {
-  char *_source;
-  char *_type;
-  char *_severity;
+  char* src;
+  char* typ;
+  char* sev;
 
   switch (source) {
   case GL_DEBUG_SOURCE_API:
-    _source = "API";
+    src = "API";
     break;
 
   case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
-    _source = "WINDOW SYSTEM";
+    src = "WINDOW SYSTEM";
     break;
 
   case GL_DEBUG_SOURCE_SHADER_COMPILER:
-    _source = "SHADER COMPILER";
+    src = "SHADER COMPILER";
     break;
 
   case GL_DEBUG_SOURCE_THIRD_PARTY:
-    _source = "THIRD PARTY";
+    src = "THIRD PARTY";
     break;
 
   case GL_DEBUG_SOURCE_APPLICATION:
-    _source = "APPLICATION";
+    src = "APPLICATION";
     break;
 
   case GL_DEBUG_SOURCE_OTHER:
-    _source = "OTHER";
+    src = "OTHER";
     break;
 
   default:
-    _source = "UNKNOWN";
+    src = "UNKNOWN";
     break;
   }
 
   switch (type) {
   case GL_DEBUG_TYPE_ERROR:
-    _type = "ERROR";
+    typ = "ERROR";
     break;
 
   case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
-    _type = "DEPRECATED BEHAVIOR";
+    typ = "DEPRECATED BEHAVIOR";
     break;
 
   case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
-    _type = "UDEFINED BEHAVIOR";
+    typ = "UDEFINED BEHAVIOR";
     break;
 
   case GL_DEBUG_TYPE_PORTABILITY:
-    _type = "PORTABILITY";
+    typ = "PORTABILITY";
     break;
 
   case GL_DEBUG_TYPE_PERFORMANCE:
-    _type = "PERFORMANCE";
+    typ = "PERFORMANCE";
     break;
 
   case GL_DEBUG_TYPE_OTHER:
-    _type = "OTHER";
+    typ = "OTHER";
     break;
 
   case GL_DEBUG_TYPE_MARKER:
-    _type = "MARKER";
+    typ = "MARKER";
     break;
 
   default:
-    _type = "UNKNOWN";
+    typ = "UNKNOWN";
     break;
   }
 
   switch (severity) {
   case GL_DEBUG_SEVERITY_HIGH:
-    _severity = "HIGH";
+    sev = "HIGH";
     break;
 
   case GL_DEBUG_SEVERITY_MEDIUM:
-    _severity = "MEDIUM";
+    sev = "MEDIUM";
     break;
 
   case GL_DEBUG_SEVERITY_LOW:
-    _severity = "LOW";
+    sev = "LOW";
     break;
 
   case GL_DEBUG_SEVERITY_NOTIFICATION:
-    _severity = "NOTIFICATION";
+    sev = "NOTIFICATION";
     break;
 
   default:
-    _severity = "UNKNOWN";
+    sev = "UNKNOWN";
     break;
   }
 
-  printf("GL[%d %s %s %s]: %s\n", id, _severity, _type, _source, msg);
+  printf("GL[%d %s %s %s]: %s\n", id, sev, typ, src, msg);
 }
 
-Window window_create(char *title) {
-  Window res = { 0 };
+void window_init(Window* window, char *title) {
   glfwWindowHint(GLFW_SAMPLES, 16);
-  // 3.3 is start of modern API
   // 4.1 is July 26, 2010 and last version OSX supports
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE); // for mac
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // for debugging on i3
 
-  res.width = 1920;
-  res.height = 1080;
-  res.aspect_ratio = (double)res.width / (double)res.height;
-  res.window = glfwCreateWindow(res.width, res.height, title, NULL, NULL);
-  if (!res.window) {
+  window->width = 1920;
+  window->height = 1080;
+  window->aspect_ratio = (double)window->width / (double)window->height;
+  window->window = glfwCreateWindow(window->width, window->height, title, NULL, NULL);
+  if (!window->window) {
     glfwTerminate();
-    return res;
+    return;
   }
-  glfwMakeContextCurrent(res.window);
+  glfwMakeContextCurrent(window->window);
   glewExperimental = GL_TRUE;
   int err = glewInit();
   if (err != 0) {
     printf("GlewInit() failed with code %d\n", err);
-    return res;
+    return;
   }
   printf("Registering error_callback_gl\n");
   glEnable(GL_DEBUG_OUTPUT);
@@ -146,8 +144,6 @@ Window window_create(char *title) {
 
   printf("Renderer: %s\n", glGetString(GL_RENDERER));
   printf("OpenGL version supported: %s\n", glGetString(GL_VERSION));
-
-  return res;
 }
 
 void window_update(Window *window) {
@@ -169,12 +165,17 @@ void window_update(Window *window) {
     window->mouse_cur[i] = glfwGetMouseButton(window->window, i);
   }
 
+  // TODO: check window width/height > 1, minimized
   int width, height;
   glfwGetWindowSize(window->window, &width, &height);
   if (width != window->width || height != window->height) {
     window_resize(window, width, height);
   }
 
-  glfwGetCursorPos(window->window, &window->mouse_x, &window->mouse_y);
+  double x, y;
+  glfwGetCursorPos(window->window, &x, &y);
+
+  window->mouse_x = floor(x);
+  window->mouse_y = floor(y);
 }
 

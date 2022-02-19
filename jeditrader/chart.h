@@ -25,7 +25,7 @@ typedef struct Cam {
 typedef struct Chart {
   int width;
   int height;
-  double aspect_ratio;
+  float aspect_ratio;
   Cam cam;
   Axes axes;
   mat4 perspective;
@@ -33,7 +33,7 @@ typedef struct Chart {
   mat4 g_world;
 } Chart;
 
-Chart chart_create(int width, int height);
+void chart_init(Chart* c, int width, int height);
 void chart_resize(Chart* c);
 void chart_update(Chart* c);
 

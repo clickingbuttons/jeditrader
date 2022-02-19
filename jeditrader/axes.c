@@ -19,10 +19,10 @@ void sel_reset(Axes* axes) {
 }
 
 void sel_write_vertices(Axes* axes) {
-  float min_x = axes->selecting ? min(axes->sel_start.x, axes->sel_end.x) : 0;
-  float min_y = axes->selecting ? min(axes->sel_start.y, axes->sel_end.y) : 0;
-  float max_x = axes->selecting ? max(axes->sel_start.x, axes->sel_end.x) : 0;
-  float max_y = axes->selecting ? max(axes->sel_start.y, axes->sel_end.y) : 0;
+  float min_x = axes->selecting ? MIN(axes->sel_start.x, axes->sel_end.x) : 0;
+  float min_y = axes->selecting ? MIN(axes->sel_start.y, axes->sel_end.y) : 0;
+  float max_x = axes->selecting ? MAX(axes->sel_start.x, axes->sel_end.x) : 0;
+  float max_y = axes->selecting ? MAX(axes->sel_start.y, axes->sel_end.y) : 0;
 
   axes->vertices[6][0] = min_x;
   axes->vertices[6][1] = -min_y;
@@ -49,7 +49,7 @@ void sel_write_vertices(Axes* axes) {
   axes->vertices[13][1] = -min_y;
 }
 
-void _print_programme_info_log(GLuint programme) {
+void print_program_log(GLuint programme) {
   int max_length = 2048;
   int actual_length = 0;
   char program_log[2048];
@@ -91,11 +91,11 @@ void init_program() {
   glGetProgramiv(program, GL_LINK_STATUS, &params);
   if (GL_TRUE != params) {
     printf("ERROR: could not link shader programme GL index %u\n", program);
-    _print_programme_info_log(program);
+    print_program_log(program);
   }
 }
 
-void init_buffers(Axes* axes, double aspect_ratio) {
+void init_buffers(Axes* axes, float aspect_ratio) {
   axes->vertices[1][0] *= aspect_ratio;
   glGenBuffers(1, &vbo);
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -145,7 +145,7 @@ Axes axes_default() {
   };
 }
 
-void axes_init(Axes *axes, double aspect_ratio) {
+void axes_init(Axes *axes, float aspect_ratio) {
   init_program();
   uni_world = glGetUniformLocation(program, "gWorld");
   init_buffers(axes, aspect_ratio);
@@ -170,12 +170,13 @@ vec3 line_plane_collision(vec3 plane_norm, vec3 plane_pnt, vec3 ray_dir, vec3 ra
   return vec3_sub(ray_pnt, vec3_multf(ray_dir, prod3));
 }
 
+// Screen space to world space
 vec3 world_coords_xyz(Window* window, Cam* cam) {
   // https://antongerdelan.net/opengl/raycasting.html
   // Step 0: 2d Viewport Coordinates
   // Step 1: 3d Normalised Device Coordinates
-  double x = (2.0 * window->mouse_x) / (float)window->width - 1.0;
-  double y = 1.0 - (2.0 * window->mouse_y) / (float)window->height;
+  float x = (2.0 * window->mouse_x) / window->width - 1.0;
+  float y = 1.0 - (2.0 * window->mouse_y) / window->height;
   // Step 2: 4d Homogeneous Clip Coordinates
   vec4 ray_clip = (vec4) { x, y, -1.0, 1.0 };
   // Step 3: 4d Eye (Camera) Coordinates

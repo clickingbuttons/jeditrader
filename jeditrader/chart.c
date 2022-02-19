@@ -2,19 +2,16 @@
 #include "cam.h"
 #include "axes.h"
 
-Chart chart_create(int width, int height) {
-  Chart res = { 0 };
-  res.width = width;
-  res.height = height;
-  res.aspect_ratio = (double)width / (double)height;
-  res.cam = (Cam) {};
-  cam_default(&res.cam);
-  res.axes = axes_default();
+void chart_init(Chart* res, int width, int height) {
+  res->width = width;
+  res->height = height;
+  res->aspect_ratio = (double)width / (double)height;
+  res->cam = (Cam) {};
+  cam_default(&res->cam);
+  res->axes = axes_default();
 
-  chart_resize(&res);
-  chart_update(&res);
-
-  return res;
+  chart_resize(res);
+  chart_update(res);
 }
 
 void chart_update(Chart* c) {

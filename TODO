@@ -1,3 +1,7 @@
+logger
+folders as packages
+make helper functions static
+make case statements pretty
 cubes w/ test data
 cube printing
 database
