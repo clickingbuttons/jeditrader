@@ -9,7 +9,7 @@
 #include <time.h>
 
 void render_frame(Window* window) {
-  axes_render_frame(window->chart->g_world);
+  axes_render_frame(&window->chart->axes, window->chart->g_world);
 }
 
 void error_callback_glfw(int error, const char *description) {
@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
   printf("Initializing objects\n");
   Chart chart = chart_create(window.width, window.height);
   window.chart = &chart;
-  axes_init(window.chart);
+  axes_init(&window.chart->axes, window.aspect_ratio);
 
   printf("Starting main loop\n");
   glClearColor(0.2, 0.3, 0.3, 1.0);
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Update state with input
-    axes_update(&window);
+    axes_update(&window.chart->axes, &window);
 
     // Render
     render_frame(&window);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "linalg.h"
 #include "chart.h"
 
 #include <GLFW/glfw3.h>
@@ -15,8 +16,8 @@ typedef struct Window {
   char keyboard_cur[GLFW_KEY_LAST + 1];
   char mouse_last[GLFW_MOUSE_BUTTON_LAST + 1];
   char mouse_cur[GLFW_MOUSE_BUTTON_LAST + 1];
-  int mouse_x;
-  int mouse_y;
+  double mouse_x;
+  double mouse_y;
 } Window;
 
 Window window_create(char *title);

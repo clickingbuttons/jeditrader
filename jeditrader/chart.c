@@ -1,4 +1,6 @@
 #include "chart.h"
+#include "cam.h"
+#include "axes.h"
 
 Chart chart_create(int width, int height) {
   Chart res = { 0 };
@@ -6,6 +8,7 @@ Chart chart_create(int width, int height) {
   res.height = height;
   res.aspect_ratio = (double)width / (double)height;
   res.cam = cam_default();
+  res.axes = axes_default();
 
   chart_resize(&res);
   chart_update(&res);
@@ -18,7 +21,6 @@ void chart_update(Chart* c) {
   c->g_world = mat4_mult(c->perspective, c->look);
   c->g_world = c->g_world;
 }
-
 
 void chart_resize(Chart* c) {
   c->perspective = perspective_project(45, c->aspect_ratio, 0.1, 1000);

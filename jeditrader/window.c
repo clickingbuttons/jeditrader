@@ -153,12 +153,11 @@ Window window_create(char *title) {
 void window_update(Window *window) {
   // TODO: cleverly find keys and mouse buttons on _GLFWwindow
   // https://github.com/glfw/glfw/blob/df8d7bc892937a8b0f7c604c92a9f64f383cf48c/src/internal.h#L549
-
   size_t num_keys = sizeof(window->keyboard_cur);
   memcpy(window->keyboard_last, window->keyboard_cur, num_keys);
 
+  // https://github.com/glfw/glfw/blob/df8d7bc892937a8b0f7c604c92a9f64f383cf48c/src/input.c#L661
   for (size_t i = GLFW_KEY_SPACE; i < num_keys; i++) {
-    // https://github.com/glfw/glfw/blob/df8d7bc892937a8b0f7c604c92a9f64f383cf48c/src/input.c#L661
     window->keyboard_cur[i] = glfwGetKey(window->window, i);
   }
 
@@ -175,5 +174,7 @@ void window_update(Window *window) {
   if (width != window->width || height != window->height) {
     window_resize(window, width, height);
   }
+
+  glfwGetCursorPos(window->window, &window->mouse_x, &window->mouse_y);
 }
 

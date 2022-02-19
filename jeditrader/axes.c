@@ -10,74 +10,43 @@
 GLuint program, vertex_shader, fragment_shader, vao, vbo;
 GLint uni_world;
 
-// Axes
-float x = 10;
-float y = 10;
-float z = 10;
-float vertices[14][6] = {
-  // pos       ,  color
-  // x axis
-   0, 0,      0,  1, 0, 0,
-  10, 0,      0,  1, 0, 0,
-  // y axis
-  0,   0,     0,  0, 1, 0,
-  0, -10,     0,  0, 1, 0,
-  // z axis
-  0,  0,      0,  0, 0, 1,
-  0,  0,     10,  0, 0, 1,
-  // Selection
-  0,  0, 0.001f, 0, 0, 1,
-  0,  0, 0.001f, 0, 0, 1,
-  0,  0, 0.001f, 0, 0, 1,
-  0,  0, 0.001f, 0, 0, 1,
-  0,  0, 0.001f, 0, 0, 1,
-  0,  0, 0.001f, 0, 0, 1,
-  0,  0, 0.001f, 0, 0, 1,
-  0,  0, 0.001f, 0, 0, 1,
-};
-
-// XY selection
-bool selecting = false;
-vec2 sel_start = { 0 };
-vec2 sel_end = { 0 };
-
-void sel_reset() {
-  selecting = false;
-  sel_start.x = 0;
-  sel_start.y = 0;
-  sel_end.x = 0;
-  sel_end.y = 0;
+void sel_reset(Axes* axes) {
+  axes->selecting = false;
+  axes->sel_start.x = 0;
+  axes->sel_start.y = 0;
+  axes->sel_end.x = 0;
+  axes->sel_end.y = 0;
 }
 
-void sel_write_vertices() {
-  float min_x = selecting ? min(sel_start.x, sel_end.x) : 0;
-  float min_y = selecting ? min(sel_start.y, sel_end.y) : 0;
-  float max_x = selecting ? max(sel_start.x, sel_end.x) : 0;
-  float max_y = selecting ? max(sel_start.y, sel_end.y) : 0;
+void sel_write_vertices(Axes* axes) {
+  float min_x = axes->selecting ? min(axes->sel_start.x, axes->sel_end.x) : 0;
+  float min_y = axes->selecting ? min(axes->sel_start.y, axes->sel_end.y) : 0;
+  float max_x = axes->selecting ? max(axes->sel_start.x, axes->sel_end.x) : 0;
+  float max_y = axes->selecting ? max(axes->sel_start.y, axes->sel_end.y) : 0;
 
-  vertices[6][0] = min_x;
-  vertices[6][1] = -min_y;
+  axes->vertices[6][0] = min_x;
+  axes->vertices[6][1] = -min_y;
 
-  vertices[7][0] = min_x;
-  vertices[7][1] = -max_y;
+  axes->vertices[7][0] = min_x;
+  axes->vertices[7][1] = -max_y;
 
-  vertices[8][0] = min_x;
-  vertices[8][1] = -max_y;
+  axes->vertices[8][0] = min_x;
+  axes->vertices[8][1] = -max_y;
 
-  vertices[9][0] = max_x;
-  vertices[9][1] = -max_y;
+  axes->vertices[9][0] = max_x;
+  axes->vertices[9][1] = -max_y;
 
-  vertices[10][0] = max_x;
-  vertices[10][1] = -max_y;
+  axes->vertices[10][0] = max_x;
+  axes->vertices[10][1] = -max_y;
 
-  vertices[11][0] = max_x;
-  vertices[11][1] = -min_y;
+  axes->vertices[11][0] = max_x;
+  axes->vertices[11][1] = -min_y;
 
-  vertices[12][0] = max_x;
-  vertices[12][1] = -min_y;
+  axes->vertices[12][0] = max_x;
+  axes->vertices[12][1] = -min_y;
 
-  vertices[13][0] = min_x;
-  vertices[13][1] = -min_y;
+  axes->vertices[13][0] = min_x;
+  axes->vertices[13][1] = -min_y;
 }
 
 void _print_programme_info_log(GLuint programme) {
@@ -126,11 +95,11 @@ void init_program() {
   }
 }
 
-void init_buffers(Chart *chart) {
-  vertices[1][0] *= chart->aspect_ratio;
+void init_buffers(Axes* axes, double aspect_ratio) {
+  axes->vertices[1][0] *= aspect_ratio;
   glGenBuffers(1, &vbo);
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(axes->vertices), axes->vertices, GL_DYNAMIC_DRAW);
 
   glGenVertexArrays(1, &vao);
   glBindVertexArray(vao);
@@ -141,20 +110,55 @@ void init_buffers(Chart *chart) {
   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)offset);
 }
 
-void axes_init(Chart *chart) {
-  init_program();
-  uni_world = glGetUniformLocation(program, "gWorld");
-  init_buffers(chart);
+Axes axes_default() {
+  float x = 10;
+  float y = 10;
+  float z = 10;
+  return (Axes) {
+    .x = 10,
+    .y = 10,
+    .z = 10,
+    .vertices = {
+      // pos       ,  color
+      // x axis
+       0, 0,      0,  1, 0, 0,
+      10, 0,      0,  1, 0, 0,
+      // y axis
+      0,   0,     0,  0, 1, 0,
+      0, -10,     0,  0, 1, 0,
+      // z axis
+      0,  0,      0,  0, 0, 1,
+      0,  0,     10,  0, 0, 1,
+      // Selection
+      0,  0, 0.001f, 0, 0, 1,
+      0,  0, 0.001f, 0, 0, 1,
+      0,  0, 0.001f, 0, 0, 1,
+      0,  0, 0.001f, 0, 0, 1,
+      0,  0, 0.001f, 0, 0, 1,
+      0,  0, 0.001f, 0, 0, 1,
+      0,  0, 0.001f, 0, 0, 1,
+      0,  0, 0.001f, 0, 0, 1,
+    },
+    .selecting = false,
+    .sel_start = (vec2) { 0 },
+    .sel_end = (vec2) { 0 },
+  };
 }
 
-void axes_render_frame(mat4 g_world) {
+void axes_init(Axes *axes, double aspect_ratio) {
+  init_program();
+  uni_world = glGetUniformLocation(program, "gWorld");
+  init_buffers(axes, aspect_ratio);
+}
+
+void axes_render_frame(Axes* axes, mat4 g_world) {
   glUseProgram(program);
   glBindVertexArray(vao);
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
-  sel_write_vertices();
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
+  sel_write_vertices(axes);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(axes->vertices), axes->vertices, GL_DYNAMIC_DRAW);
   glUniformMatrix4fv(uni_world, 1, GL_FALSE, (const float*)(&g_world));
-  glDrawArrays(GL_LINES, 0, sizeof(vertices)/sizeof(float));
+  glDrawArrays(GL_LINES, 0, sizeof(axes->vertices)/sizeof(float));
 }
 
 vec3 line_plane_collision(vec3 plane_norm, vec3 plane_pnt, vec3 ray_dir, vec3 ray_pnt) {
@@ -166,14 +170,12 @@ vec3 line_plane_collision(vec3 plane_norm, vec3 plane_pnt, vec3 ray_dir, vec3 ra
   return vec3_sub(ray_pnt, vec3_multf(ray_dir, prod3));
 }
 
-vec3 world_coords_xyz(Window* window, struct Cam* cam) {
+vec3 world_coords_xyz(Window* window, Cam* cam) {
   // https://antongerdelan.net/opengl/raycasting.html
   // Step 0: 2d Viewport Coordinates
-  double xoff, yoff;
-  glfwGetCursorPos(window->window, &xoff, &yoff);
   // Step 1: 3d Normalised Device Coordinates
-  double x = (2.0 * xoff) / (float)window->width - 1.0;
-  double y = 1.0 - (2.0 * yoff) / (float)window->height;
+  double x = (2.0 * window->mouse_x) / (float)window->width - 1.0;
+  double y = 1.0 - (2.0 * window->mouse_y) / (float)window->height;
   // Step 2: 4d Homogeneous Clip Coordinates
   vec4 ray_clip = (vec4) { x, y, -1.0, 1.0 };
   // Step 3: 4d Eye (Camera) Coordinates
@@ -190,23 +192,23 @@ vec3 world_coords_xyz(Window* window, struct Cam* cam) {
   return xyz_point;
 }
 
-void axes_update(Window* window) {
+void axes_update(Axes* axes, Window* window) {
   bool button1_last = window->mouse_last[GLFW_MOUSE_BUTTON_1];
   bool button1_cur = window->mouse_cur[GLFW_MOUSE_BUTTON_1];
   if (button1_last != button1_cur) {
     vec3 xyz_point = world_coords_xyz(window, &window->chart->cam);
-    if (!selecting && button1_cur == GLFW_PRESS) {
-      selecting = true;
-      sel_start = xyz_point.xy;
+    if (!axes->selecting && button1_cur == GLFW_PRESS) {
+      axes->selecting = true;
+      axes->sel_start = xyz_point.xy;
     } else if (button1_cur == GLFW_RELEASE) {
-      sel_reset();
-      sel_write_vertices();
+      sel_reset(axes);
+      sel_write_vertices(axes);
     }
   }
-  if (selecting) {
+  if (axes->selecting) {
     vec3 xyz_point = world_coords_xyz(window, &window->chart->cam);
-    sel_end = xyz_point.xy;
-    sel_write_vertices();
+    axes->sel_end = xyz_point.xy;
+    sel_write_vertices(axes);
   }
 }
 
