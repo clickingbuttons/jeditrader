@@ -3,7 +3,7 @@ TARGET_EXEC ?= jeditrader
 
 BUILD_DIR ?= ./build
 SRC_DIR ?= ./jeditrader
-LDFLAGS ?= -lglfw -lGL -lGLEW -lm
+LDFLAGS ?= -lglfw -lGL -lGLEW -lm -lpthread
 
 SRCS := $(shell find $(SRC_DIR) -name *.c)
 OBJS := $(SRCS:%=$(BUILD_DIR)/obj/%.o)
@@ -24,7 +24,7 @@ clean:
 
 .PHONY: run
 run: $(BUILD_DIR)/$(TARGET_EXEC)
-	$(BUILD_DIR)/$(TARGET_EXEC)
+	$(BUILD_DIR)/$(TARGET_EXEC) A B
 
 -include $(DEPS)
 

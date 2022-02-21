@@ -6,7 +6,9 @@
 #include "chart.h"
 #include "platform.h"
 
+#define MAX_NUM_CHARTS 1024
 
+#include <pthread.h>
 #include <stdio.h>
 #include <time.h>
 
@@ -14,19 +16,12 @@ void error_callback_glfw(int error, const char *description) {
   fprintf(stderr, "GLFW error: %s\n", description);
 }
 
-int main(int argc, char *argv[]) {
-  printf("Starting %s\n", argv[0]);
-  if (!glfwInit())
-    return -1;
-
-  printf("Registering error_callback_glfw\n");
-  glfwSetErrorCallback(error_callback_glfw);
-
+void* run_chart(void *ptr) {
+  char* name = ptr;
   printf("Making window\n");
   Window window;
-  window_init(&window, argv[0]);
-  if (!window.window)
-    return -1;
+  if (window_init(&window, name))
+    return (void*)-1;
 
   printf("Initializing objects\n");
   Chart chart;
@@ -34,7 +29,7 @@ int main(int argc, char *argv[]) {
   window.chart = &chart;
   axes_init(&window.chart->axes, window.aspect_ratio);
 
-  printf("Starting main loop\n");
+  printf("Starting %s main loop\n", name);
   glEnable(GL_DEPTH_TEST);
   // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
@@ -55,9 +50,12 @@ int main(int argc, char *argv[]) {
     chart_update(window.chart);
 
     // Render
-    // TODO: skip if minimized
-    axes_render_frame(&window.chart->axes, window.chart->g_world);
-    glfwSwapBuffers(window.window);
+    if (!glfwGetWindowAttrib(window.window, GLFW_ICONIFIED)) {
+      axes_render_frame(&window.chart->axes, window.chart->g_world);
+      glfwSwapBuffers(window.window);
+    } else {
+      printf("minimized\n");
+    }
 
     frame += 1;
     u64 nanotime = get_nanotime();
@@ -66,7 +64,35 @@ int main(int argc, char *argv[]) {
   }
 
   glfwDestroyWindow(window.window);
+
+  return NULL;
+}
+
+int main(int argc, char *argv[]) {
+  printf("Starting %s\n", argv[0]);
+  if (!glfwInit())
+    return -1;
+
+  printf("Registering error_callback_glfw\n");
+  glfwSetErrorCallback(error_callback_glfw);
+
+  pthread_t threads[MAX_NUM_CHARTS];
+  int ret = 0;
+
+  for (int i = 1; i < argc; i++) {
+    pthread_create(&threads[i - 1], NULL, *run_chart, argv[i]);
+  }
+
+  for (int i = 1; i < argc; i++) {
+    void* thread_ret;
+    pthread_join(threads[i - 1], thread_ret);
+    if (thread_ret != NULL) {
+      ret = *((int*)thread_ret);
+      printf("window %s error %d\n", argv[i], ret);
+    }
+  }
+
   glfwTerminate();
-  return 0;
+  return ret;
 }
 

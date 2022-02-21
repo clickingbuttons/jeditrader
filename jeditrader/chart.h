@@ -2,16 +2,19 @@
 
 #include "linalg.h"
 
+#include <GL/glew.h>
+
 typedef struct Axes {
   // Axes
-  float x;
-  float y;
-  float z;
+  float x, y, z;
   float vertices[14][6];
   // XY selection
   bool selecting;
   vec2 sel_start;
   vec2 sel_end;
+  // Rendering
+  GLuint program, vao, vbo;
+  GLint uni_world;
 } Axes;
 
 typedef struct Cam {
@@ -20,6 +23,10 @@ typedef struct Cam {
   vec3 up;
   float pitch;
   float yaw;
+  // Window state
+  bool mouse2_down;
+  double last_x;
+  double last_y;
 } Cam;
 
 typedef struct Chart {

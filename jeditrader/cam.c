@@ -1,10 +1,6 @@
 #include "inttypes.h"
 #include "cam.h"
 
-bool mouse2_down;
-double last_x;
-double last_y;
-
 void cam_default(Cam *cam) {
   cam->eye = Vec3(-8.837565, -0.14128147, -12.928104);
   cam->direction = Vec3(0.0017142299, -0.3728435, -0.9278927);
@@ -41,20 +37,20 @@ void cam_update(Cam* cam, Window* window, double loop_time) {
     cam->eye = vec3_sub(cam->eye, vec3_multf(cam->up, cameraSpeed));
   }
 
-  double dx = window->mouse_x - last_x;
-  double dy = window->mouse_y - last_y;
-  last_x = window->mouse_x;
-  last_y = window->mouse_y;
+  double dx = window->mouse_x - cam->last_x;
+  double dy = window->mouse_y - cam->last_y;
+  cam->last_x = window->mouse_x;
+  cam->last_y = window->mouse_y;
 
-  if (!mouse2_down && mouse2_down_check) {
-    mouse2_down = true;
+  if (!cam->mouse2_down && mouse2_down_check) {
+    cam->mouse2_down = true;
     glfwSetInputMode(window->window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     return;
-  } else if (mouse2_down && !mouse2_down_check) {
-    mouse2_down = false;
+  } else if (cam->mouse2_down && !mouse2_down_check) {
+    cam->mouse2_down = false;
     glfwSetInputMode(window->window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   }
-  if (!mouse2_down) {
+  if (!cam->mouse2_down) {
     return;
   }
 

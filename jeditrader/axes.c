@@ -1,16 +1,12 @@
-#include <GL/glew.h>
-
 #include "axes.h"
 #include "linalg.h"
 #include "cam.h"
 #include "chart.h"
 
+#include <GL/glew.h>
 #include <stdio.h>
 
-GLuint program, vertex_shader, fragment_shader, vao, vbo;
-GLint uni_world;
-
-void sel_reset(Axes* axes) {
+static void sel_reset(Axes* axes) {
   axes->selecting = false;
   axes->sel_start.x = 0;
   axes->sel_start.y = 0;
@@ -18,7 +14,7 @@ void sel_reset(Axes* axes) {
   axes->sel_end.y = 0;
 }
 
-void sel_write_vertices(Axes* axes) {
+static void sel_write_vertices(Axes* axes) {
   float min_x = axes->selecting ? MIN(axes->sel_start.x, axes->sel_end.x) : 0;
   float min_y = axes->selecting ? MIN(axes->sel_start.y, axes->sel_end.y) : 0;
   float max_x = axes->selecting ? MAX(axes->sel_start.x, axes->sel_end.x) : 0;
@@ -49,16 +45,8 @@ void sel_write_vertices(Axes* axes) {
   axes->vertices[13][1] = -min_y;
 }
 
-void print_program_log(GLuint programme) {
-  int max_length = 2048;
-  int actual_length = 0;
-  char program_log[2048];
-  glGetProgramInfoLog(programme, max_length, &actual_length, program_log);
-  printf("program info log for GL index %u:\n%s", programme, program_log);
-}
-
-void init_program() {
-  vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+static void init_program(Axes* axes) {
+  GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
   const GLchar* vshader = "#version 330 core\n"
     "layout (location = 0) in vec3 Position;\n"
     "layout (location = 1) in vec3 inColor;\n"
@@ -72,7 +60,7 @@ void init_program() {
   glShaderSource(vertex_shader, 1, &vshader, 0);
   glCompileShader(vertex_shader);
 
-  fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+  GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
   const GLchar* fshader = "#version 330 core\n"
     "in vec4 Color;\n"
     "out vec4 outColor;\n"
@@ -83,26 +71,27 @@ void init_program() {
   glShaderSource(fragment_shader, 1, &fshader, 0);
   glCompileShader(fragment_shader);
 
-  program = glCreateProgram();
-  glAttachShader(program, vertex_shader);
-  glAttachShader(program, fragment_shader);
-  glLinkProgram(program);
+  axes->program = glCreateProgram();
+  glAttachShader(axes->program, vertex_shader);
+  glAttachShader(axes->program, fragment_shader);
+  glLinkProgram(axes->program);
   int params = -1;
-  glGetProgramiv(program, GL_LINK_STATUS, &params);
+  glGetProgramiv(axes->program, GL_LINK_STATUS, &params);
   if (GL_TRUE != params) {
-    printf("ERROR: could not link shader programme GL index %u\n", program);
-    print_program_log(program);
+    char program_log[GL_MAX_DEBUG_MESSAGE_LENGTH];
+    glGetProgramInfoLog(axes->program, GL_MAX_DEBUG_MESSAGE_LENGTH, NULL, program_log);
+    printf("couldn't compile program %u:\n%s", axes->program, program_log);
   }
 }
 
-void init_buffers(Axes* axes, float aspect_ratio) {
+static void init_buffers(Axes* axes, float aspect_ratio) {
   axes->vertices[1][0] *= aspect_ratio;
-  glGenBuffers(1, &vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  glGenBuffers(1, &axes->vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, axes->vbo);
   glBufferData(GL_ARRAY_BUFFER, sizeof(axes->vertices), axes->vertices, GL_DYNAMIC_DRAW);
 
-  glGenVertexArrays(1, &vao);
-  glBindVertexArray(vao);
+  glGenVertexArrays(1, &axes->vao);
+  glBindVertexArray(axes->vao);
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), NULL);
   glEnableVertexAttribArray(1);
@@ -146,22 +135,22 @@ Axes axes_default() {
 }
 
 void axes_init(Axes *axes, float aspect_ratio) {
-  init_program();
-  uni_world = glGetUniformLocation(program, "gWorld");
+  init_program(axes);
+  axes->uni_world = glGetUniformLocation(axes->program, "gWorld");
   init_buffers(axes, aspect_ratio);
 }
 
 void axes_render_frame(Axes* axes, mat4 g_world) {
-  glUseProgram(program);
-  glBindVertexArray(vao);
-  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  glUseProgram(axes->program);
+  glBindVertexArray(axes->vao);
+  glBindBuffer(GL_ARRAY_BUFFER, axes->vbo);
   sel_write_vertices(axes);
   glBufferData(GL_ARRAY_BUFFER, sizeof(axes->vertices), axes->vertices, GL_DYNAMIC_DRAW);
-  glUniformMatrix4fv(uni_world, 1, GL_FALSE, (const float*)(&g_world));
+  glUniformMatrix4fv(axes->uni_world, 1, GL_FALSE, (const float*)(&g_world));
   glDrawArrays(GL_LINES, 0, sizeof(axes->vertices)/sizeof(float));
 }
 
-vec3 line_plane_collision(vec3 plane_norm, vec3 plane_pnt, vec3 ray_dir, vec3 ray_pnt) {
+static vec3 line_plane_collision(vec3 plane_norm, vec3 plane_pnt, vec3 ray_dir, vec3 ray_pnt) {
   vec3 diff = vec3_sub(ray_pnt, plane_pnt);
   float prod1 = vec3_dot(diff, plane_norm);
   float prod2 = vec3_dot(ray_dir, plane_norm);
@@ -171,7 +160,7 @@ vec3 line_plane_collision(vec3 plane_norm, vec3 plane_pnt, vec3 ray_dir, vec3 ra
 }
 
 // Screen space to world space
-vec3 world_coords_xyz(Window* window, Cam* cam) {
+static vec3 world_coords_xyz(Window* window, Cam* cam) {
   // https://antongerdelan.net/opengl/raycasting.html
   // Step 0: 2d Viewport Coordinates
   // Step 1: 3d Normalised Device Coordinates

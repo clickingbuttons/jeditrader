@@ -20,7 +20,7 @@ void window_resize(Window *window, int width, int height) {
   glViewport(0, 0, width, height);
 }
 
-void error_callback_gl(GLenum source, GLenum type, GLuint id, GLenum severity,
+static void error_callback_gl(GLenum source, GLenum type, GLuint id, GLenum severity,
                        GLsizei length, const GLchar *msg, const void *data) {
   char* src;
   char* typ;
@@ -115,7 +115,7 @@ void error_callback_gl(GLenum source, GLenum type, GLuint id, GLenum severity,
   printf("GL[%d %s %s %s]: %s\n", id, sev, typ, src, msg);
 }
 
-void window_init(Window* window, char *title) {
+int window_init(Window* window, char *title) {
   glfwWindowHint(GLFW_SAMPLES, 16);
   // 4.1 is July 26, 2010 and last version OSX supports
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -128,15 +128,16 @@ void window_init(Window* window, char *title) {
   window->aspect_ratio = (double)window->width / (double)window->height;
   window->window = glfwCreateWindow(window->width, window->height, title, NULL, NULL);
   if (!window->window) {
+    printf("glfwCreateWindow failed with code %p\n", window->window);
     glfwTerminate();
-    return;
+    return -1;
   }
   glfwMakeContextCurrent(window->window);
   glewExperimental = GL_TRUE;
   int err = glewInit();
   if (err != 0) {
     printf("GlewInit() failed with code %d\n", err);
-    return;
+    return -1;
   }
   printf("Registering error_callback_gl\n");
   glEnable(GL_DEBUG_OUTPUT);
@@ -144,6 +145,8 @@ void window_init(Window* window, char *title) {
 
   printf("Renderer: %s\n", glGetString(GL_RENDERER));
   printf("OpenGL version supported: %s\n", glGetString(GL_VERSION));
+
+  return 0;
 }
 
 void window_update(Window *window) {

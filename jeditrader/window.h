@@ -20,7 +20,7 @@ typedef struct Window {
   int mouse_y;
 } Window;
 
-void window_init(Window* window, char *title);
+int window_init(Window* window, char *title);
 
 void window_update(Window *window);
 

@@ -1,8 +1,7 @@
-logger
-folders as packages
-make helper functions static
-make case statements pretty
 cubes w/ test data
 cube printing
 database
-scripting w/julia
+fonts for axes
+virtual console
+  - logger
+  - scripting w/julia
