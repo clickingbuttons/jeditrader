@@ -1,7 +1,6 @@
-cubes w/ test data
-cube printing
 database
 fonts for axes
 virtual console
   - logger
+  - cube printing
   - scripting w/julia

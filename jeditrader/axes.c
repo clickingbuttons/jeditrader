@@ -2,9 +2,21 @@
 #include "linalg.h"
 #include "cam.h"
 #include "chart.h"
+#include "glutil.h"
 
 #include <GL/glew.h>
 #include <stdio.h>
+
+static const GLchar* vertex_src = "#version 330 core\n"
+  "layout (location = 0) in vec3 Position;\n"
+  "layout (location = 1) in vec3 inColor;\n"
+  "uniform mat4 gWorld;\n"
+  "out vec4 Color;\n"
+  "void main()\n"
+  "{\n"
+  "  gl_Position = gWorld * vec4(Position, 1.0);\n"
+  "  Color = vec4(inColor, 1.0);\n"
+  "}\n";
 
 static void sel_reset(Axes* axes) {
   axes->selecting = false;
@@ -45,46 +57,7 @@ static void sel_write_vertices(Axes* axes) {
   axes->vertices[13][1] = -min_y;
 }
 
-static void init_program(Axes* axes, Window* window) {
-  GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-  const GLchar* vshader = "#version 330 core\n"
-    "layout (location = 0) in vec3 Position;\n"
-    "layout (location = 1) in vec3 inColor;\n"
-    "uniform mat4 gWorld;\n"
-    "out vec4 Color;\n"
-    "void main()\n"
-    "{\n"
-    "  gl_Position = gWorld * vec4(Position, 1.0);\n"
-    "  Color = vec4(inColor, 1.0);\n"
-    "}\n";
-  glShaderSource(vertex_shader, 1, &vshader, 0);
-  glCompileShader(vertex_shader);
-
-  GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-  const GLchar* fshader = "#version 330 core\n"
-    "in vec4 Color;\n"
-    "out vec4 outColor;\n"
-    "void main()\n"
-    "{\n"
-    "  outColor = Color;\n"
-    "}\n";
-  glShaderSource(fragment_shader, 1, &fshader, 0);
-  glCompileShader(fragment_shader);
-
-  window->axes.program = glCreateProgram();
-  glAttachShader(window->axes.program, vertex_shader);
-  glAttachShader(window->axes.program, fragment_shader);
-  glLinkProgram(window->axes.program);
-  int params = -1;
-  glGetProgramiv(window->axes.program, GL_LINK_STATUS, &params);
-  if (GL_TRUE != params) {
-    char program_log[GL_MAX_DEBUG_MESSAGE_LENGTH];
-    glGetProgramInfoLog(window->axes.program, GL_MAX_DEBUG_MESSAGE_LENGTH, NULL, program_log);
-    printf("couldn't compile program %u:\n%s", window->axes.program, program_log);
-  }
-}
-
-static void init_buffers(Axes* axes, Window* window) {
+static void init_buffers(Window* window, Axes* axes) {
   axes->vertices[1][0] *= window->chart->aspect_ratio;
   glGenBuffers(1, &window->axes.vbo);
   glBindBuffer(GL_ARRAY_BUFFER, window->axes.vbo);
@@ -134,19 +107,19 @@ Axes axes_default() {
   };
 }
 
-void axes_init(Axes *axes, Window* window) {
-  init_program(axes, window);
+void axes_init(Window* window, Axes* axes) {
+  init_program(&window->axes, vertex_src, DEFAULT_FRAGMENT_SRC);
   window->axes.uni_world = glGetUniformLocation(window->axes.program, "gWorld");
-  init_buffers(axes, window);
+  init_buffers(window, axes);
 }
 
-void axes_render_frame(Axes* axes, Window* window) {
+void axes_render_frame(Window* window, Axes* axes) {
   glUseProgram(window->axes.program);
   glBindVertexArray(window->axes.vao);
   glBindBuffer(GL_ARRAY_BUFFER, window->axes.vbo);
   sel_write_vertices(axes);
   glBufferData(GL_ARRAY_BUFFER, sizeof(axes->vertices), axes->vertices, GL_DYNAMIC_DRAW);
-  glUniformMatrix4fv(window->axes.uni_world, 1, GL_FALSE, (const float*)(&window->chart->g_world));
+  glUniformMatrix4fv(window->axes.uni_world, 1, GL_FALSE, &window->chart->g_world.data[0][0]);
   glDrawArrays(GL_LINES, 0, sizeof(axes->vertices)/sizeof(float));
 }
 
@@ -182,7 +155,7 @@ static vec3 world_coords_xyz(Window* window, Cam* cam) {
   return xyz_point;
 }
 
-void axes_update(Axes* axes, Window* window) {
+void axes_update(Window* window, Axes* axes) {
   bool button1_last = window->mouse_last[GLFW_MOUSE_BUTTON_1];
   bool button1_cur = window->mouse_cur[GLFW_MOUSE_BUTTON_1];
   if (button1_last != button1_cur) {

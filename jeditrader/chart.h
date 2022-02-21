@@ -38,9 +38,13 @@ typedef struct Chart {
   mat4 perspective;
   mat4 look;
   mat4 g_world;
+  u32 num_cubes;
+  mat4* cube_transforms;
+  vec3* cube_colors;
 } Chart;
 
 void chart_init(Chart* c, int width, int height);
 void chart_resize(Chart* c);
 void chart_update(Chart* c);
+void chart_write(Chart* c, u32 num_trades);
 

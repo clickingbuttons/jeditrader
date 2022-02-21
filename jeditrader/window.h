@@ -8,7 +8,7 @@
 
 // Can't easily share context between windows
 typedef struct GLContext {
-  GLuint program, vao, vbo;
+  GLuint program, vao, vbo, ebo;
   GLint uni_world;
 } GLContext;
 

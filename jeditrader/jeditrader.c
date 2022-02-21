@@ -1,10 +1,11 @@
 #include "inttypes.h"
 #include "linalg.h"
 #include "axes.h"
-#include "window.h"
 #include "cam.h"
 #include "chart.h"
+#include "cube.h"
 #include "platform.h"
+#include "window.h"
 
 #define MAX_NUM_CHARTS 1024
 
@@ -27,7 +28,10 @@ void* run_chart(void *ptr) {
   Chart chart;
   chart_init(&chart, window.width, window.height);
   window.chart = &chart;
-  axes_init(&window.chart->axes, &window);
+  axes_init(&window, &window.chart->axes);
+  cube_init(&window);
+
+  chart_write(window.chart, 1);
 
   printf("[%s] Starting main loop\n", name);
   glEnable(GL_DEPTH_TEST);
@@ -45,13 +49,14 @@ void* run_chart(void *ptr) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Update state with input
-    axes_update(&window.chart->axes, &window);
+    axes_update(&window, &window.chart->axes);
     cam_update(&window.chart->cam, &window, nanos_diff);
     chart_update(window.chart);
 
     // Render
     if (!glfwGetWindowAttrib(window.window, GLFW_ICONIFIED)) {
-      axes_render_frame(&window.chart->axes, &window);
+      axes_render_frame(&window, &window.chart->axes);
+      cube_render_frame(&window, window.chart->num_cubes);
       glfwSwapBuffers(window.window);
     } else {
       printf("[%s] minimized\n", name);
@@ -68,7 +73,7 @@ void* run_chart(void *ptr) {
   return NULL;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   if (!glfwInit())
     return -1;
 
@@ -90,6 +95,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  printf("Terminating\n");
   glfwTerminate();
   return ret;
 }
