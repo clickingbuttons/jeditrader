@@ -45,7 +45,7 @@ static void sel_write_vertices(Axes* axes) {
   axes->vertices[13][1] = -min_y;
 }
 
-static void init_program(Axes* axes) {
+static void init_program(Axes* axes, Window* window) {
   GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
   const GLchar* vshader = "#version 330 core\n"
     "layout (location = 0) in vec3 Position;\n"
@@ -71,27 +71,27 @@ static void init_program(Axes* axes) {
   glShaderSource(fragment_shader, 1, &fshader, 0);
   glCompileShader(fragment_shader);
 
-  axes->program = glCreateProgram();
-  glAttachShader(axes->program, vertex_shader);
-  glAttachShader(axes->program, fragment_shader);
-  glLinkProgram(axes->program);
+  window->axes.program = glCreateProgram();
+  glAttachShader(window->axes.program, vertex_shader);
+  glAttachShader(window->axes.program, fragment_shader);
+  glLinkProgram(window->axes.program);
   int params = -1;
-  glGetProgramiv(axes->program, GL_LINK_STATUS, &params);
+  glGetProgramiv(window->axes.program, GL_LINK_STATUS, &params);
   if (GL_TRUE != params) {
     char program_log[GL_MAX_DEBUG_MESSAGE_LENGTH];
-    glGetProgramInfoLog(axes->program, GL_MAX_DEBUG_MESSAGE_LENGTH, NULL, program_log);
-    printf("couldn't compile program %u:\n%s", axes->program, program_log);
+    glGetProgramInfoLog(window->axes.program, GL_MAX_DEBUG_MESSAGE_LENGTH, NULL, program_log);
+    printf("couldn't compile program %u:\n%s", window->axes.program, program_log);
   }
 }
 
-static void init_buffers(Axes* axes, float aspect_ratio) {
-  axes->vertices[1][0] *= aspect_ratio;
-  glGenBuffers(1, &axes->vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, axes->vbo);
+static void init_buffers(Axes* axes, Window* window) {
+  axes->vertices[1][0] *= window->chart->aspect_ratio;
+  glGenBuffers(1, &window->axes.vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, window->axes.vbo);
   glBufferData(GL_ARRAY_BUFFER, sizeof(axes->vertices), axes->vertices, GL_DYNAMIC_DRAW);
 
-  glGenVertexArrays(1, &axes->vao);
-  glBindVertexArray(axes->vao);
+  glGenVertexArrays(1, &window->axes.vao);
+  glBindVertexArray(window->axes.vao);
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), NULL);
   glEnableVertexAttribArray(1);
@@ -134,19 +134,19 @@ Axes axes_default() {
   };
 }
 
-void axes_init(Axes *axes, float aspect_ratio) {
-  init_program(axes);
-  axes->uni_world = glGetUniformLocation(axes->program, "gWorld");
-  init_buffers(axes, aspect_ratio);
+void axes_init(Axes *axes, Window* window) {
+  init_program(axes, window);
+  window->axes.uni_world = glGetUniformLocation(window->axes.program, "gWorld");
+  init_buffers(axes, window);
 }
 
-void axes_render_frame(Axes* axes, mat4 g_world) {
-  glUseProgram(axes->program);
-  glBindVertexArray(axes->vao);
-  glBindBuffer(GL_ARRAY_BUFFER, axes->vbo);
+void axes_render_frame(Axes* axes, Window* window) {
+  glUseProgram(window->axes.program);
+  glBindVertexArray(window->axes.vao);
+  glBindBuffer(GL_ARRAY_BUFFER, window->axes.vbo);
   sel_write_vertices(axes);
   glBufferData(GL_ARRAY_BUFFER, sizeof(axes->vertices), axes->vertices, GL_DYNAMIC_DRAW);
-  glUniformMatrix4fv(axes->uni_world, 1, GL_FALSE, (const float*)(&g_world));
+  glUniformMatrix4fv(window->axes.uni_world, 1, GL_FALSE, (const float*)(&window->chart->g_world));
   glDrawArrays(GL_LINES, 0, sizeof(axes->vertices)/sizeof(float));
 }
 

@@ -128,7 +128,7 @@ int window_init(Window* window, char *title) {
   window->aspect_ratio = (double)window->width / (double)window->height;
   window->window = glfwCreateWindow(window->width, window->height, title, NULL, NULL);
   if (!window->window) {
-    printf("glfwCreateWindow failed with code %p\n", window->window);
+    printf("[%s] glfwCreateWindow failed with code %p\n", title, window->window);
     glfwTerminate();
     return -1;
   }
@@ -136,15 +136,15 @@ int window_init(Window* window, char *title) {
   glewExperimental = GL_TRUE;
   int err = glewInit();
   if (err != 0) {
-    printf("GlewInit() failed with code %d\n", err);
+    printf("[%s] glewInit() failed with code %d\n", title, err);
     return -1;
   }
-  printf("Registering error_callback_gl\n");
+  printf("[%s] Registering error_callback_gl\n", title);
   glEnable(GL_DEBUG_OUTPUT);
   glDebugMessageCallback(error_callback_gl, NULL);
 
-  printf("Renderer: %s\n", glGetString(GL_RENDERER));
-  printf("OpenGL version supported: %s\n", glGetString(GL_VERSION));
+  printf("[%s] Renderer: %s\n", title, glGetString(GL_RENDERER));
+  printf("[%s] OpenGL version supported: %s\n", title, glGetString(GL_VERSION));
 
   return 0;
 }

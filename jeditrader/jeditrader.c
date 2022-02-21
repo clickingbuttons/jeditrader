@@ -18,18 +18,18 @@ void error_callback_glfw(int error, const char *description) {
 
 void* run_chart(void *ptr) {
   char* name = ptr;
-  printf("Making window\n");
+  printf("[%s] Making window\n", name);
   Window window;
   if (window_init(&window, name))
     return (void*)-1;
 
-  printf("Initializing objects\n");
+  printf("[%s] Initializing objects\n", name);
   Chart chart;
   chart_init(&chart, window.width, window.height);
   window.chart = &chart;
-  axes_init(&window.chart->axes, window.aspect_ratio);
+  axes_init(&window.chart->axes, &window);
 
-  printf("Starting %s main loop\n", name);
+  printf("[%s] Starting main loop\n", name);
   glEnable(GL_DEPTH_TEST);
   // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
@@ -51,10 +51,10 @@ void* run_chart(void *ptr) {
 
     // Render
     if (!glfwGetWindowAttrib(window.window, GLFW_ICONIFIED)) {
-      axes_render_frame(&window.chart->axes, window.chart->g_world);
+      axes_render_frame(&window.chart->axes, &window);
       glfwSwapBuffers(window.window);
     } else {
-      printf("minimized\n");
+      printf("[%s] minimized\n", name);
     }
 
     frame += 1;
@@ -69,11 +69,9 @@ void* run_chart(void *ptr) {
 }
 
 int main(int argc, char *argv[]) {
-  printf("Starting %s\n", argv[0]);
   if (!glfwInit())
     return -1;
 
-  printf("Registering error_callback_glfw\n");
   glfwSetErrorCallback(error_callback_glfw);
 
   pthread_t threads[MAX_NUM_CHARTS];
@@ -88,7 +86,7 @@ int main(int argc, char *argv[]) {
     pthread_join(threads[i - 1], thread_ret);
     if (thread_ret != NULL) {
       ret = *((int*)thread_ret);
-      printf("window %s error %d\n", argv[i], ret);
+      printf("[%s] window error %d\n", argv[i], ret);
     }
   }
 

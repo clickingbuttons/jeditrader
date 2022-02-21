@@ -2,7 +2,10 @@
 
 #include "linalg.h"
 
-#include <GL/glew.h>
+typedef struct Cube {
+  vec3 min_pnt;
+  vec3 max_pnt;
+} Cube;
 
 typedef struct Axes {
   // Axes
@@ -12,9 +15,6 @@ typedef struct Axes {
   bool selecting;
   vec2 sel_start;
   vec2 sel_end;
-  // Rendering
-  GLuint program, vao, vbo;
-  GLint uni_world;
 } Axes;
 
 typedef struct Cam {

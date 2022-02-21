@@ -3,7 +3,14 @@
 #include "linalg.h"
 #include "chart.h"
 
+#include <GL/glew.h>
 #include <GLFW/glfw3.h>
+
+// Can't easily share context between windows
+typedef struct GLContext {
+  GLuint program, vao, vbo;
+  GLint uni_world;
+} GLContext;
 
 typedef struct Window {
   /* window MUST be first for GLFW callbacks */
@@ -18,6 +25,8 @@ typedef struct Window {
   char mouse_cur[GLFW_MOUSE_BUTTON_LAST + 1];
   int mouse_x;
   int mouse_y;
+  // Rendering
+  GLContext axes, cube;
 } Window;
 
 int window_init(Window* window, char *title);
