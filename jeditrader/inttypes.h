@@ -19,7 +19,7 @@ typedef uint64_t u64;
 
 typedef int8_t i8;
 typedef int16_t i16;
-//typedef signed int i32; use "int" instead
+// typedef signed int i32; use "int" instead
 typedef int64_t i64;
 
 // Ensure all types are of the correct size.
@@ -30,7 +30,7 @@ STATIC_ASSERT(sizeof(u64) == 8, "Expected u64 to be 8 bytes.");
 
 STATIC_ASSERT(sizeof(i8) == 1, "Expected i8 to be 1 byte.");
 STATIC_ASSERT(sizeof(i16) == 2, "Expected i16 to be 2 bytes.");
-//STATIC_ASSERT(sizeof(i32) == 4, "Expected i32 to be 4 bytes.");
+// STATIC_ASSERT(sizeof(i32) == 4, "Expected i32 to be 4 bytes.");
 STATIC_ASSERT(sizeof(i64) == 8, "Expected i64 to be 8 bytes.");
 
 #define GIBIBYTES(amount) amount * 1024 * 1024 * 1024
@@ -40,4 +40,3 @@ STATIC_ASSERT(sizeof(i64) == 8, "Expected i64 to be 8 bytes.");
 #define GIGABYTES(amount) amount * 1000 * 1000 * 1000
 #define MEGABYTES(amount) amount * 1000 * 1000
 #define KILOBYTES(amount) amount * 1000
-

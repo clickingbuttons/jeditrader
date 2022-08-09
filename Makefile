@@ -3,7 +3,7 @@ TARGET_EXEC ?= jeditrader
 
 BUILD_DIR ?= ./build
 SRC_DIR ?= ./jeditrader
-LDFLAGS ?= -lglfw -lGL -lGLEW -lm -lpthread
+LDFLAGS ?= -lSDL2 -lGL -lGLEW -lm
 
 SRCS := $(shell find $(SRC_DIR) -name *.c)
 OBJS := $(SRCS:%=$(BUILD_DIR)/obj/%.o)

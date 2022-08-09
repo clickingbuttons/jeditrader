@@ -1,0 +1,12 @@
+DerivePointerAlignment: false
+PointerAlignment: Left
+AllowAllArgumentsOnNextLine: true
+ContinuationIndentWidth: 1
+UseTab: Always
+IndentWidth: 4
+TabWidth: 4
+ColumnLimit: 80
+BinPackArguments: false
+BinPackParameters: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AlignAfterOpenBracket: AlwaysBreak
