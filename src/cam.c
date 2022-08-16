@@ -16,14 +16,12 @@ void cam_update(Cam* cam, Window* window, double loop_time) {
 		cam_default(cam);
 	}
 
-	float cameraSpeed = (double)loop_time / 200000000;
+	float cameraSpeed = (double)loop_time / 200;
 	if (window->keyboard_cur[SDLK_w]) {
 		if (mouse2_down_check) {
-			cam->eye =
-			 vec3_sub(cam->eye, vec3_multf(cam->direction, cameraSpeed));
+			cam->eye = vec3_sub(cam->eye, vec3_multf(cam->direction, cameraSpeed));
 		} else {
-			cam->eye =
-			 vec3_sub(cam->eye, vec3_multf(cam->direction, cameraSpeed));
+			cam->eye = vec3_sub(cam->eye, vec3_multf(cam->direction, cameraSpeed));
 		}
 	}
 	if (window->keyboard_cur[SDLK_s]) {
@@ -34,14 +32,14 @@ void cam_update(Cam* cam, Window* window, double loop_time) {
 		 cam->eye,
 		 vec3_multf(
 		  cross(cam->direction, cam->up),
-		  cameraSpeed * window->chart->aspect_ratio));
+		  cameraSpeed * window->aspect_ratio));
 	}
 	if (window->keyboard_cur[SDLK_d]) {
 		cam->eye = vec3_add(
 		 cam->eye,
 		 vec3_multf(
 		  cross(cam->direction, cam->up),
-		  cameraSpeed * window->chart->aspect_ratio));
+		  cameraSpeed * window->aspect_ratio));
 	}
 	if (window->keyboard_cur[SDLK_SPACE]) {
 		cam->eye = vec3_sub(cam->eye, vec3_multf(cam->up, cameraSpeed));
@@ -69,7 +67,7 @@ void cam_update(Cam* cam, Window* window, double loop_time) {
 		return;
 	}
 
-	float mouseSpeed = (double)loop_time / 4000000000;
+	float mouseSpeed = (double)loop_time / 4000;
 	cam->pitch += (dy * mouseSpeed); // % (2*HMM_PI);
 	cam->yaw += (dx * mouseSpeed);	 // % (2*HMM_PI);
 

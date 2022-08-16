@@ -1,9 +1,9 @@
 #include "vulkan.h"
-
 #include "string.h"
 #include "alloc.h"
 #include "inttypes.h"
 #include "error.h"
+
 #include <SDL2/SDL_vulkan.h>
 #include <vulkan/vulkan_core.h>
 
@@ -18,6 +18,8 @@ const char* enabled_layers[] = {
 	"VK_LAYER_LUNARG_standard_validation",
 #endif
 };
+
+const uint16_t indices[] = {3, 2, 6, 7, 4, 2, 0, 3, 1, 6, 5, 4, 1, 0};
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
 	fprintf(stderr, "VK: %s\n", pCallbackData->pMessage);
@@ -210,12 +212,12 @@ void init_swapchain(Vulkan* v, SDL_Window* window) {
 		.presentMode = VK_PRESENT_MODE_FIFO_KHR,
 		.clipped = VK_TRUE,
 	};
-	uint32_t indices[] = { v->q_graphics_index, v->q_presentation_index };
+	uint32_t indexes[] = { v->q_graphics_index, v->q_presentation_index };
 	if (v->q_graphics_index != v->q_presentation_index) {
 		LOG("Graphics index %d but presentation index %d", v->q_graphics_index, v->q_presentation_index);
 		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 		createInfo.queueFamilyIndexCount = 2;
-		createInfo.pQueueFamilyIndices = indices;
+		createInfo.pQueueFamilyIndices = indexes;
 	}
 
 	CHECK_VK(vkCreateSwapchainKHR(v->device, &createInfo, VK_NULL_HANDLE, &v->swapchain));
@@ -301,11 +303,6 @@ void init_pipeline_layout(Vulkan* v) {
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
 	};
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-		.primitiveRestartEnable = VK_FALSE,
-	};
 	VkViewport viewport = {
 		.x = 0.0f,
 		.y = 0.0f,
@@ -350,8 +347,15 @@ void init_pipeline_layout(Vulkan* v) {
 		.attachmentCount = 1,
 		.pAttachments = &colorBlendAttachment,
 	};
+	VkPushConstantRange push_constant = {
+		.offset = 0,
+		.size = sizeof(mat4),
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+	};
 	VkPipelineLayoutCreateInfo info = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		.pushConstantRangeCount = 1,
+		.pPushConstantRanges = &push_constant,
 	};
 
 	CHECK_VK(vkCreatePipelineLayout(v->device, &info, VK_NULL_HANDLE, &v->pipeline_layout));
@@ -425,7 +429,7 @@ void init_pipeline(Vulkan* v, const char* exec_path) {
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
 		.primitiveRestartEnable = VK_FALSE,
 	};
 
@@ -557,14 +561,14 @@ void init_sync(Vulkan* v) {
 	CHECK_VK(vkCreateFence(v->device, &fenceInfo, VK_NULL_HANDLE, &v->fence));
 }
 
-void recordCommandBuffer(Vulkan *v, VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+void recordCommandBuffer(Vulkan *v, VkCommandBuffer commandBuffer, uint32_t imageIndex, mat4* mvp) {
 	VkCommandBufferBeginInfo beginInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 	};
 
 	CHECK_VK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
-	VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+	VkClearValue clearColor = {{{0.2, 0.3, 0.3, 1.0}}};
 	VkRenderPassBeginInfo renderPassInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.renderPass = v->renderpass,
@@ -594,14 +598,16 @@ void recordCommandBuffer(Vulkan *v, VkCommandBuffer commandBuffer, uint32_t imag
 	};
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-	vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+  vkCmdPushConstants(commandBuffer, v->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mat4), mvp);
+	vkCmdBindIndexBuffer(commandBuffer, v->index_buffer, 0, VK_INDEX_TYPE_UINT16);
+	vkCmdDrawIndexed(commandBuffer, ARR_LEN(indices), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(commandBuffer);
 
 	CHECK_VK(vkEndCommandBuffer(commandBuffer));
 }
 
-void draw(Vulkan* v) {
+void draw(Vulkan* v, mat4* mvp) {
 	vkWaitForFences(v->device, 1, &v->fence, VK_TRUE, UINT64_MAX);
 	vkResetFences(v->device, 1, &v->fence);
 
@@ -609,7 +615,7 @@ void draw(Vulkan* v) {
 	vkAcquireNextImageKHR(v->device, v->swapchain, UINT64_MAX, v->sem_image_ready, VK_NULL_HANDLE, &imageIndex);
 
 	vkResetCommandBuffer(v->command_buffer, 0);
-	recordCommandBuffer(v, v->command_buffer, imageIndex);
+	recordCommandBuffer(v, v->command_buffer, imageIndex, mvp);
 
 	VkSemaphore waitSemaphores[] = {v->sem_image_ready};
 	VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -638,6 +644,104 @@ void draw(Vulkan* v) {
 	};
 
 	vkQueuePresentKHR(v->q_presentation, &presentInfo);
+}
+
+uint32_t findMemoryType(Vulkan* v, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+	VkPhysicalDeviceMemoryProperties memProperties;
+	vkGetPhysicalDeviceMemoryProperties(v->physical_device, &memProperties);
+
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+			return i;
+		}
+	}
+
+	ERR("failed to find suitable memory type for %d", typeFilter);
+	exit(1);
+}
+
+void createBuffer(Vulkan* v, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer* res, VkDeviceMemory* bufferMemory) {
+	VkBufferCreateInfo bufferInfo = {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+		.size = size,
+		.usage = usage,
+		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+	};
+
+	CHECK_VK(vkCreateBuffer(v->device, &bufferInfo, VK_NULL_HANDLE, res));
+
+	VkMemoryRequirements memRequirements;
+	vkGetBufferMemoryRequirements(v->device, *res, &memRequirements);
+
+	VkMemoryAllocateInfo allocInfo = {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		.allocationSize = memRequirements.size,
+		.memoryTypeIndex = findMemoryType(v, memRequirements.memoryTypeBits, properties),
+	};
+
+	CHECK_VK(vkAllocateMemory(v->device, &allocInfo, VK_NULL_HANDLE, bufferMemory));
+
+	CHECK_VK(vkBindBufferMemory(v->device, *res, *bufferMemory, 0));
+}
+
+
+void copyBuffer(Vulkan* v, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+	VkCommandBufferAllocateInfo allocInfo = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		.commandPool = v->command_pool,
+		.commandBufferCount = 1,
+	};
+
+	VkCommandBuffer commandBuffer;
+	vkAllocateCommandBuffers(v->device, &allocInfo, &commandBuffer);
+
+	VkCommandBufferBeginInfo beginInfo = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+	};
+
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+	VkBufferCopy copyRegion = {
+		.size = size
+	};
+	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+	vkEndCommandBuffer(commandBuffer);
+
+	VkSubmitInfo submitInfo = {
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.commandBufferCount = 1,
+		.pCommandBuffers = &commandBuffer,
+	};
+
+	vkQueueSubmit(v->q_graphics, 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(v->q_graphics);
+
+	vkFreeCommandBuffers(v->device, v->command_pool, 1, &commandBuffer);
+}
+
+void init_buffers(Vulkan* v) {
+	VkDeviceMemory indexBufferMemory;
+
+	VkDeviceSize bufferSize = ARR_LEN(indices) * sizeof(indices[0]);
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	createBuffer(v, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(v->device, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, indices, (size_t) bufferSize);
+	vkUnmapMemory(v->device, stagingBufferMemory);
+
+	createBuffer(v, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &v->index_buffer, &indexBufferMemory);
+
+	copyBuffer(v, stagingBuffer, v->index_buffer, bufferSize);
+
+	vkDestroyBuffer(v->device, stagingBuffer, VK_NULL_HANDLE);
+	vkFreeMemory(v->device, stagingBufferMemory, VK_NULL_HANDLE);
 }
 
 Vulkan create_vulkan(SDL_Window* window, const char* exec_path) {
@@ -677,11 +781,16 @@ Vulkan create_vulkan(SDL_Window* window, const char* exec_path) {
 	init_command_buffer(&res);
 	LOG("[%s vulkan] Initializing synchronization primitives", name);
 	init_sync(&res);
+	LOG("[%s vulkan] Initializing buffers", name);
+	init_buffers(&res);
 
 	return res;
 }
 
 void destroy_vulkan(Vulkan* v, SDL_Window* window) {
+	vkDeviceWaitIdle(v->device);
+	vkDestroyBuffer(v->device, v->index_buffer, VK_NULL_HANDLE);
+	vkFreeMemory(v->device, v->index_buffer_mem, VK_NULL_HANDLE);
 	vkDestroySemaphore(v->device, v->sem_image_ready, VK_NULL_HANDLE);
 	vkDestroySemaphore(v->device, v->sem_render_done, VK_NULL_HANDLE);
 	vkDestroyFence(v->device, v->fence, VK_NULL_HANDLE);

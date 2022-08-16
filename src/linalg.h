@@ -658,6 +658,13 @@ static inline void mat4_print(mat4 mat) {
 	printf("\n");
 }
 
+static inline void vec3_print(vec3 vec) {
+	for (int i = 0; i < 3; i++) {
+		printf("%f ", vec.data[i]);
+	}
+	printf("\n");
+}
+
 // TODO: make fast and pretty
 static inline mat4 mat4_inv(mat4 m) {
 	mat4 ret;

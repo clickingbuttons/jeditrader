@@ -1,5 +1,7 @@
 #pragma once
 
+#include "linalg.h"
+
 #include <SDL2/SDL.h>
 #include <vulkan/vulkan.h>
 
@@ -43,8 +45,11 @@ typedef struct Vulkan {
 	VkSemaphore sem_image_ready;
 	VkSemaphore sem_render_done;
 	VkFence fence;
+
+	VkBuffer index_buffer;
+	VkDeviceMemory index_buffer_mem;
 } Vulkan;
 
 Vulkan create_vulkan(SDL_Window* window, const char* exec_path);
-void draw(Vulkan* v);
+void draw(Vulkan* v, mat4* mvp);
 void destroy_vulkan(Vulkan* v, SDL_Window* window);
