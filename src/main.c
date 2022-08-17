@@ -1,4 +1,6 @@
 #include "cam.h"
+#include "axes.h"
+#include "cube.h"
 #include "error.h"
 #include "vulkan.h"
 #include "window.h"
@@ -7,14 +9,17 @@
 
 int main(int argc, char* argv[]) {
 	CHECK_SDL(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS));
-	
+
 	char* name = "SPY";
 	Window window;
 	window_init(&window, name);
 	Vulkan v = create_vulkan(window.window, dirname(argv[0]));
 
 	Cam c;
-	cam_default(&c);
+	cam_default(&c, &window);
+	//register_axes_pipeline(&v);
+	register_cube_pipeline(&v, &c);
+	//mat4_print(mat4_mult(c.proj));
 
 	uint64_t millis_start = SDL_GetTicks64();
 	uint64_t millis_diff = 0;
@@ -43,27 +48,12 @@ int main(int argc, char* argv[]) {
 
 		// Update state
 		cam_update(&c, &window, millis_diff);
-		mat4 look = look_at(c.eye, c.direction, c.up);
-		mat4 perspective = perspective_project(45, window.aspect_ratio, 0.1, 1000);
-		mat4 mvp = mat4_mult(perspective, look);
-		/*
-		mvp = mat4d(1);
-		mvp = (mat4) {
-			.data = {
-				{ -1, 0, 0, 0 },
-				{  0, 1, 0, 0 },
-				{  0, 0, 1.0002, 1 },
-				{ 0.53, 0, 1.3, 1.32 },
-			}
-		};
-		*/
-		//mat4_print(mvp);
 
 		// Render
 		if (SDL_GetWindowFlags(window.window) & SDL_WINDOW_MINIMIZED) {
 			LOG("[%s] minimized\n", name);
 		} else {
-			draw(&v, window.window, &mvp);
+			draw(&v, window.window);
 		}
 
 		// Frame counter
@@ -73,6 +63,7 @@ int main(int argc, char* argv[]) {
 		millis_start = millis;
 	}
 
+	destroy_cube_pipeline(v.device);
 	destroy_vulkan(&v, window.window);
 	SDL_DestroyWindow(window.window);
 	SDL_Quit();

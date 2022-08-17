@@ -1,15 +1,9 @@
 #include "vulkan.h"
 #include "string.h"
-#include "alloc.h"
 #include "inttypes.h"
 #include "error.h"
 
 #include <SDL2/SDL_vulkan.h>
-#include <vulkan/vulkan_core.h>
-
-#define SHADER_PATH "/assets/shaders/"
-#define ARR_LEN(arr) sizeof(arr)/sizeof(arr[0])
-#define CLAMP(x, lo, hi)    ((x) < (lo) ? (lo) : (x) > (hi) ? (hi) : (x))
 
 const char* enabled_layers[] = {
 #ifdef DEBUG
@@ -18,8 +12,6 @@ const char* enabled_layers[] = {
 	"VK_LAYER_LUNARG_standard_validation",
 #endif
 };
-
-const uint16_t indices[] = {3, 2, 6, 7, 4, 2, 0, 3, 1, 6, 5, 4, 1, 0};
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
 	fprintf(stderr, "VK: %s\n", pCallbackData->pMessage);
@@ -291,222 +283,6 @@ void init_render_pass(Vulkan* v) {
 	CHECK_VK(vkCreateRenderPass(v->device, &renderPassInfo, VK_NULL_HANDLE, &v->renderpass));
 }
 
-void init_pipeline_layout(Vulkan* v) {
-	VkDynamicState dynamic_states[] = {
-		VK_DYNAMIC_STATE_VIEWPORT
-	};
-	VkPipelineDynamicStateCreateInfo dynamicState = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-		.dynamicStateCount = sizeof(dynamic_states),
-		.pDynamicStates = dynamic_states,
-	};
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-	};
-	VkViewport viewport = {
-		.x = 0.0f,
-		.y = 0.0f,
-		.width = (float) v->extent2d.width,
-		.height = (float) v->extent2d.height,
-		.minDepth = 0.0f,
-		.maxDepth = 1.0f,
-	};
-	VkPipelineViewportStateCreateInfo viewportState = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		.viewportCount = 1,
-		.pViewports = &viewport,
-	};
-	VkPipelineRasterizationStateCreateInfo rasterizer = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-		.depthClampEnable = VK_FALSE,
-		.rasterizerDiscardEnable = VK_FALSE,
-		.polygonMode = VK_POLYGON_MODE_FILL,
-		.lineWidth = 1.0f,
-		.cullMode = VK_CULL_MODE_BACK_BIT,
-		.frontFace = VK_FRONT_FACE_CLOCKWISE,
-		.depthBiasEnable = VK_FALSE,
-	};
-	VkPipelineMultisampleStateCreateInfo multisampling = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		.sampleShadingEnable = VK_FALSE,
-		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-	};
-	VkPipelineColorBlendAttachmentState colorBlendAttachment = {
-		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-		.blendEnable = VK_TRUE,
-		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-		.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-		.colorBlendOp = VK_BLEND_OP_ADD,
-		.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-		.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-		.alphaBlendOp = VK_BLEND_OP_ADD,
-	};
-	VkPipelineColorBlendStateCreateInfo colorBlending = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-		.logicOpEnable = VK_FALSE,
-		.attachmentCount = 1,
-		.pAttachments = &colorBlendAttachment,
-	};
-	VkPushConstantRange push_constant = {
-		.offset = 0,
-		.size = sizeof(mat4),
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-	};
-	VkPipelineLayoutCreateInfo info = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.pushConstantRangeCount = 1,
-		.pPushConstantRanges = &push_constant,
-	};
-
-	CHECK_VK(vkCreatePipelineLayout(v->device, &info, VK_NULL_HANDLE, &v->pipeline_layout));
-}
-
-VkShaderModule create_shader(VkDevice device, const char* exec_path, const char* shader_name) {
-	string abspath = string_init(exec_path);
-	string_catc(&abspath, SHADER_PATH);
-	string_catc(&abspath, shader_name);
-
-	SDL_RWops* reader = SDL_RWFromFile(sdata(abspath), "rb");
-	CHECK_SDL(reader == NULL);
-	Sint64 len = reader->seek(reader, 0, RW_SEEK_END);
-	if (len == -1) {
-		fprintf(stderr, "cannot seek_end in %s\n", sdata(abspath));
-		exit(1);
-	}
-	if (reader->seek(reader, 0, 0) == -1) {
-		fprintf(stderr, "cannot seek_start in %s\n", sdata(abspath));
-		exit(1);
-	}
-	size_t offset = 0;
-	// TODO: guarantee a uint32_t*
-	char* bytes = jdalloc(len);
-	reader->read(reader, bytes, 1, len);
-	reader->close(reader);
-
-	VkShaderModule res;
-	VkShaderModuleCreateInfo createInfo = {
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-		.codeSize = len,
-		.pCode = (uint32_t*)bytes,
-	};
-	CHECK_VK(vkCreateShaderModule(device, &createInfo, VK_NULL_HANDLE, &res));
-
-	return res;
-}
-
-void init_pipeline(Vulkan* v) {
-	VkShaderModule vert_shader = create_shader(v->device, v->exec_path, "triangle.vert.spv");
-	VkShaderModule frag_shader = create_shader(v->device, v->exec_path, "triangle.frag.spv");
-	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage = VK_SHADER_STAGE_VERTEX_BIT,
-		.module = vert_shader,
-		.pName = "main",
-	};
-	VkPipelineShaderStageCreateInfo fragShaderStageInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-		.module = frag_shader,
-		.pName = "main",
-	};
-	VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-
-	VkAttachmentDescription colorAttachment = {
-		.format = v->format.format,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-	};
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		.vertexBindingDescriptionCount = 0,
-		.vertexAttributeDescriptionCount = 0,
-	};
-
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
-		.primitiveRestartEnable = VK_FALSE,
-	};
-
-	VkPipelineViewportStateCreateInfo viewportState = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		.viewportCount = 1,
-		.scissorCount = 1,
-	};
-
-	VkPipelineRasterizationStateCreateInfo rasterizer = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-		.depthClampEnable = VK_FALSE,
-		.rasterizerDiscardEnable = VK_FALSE,
-		.polygonMode = VK_POLYGON_MODE_FILL,
-		.lineWidth = 1.0f,
-		.cullMode = VK_CULL_MODE_BACK_BIT,
-		.frontFace = VK_FRONT_FACE_CLOCKWISE,
-		.depthBiasEnable = VK_FALSE,
-	};
-	VkPipelineMultisampleStateCreateInfo multisampling = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		.sampleShadingEnable = VK_FALSE,
-		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-	};
-	VkPipelineColorBlendAttachmentState colorBlendAttachment = {
-		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-		.blendEnable = VK_FALSE,
-	};
-	VkPipelineColorBlendStateCreateInfo colorBlending = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-		.logicOpEnable = VK_FALSE,
-		.logicOp = VK_LOGIC_OP_COPY,
-		.attachmentCount = 1,
-		.pAttachments = &colorBlendAttachment,
-		.blendConstants[0] = 0.0f,
-		.blendConstants[1] = 0.0f,
-		.blendConstants[2] = 0.0f,
-		.blendConstants[3] = 0.0f,
-	};
-	VkDynamicState dynamicStates[] = {
-		VK_DYNAMIC_STATE_VIEWPORT,
-		VK_DYNAMIC_STATE_SCISSOR,
-	};
-	VkPipelineDynamicStateCreateInfo dynamicState ={
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-		.dynamicStateCount = ARR_LEN(dynamicStates),
-		.pDynamicStates = dynamicStates,
-	};
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = 0,
-		.pushConstantRangeCount = 0,
-	};
-	CHECK_VK(vkCreatePipelineLayout(v->device, &pipelineLayoutInfo, VK_NULL_HANDLE, &v->pipeline_layout));
-
-	VkGraphicsPipelineCreateInfo pipelineInfo = {
-		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-		.stageCount = 2,
-		.pStages = shaderStages,
-		.pVertexInputState = &vertexInputInfo,
-		.pInputAssemblyState = &inputAssembly,
-		.pViewportState = &viewportState,
-		.pRasterizationState = &rasterizer,
-		.pMultisampleState = &multisampling,
-		.pColorBlendState = &colorBlending,
-		.pDynamicState = &dynamicState,
-		.layout = v->pipeline_layout,
-		.renderPass = v->renderpass,
-		.subpass = 0,
-		.basePipelineHandle = VK_NULL_HANDLE,
-	};
-	CHECK_VK(vkCreateGraphicsPipelines(v->device, VK_NULL_HANDLE, 1, &pipelineInfo, VK_NULL_HANDLE, &v->pipeline));
-
-	vkDestroyShaderModule(v->device, frag_shader, VK_NULL_HANDLE);
-	vkDestroyShaderModule(v->device, vert_shader, VK_NULL_HANDLE);
-}
-
 void init_framebuffers(Vulkan* v) {
 	for (size_t i = 0; i < v->num_swaps; i++) {
 		VkImageView attachments[] = {
@@ -561,7 +337,7 @@ void init_sync(Vulkan* v) {
 	CHECK_VK(vkCreateFence(v->device, &fenceInfo, VK_NULL_HANDLE, &v->fence));
 }
 
-void recordCommandBuffer(Vulkan *v, VkCommandBuffer commandBuffer, uint32_t imageIndex, mat4* mvp) {
+void recordCommandBuffer(Vulkan *v, VkCommandBuffer commandBuffer, uint32_t imageIndex) {
 	VkCommandBufferBeginInfo beginInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 	};
@@ -580,7 +356,6 @@ void recordCommandBuffer(Vulkan *v, VkCommandBuffer commandBuffer, uint32_t imag
 	};
 
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, v->pipeline);
 
 	VkViewport viewport = {
 		.x = 0.0f,
@@ -592,22 +367,21 @@ void recordCommandBuffer(Vulkan *v, VkCommandBuffer commandBuffer, uint32_t imag
 	};
 	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
-	VkRect2D scissor = {
-		.offset = {0, 0},
-		.extent = v->extent2d,
-	};
-	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-  vkCmdPushConstants(commandBuffer, v->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mat4), mvp);
-	vkCmdBindIndexBuffer(commandBuffer, v->index_buffer, 0, VK_INDEX_TYPE_UINT16);
-	vkCmdDrawIndexed(commandBuffer, ARR_LEN(indices), 1, 0, 0, 0);
+	for_each(p, v->pipelines) {
+		if (p->draw_fn == NULL) {
+			fprintf(stderr, "pipeline has no draw_fn\n");
+			exit(1);
+		}
+		draw_fn_t draw_fn = (draw_fn_t)p->draw_fn;
+		draw_fn(p, v->command_buffer, p->data);
+	}
 
 	vkCmdEndRenderPass(commandBuffer);
 
 	CHECK_VK(vkEndCommandBuffer(commandBuffer));
 }
 
-void draw(Vulkan* v, SDL_Window* window, mat4* mvp) {
+void draw(Vulkan* v, SDL_Window* window) {
 	vkWaitForFences(v->device, 1, &v->fence, VK_TRUE, UINT64_MAX);
 	uint32_t imageIndex;
 	VkResult acquired = vkAcquireNextImageKHR(v->device, v->swapchain, UINT64_MAX, v->sem_image_ready, VK_NULL_HANDLE, &imageIndex);
@@ -621,7 +395,7 @@ void draw(Vulkan* v, SDL_Window* window, mat4* mvp) {
 	vkResetFences(v->device, 1, &v->fence);
 
 	vkResetCommandBuffer(v->command_buffer, 0);
-	recordCommandBuffer(v, v->command_buffer, imageIndex, mvp);
+	recordCommandBuffer(v, v->command_buffer, imageIndex);
 
 	VkSemaphore waitSemaphores[] = {v->sem_image_ready};
 	VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -652,104 +426,6 @@ void draw(Vulkan* v, SDL_Window* window, mat4* mvp) {
 	vkQueuePresentKHR(v->q_presentation, &presentInfo);
 }
 
-uint32_t findMemoryType(Vulkan* v, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-	VkPhysicalDeviceMemoryProperties memProperties;
-	vkGetPhysicalDeviceMemoryProperties(v->physical_device, &memProperties);
-
-	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-			return i;
-		}
-	}
-
-	ERR("failed to find suitable memory type for %d", typeFilter);
-	exit(1);
-}
-
-void createBuffer(Vulkan* v, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer* res, VkDeviceMemory* bufferMemory) {
-	VkBufferCreateInfo bufferInfo = {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.size = size,
-		.usage = usage,
-		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-	};
-
-	CHECK_VK(vkCreateBuffer(v->device, &bufferInfo, VK_NULL_HANDLE, res));
-
-	VkMemoryRequirements memRequirements;
-	vkGetBufferMemoryRequirements(v->device, *res, &memRequirements);
-
-	VkMemoryAllocateInfo allocInfo = {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		.allocationSize = memRequirements.size,
-		.memoryTypeIndex = findMemoryType(v, memRequirements.memoryTypeBits, properties),
-	};
-
-	CHECK_VK(vkAllocateMemory(v->device, &allocInfo, VK_NULL_HANDLE, bufferMemory));
-
-	CHECK_VK(vkBindBufferMemory(v->device, *res, *bufferMemory, 0));
-}
-
-
-void copyBuffer(Vulkan* v, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-	VkCommandBufferAllocateInfo allocInfo = {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-		.commandPool = v->command_pool,
-		.commandBufferCount = 1,
-	};
-
-	VkCommandBuffer commandBuffer;
-	vkAllocateCommandBuffers(v->device, &allocInfo, &commandBuffer);
-
-	VkCommandBufferBeginInfo beginInfo = {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-	};
-
-	vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-	VkBufferCopy copyRegion = {
-		.size = size
-	};
-	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-	vkEndCommandBuffer(commandBuffer);
-
-	VkSubmitInfo submitInfo = {
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.commandBufferCount = 1,
-		.pCommandBuffers = &commandBuffer,
-	};
-
-	vkQueueSubmit(v->q_graphics, 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(v->q_graphics);
-
-	vkFreeCommandBuffers(v->device, v->command_pool, 1, &commandBuffer);
-}
-
-void init_buffers(Vulkan* v) {
-	VkDeviceMemory indexBufferMemory;
-
-	VkDeviceSize bufferSize = ARR_LEN(indices) * sizeof(indices[0]);
-
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	createBuffer(v, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
-
-	void* data;
-	vkMapMemory(v->device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, indices, (size_t) bufferSize);
-	vkUnmapMemory(v->device, stagingBufferMemory);
-
-	createBuffer(v, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &v->index_buffer, &indexBufferMemory);
-
-	copyBuffer(v, stagingBuffer, v->index_buffer, bufferSize);
-
-	vkDestroyBuffer(v->device, stagingBuffer, VK_NULL_HANDLE);
-	vkFreeMemory(v->device, stagingBufferMemory, VK_NULL_HANDLE);
-}
-
 Vulkan create_vulkan(SDL_Window* window, const char* exec_path) {
 	const char* name = SDL_GetWindowTitle(window);
 	LOG("[%s] Initializing vulkan", name);
@@ -776,10 +452,6 @@ Vulkan create_vulkan(SDL_Window* window, const char* exec_path) {
 	init_image_views(&res);
 	LOG("[%s vulkan] Initializing render pass", name);
 	init_render_pass(&res);
-	LOG("[%s vulkan] Initializing pipeline layout", name);
-	init_pipeline_layout(&res);
-	LOG("[%s vulkan] Initializing pipeline", name);
-	init_pipeline(&res);
 	LOG("[%s vulkan] Initializing framebuffers", name);
 	init_framebuffers(&res);
 	LOG("[%s vulkan] Initializing command pool", name);
@@ -788,8 +460,6 @@ Vulkan create_vulkan(SDL_Window* window, const char* exec_path) {
 	init_command_buffer(&res);
 	LOG("[%s vulkan] Initializing synchronization primitives", name);
 	init_sync(&res);
-	LOG("[%s vulkan] Initializing buffers", name);
-	init_buffers(&res);
 
 	return res;
 }
@@ -804,21 +474,18 @@ void destroy_swapchain(Vulkan* v) {
 	vkDestroySwapchainKHR(v->device, v->swapchain, VK_NULL_HANDLE);
 }
 
-
 void destroy_vulkan(Vulkan* v, SDL_Window* window) {
 	vkDeviceWaitIdle(v->device);
-	vkDestroyBuffer(v->device, v->index_buffer, VK_NULL_HANDLE);
-	vkFreeMemory(v->device, v->index_buffer_mem, VK_NULL_HANDLE);
-	vkDestroySemaphore(v->device, v->sem_image_ready, VK_NULL_HANDLE);
-	vkDestroySemaphore(v->device, v->sem_render_done, VK_NULL_HANDLE);
-	vkDestroyFence(v->device, v->fence, VK_NULL_HANDLE);
-	vkDestroyCommandPool(v->device, v->command_pool, VK_NULL_HANDLE);
 
 	destroy_swapchain(v);
 
-	vkDestroyPipeline(v->device, v->pipeline, VK_NULL_HANDLE);
-	vkDestroyPipelineLayout(v->device, v->pipeline_layout, VK_NULL_HANDLE);
 	vkDestroyRenderPass(v->device, v->renderpass, VK_NULL_HANDLE);
+
+	vkDestroySemaphore(v->device, v->sem_image_ready, VK_NULL_HANDLE);
+	vkDestroySemaphore(v->device, v->sem_render_done, VK_NULL_HANDLE);
+	vkDestroyFence(v->device, v->fence, VK_NULL_HANDLE);
+
+	vkDestroyCommandPool(v->device, v->command_pool, VK_NULL_HANDLE);
 
 	vkDestroyDevice(v->device, VK_NULL_HANDLE);
 
@@ -841,6 +508,5 @@ void resize(Vulkan* v, SDL_Window* window) {
 
 	init_swapchain(v, window);
 	init_image_views(v);
-	init_pipeline(v);
 	init_framebuffers(v);
 }

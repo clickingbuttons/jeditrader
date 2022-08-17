@@ -14,7 +14,7 @@ DEPS := $(OBJS:.o=.d)
 SHADER_SRCS := $(shell find $(ASSET_DIR) -iname '*.frag' -or -iname '*.vert')
 SHADER_OBJS := $(SHADER_SRCS:%=$(BUILD_DIR)/%.spv)
 
-CFLAGS += -std=c11 -MMD -MP -ffast-math -g
+CFLAGS += -std=gnu11 -MMD -MP -ffast-math -g
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS) $(SHADER_OBJS)
 	$(CC) -D DEBUG $(OBJS) -o $@ $(LDFLAGS)

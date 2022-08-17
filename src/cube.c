@@ -90,9 +90,8 @@ static void pipeline_draw(Pipeline* p, VkCommandBuffer b, void* data) {
 	Cam* c = (Cam*) data;
 	vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_GRAPHICS, p->pipeline);
 	struct PushConstants push_constants = {
-		.mvp = mat4_mult(c->view, c->proj),
+		.mvp = mat4_mult(c->proj, c->view),
 	};
-	mat4_print(push_constants.mvp);
 	vkCmdPushConstants(b, p->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants), &push_constants);
 	vkCmdBindIndexBuffer(b, index_buffer, 0, VK_INDEX_TYPE_UINT16);
 	vkCmdDrawIndexed(b, ARR_LEN(indices), 1, 0, 0, 0);

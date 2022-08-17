@@ -1,6 +1,8 @@
 #pragma once
 
 #include "linalg.h"
+#include "pipeline.h"
+#include "vec.h"
 
 #include <SDL2/SDL.h>
 #include <vulkan/vulkan.h>
@@ -11,8 +13,15 @@
 #define MAX_NUM_SURFACE_FORMATS 256
 #define MAX_NUM_SWAPS 4
 
+#define ARR_LEN(arr) sizeof(arr)/sizeof(arr[0])
+#define CLAMP(x, lo, hi)    ((x) < (lo) ? (lo) : (x) > (hi) ? (hi) : (x))
+
+
+typedef vec_t(Pipeline) vec_pipeline;
+
 typedef struct Vulkan {
-	const char* exec_path; // for loading shaders
+	const char* exec_path;
+	vec_pipeline pipelines;	
 
 	VkInstance instance;
 	VkDebugUtilsMessengerEXT debug_messenger;
@@ -38,8 +47,6 @@ typedef struct Vulkan {
 	VkFramebuffer framebuffers[MAX_NUM_SWAPS];
 
 	VkRenderPass renderpass;
-	VkPipelineLayout pipeline_layout;
-	VkPipeline pipeline;
 
 	VkCommandPool command_pool;
 	VkCommandBuffer command_buffer;
@@ -47,12 +54,9 @@ typedef struct Vulkan {
 	VkSemaphore sem_image_ready;
 	VkSemaphore sem_render_done;
 	VkFence fence;
-
-	VkBuffer index_buffer;
-	VkDeviceMemory index_buffer_mem;
 } Vulkan;
 
 Vulkan create_vulkan(SDL_Window* window, const char* exec_path);
-void draw(Vulkan* v, SDL_Window* window, mat4* mvp);
+void draw(Vulkan* v, SDL_Window* window);
 void resize(Vulkan* v, SDL_Window* window);
 void destroy_vulkan(Vulkan* v, SDL_Window* window);
