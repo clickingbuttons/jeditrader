@@ -479,6 +479,10 @@ void destroy_vulkan(Vulkan* v, SDL_Window* window) {
 
 	destroy_swapchain(v);
 
+	for_each(p, v->pipelines) {
+		pipeline_destroy(p, v->device);
+	}
+
 	vkDestroyRenderPass(v->device, v->renderpass, VK_NULL_HANDLE);
 
 	vkDestroySemaphore(v->device, v->sem_image_ready, VK_NULL_HANDLE);

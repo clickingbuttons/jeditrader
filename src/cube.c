@@ -103,8 +103,6 @@ void register_cube_pipeline(Vulkan* v, Cam* c) {
 	cube.data = c;
 	vec_push(v->pipelines, cube);
 
-	VkDeviceMemory indexBufferMemory;
-
 	VkDeviceSize bufferSize = sizeof(indices);
 
 	VkBuffer stagingBuffer;
@@ -116,7 +114,7 @@ void register_cube_pipeline(Vulkan* v, Cam* c) {
 	memcpy(data, indices, (size_t) bufferSize);
 	vkUnmapMemory(v->device, stagingBufferMemory);
 
-	createBuffer(v, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &index_buffer, &indexBufferMemory);
+	createBuffer(v, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &index_buffer, &index_buffer_mem);
 
 	copyBuffer(v, stagingBuffer, index_buffer, bufferSize);
 

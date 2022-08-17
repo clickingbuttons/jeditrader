@@ -25,12 +25,11 @@ vec3 colors[] = vec3[](
 );
 
 layout(push_constant) uniform Constants {
-	mat4 view;
-	mat4 proj;
+	mat4 mvp;
 } constants;
 
 void main() {
-	gl_Position = constants.proj * constants.view * vec4(vertices[gl_VertexIndex], 1.0);
+	gl_Position = constants.mvp * vec4(vertices[gl_VertexIndex], 1.0);
 	gl_Position.y = -gl_Position.y;
 	fragColor = colors[gl_VertexIndex];
 }
