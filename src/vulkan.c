@@ -394,9 +394,9 @@ VkShaderModule create_shader(VkDevice device, const char* exec_path, const char*
 	return res;
 }
 
-void init_pipeline(Vulkan* v, const char* exec_path) {
-	VkShaderModule vert_shader = create_shader(v->device, exec_path, "triangle.vert.spv");
-	VkShaderModule frag_shader = create_shader(v->device, exec_path, "triangle.frag.spv");
+void init_pipeline(Vulkan* v) {
+	VkShaderModule vert_shader = create_shader(v->device, v->exec_path, "triangle.vert.spv");
+	VkShaderModule frag_shader = create_shader(v->device, v->exec_path, "triangle.frag.spv");
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_VERTEX_BIT,
@@ -607,12 +607,18 @@ void recordCommandBuffer(Vulkan *v, VkCommandBuffer commandBuffer, uint32_t imag
 	CHECK_VK(vkEndCommandBuffer(commandBuffer));
 }
 
-void draw(Vulkan* v, mat4* mvp) {
+void draw(Vulkan* v, SDL_Window* window, mat4* mvp) {
 	vkWaitForFences(v->device, 1, &v->fence, VK_TRUE, UINT64_MAX);
-	vkResetFences(v->device, 1, &v->fence);
-
 	uint32_t imageIndex;
-	vkAcquireNextImageKHR(v->device, v->swapchain, UINT64_MAX, v->sem_image_ready, VK_NULL_HANDLE, &imageIndex);
+	VkResult acquired = vkAcquireNextImageKHR(v->device, v->swapchain, UINT64_MAX, v->sem_image_ready, VK_NULL_HANDLE, &imageIndex);
+	if (acquired == VK_ERROR_OUT_OF_DATE_KHR || acquired == VK_SUBOPTIMAL_KHR) {
+		resize(v, window);
+		return;
+	} else if (acquired) {
+		ERR("vkAcquireNextImageKHR(v->device, v->swapchain, UINT64_MAX, v->sem_image_ready, VK_NULL_HANDLE, &imageIndex)");
+		exit(1);
+	}
+	vkResetFences(v->device, 1, &v->fence);
 
 	vkResetCommandBuffer(v->command_buffer, 0);
 	recordCommandBuffer(v, v->command_buffer, imageIndex, mvp);
@@ -749,7 +755,8 @@ Vulkan create_vulkan(SDL_Window* window, const char* exec_path) {
 	LOG("[%s] Initializing vulkan", name);
 	Vulkan res = {
 		.q_graphics_index = -1,
-		.q_presentation_index = -1
+		.q_presentation_index = -1,
+		.exec_path = exec_path,
 	};
 	LOG("[%s vulkan] Creating instance", name);
 	init_instance(&res, window);
@@ -772,7 +779,7 @@ Vulkan create_vulkan(SDL_Window* window, const char* exec_path) {
 	LOG("[%s vulkan] Initializing pipeline layout", name);
 	init_pipeline_layout(&res);
 	LOG("[%s vulkan] Initializing pipeline", name);
-	init_pipeline(&res, exec_path);
+	init_pipeline(&res);
 	LOG("[%s vulkan] Initializing framebuffers", name);
 	init_framebuffers(&res);
 	LOG("[%s vulkan] Initializing command pool", name);
@@ -787,6 +794,17 @@ Vulkan create_vulkan(SDL_Window* window, const char* exec_path) {
 	return res;
 }
 
+void destroy_swapchain(Vulkan* v) {
+	for (size_t i = 0; i < v->num_swaps; i++)
+		vkDestroyFramebuffer(v->device, v->framebuffers[i], VK_NULL_HANDLE);
+
+	for (size_t i = 0; i < v->num_swaps; i++)
+		vkDestroyImageView(v->device, v->image_views[i], VK_NULL_HANDLE);
+
+	vkDestroySwapchainKHR(v->device, v->swapchain, VK_NULL_HANDLE);
+}
+
+
 void destroy_vulkan(Vulkan* v, SDL_Window* window) {
 	vkDeviceWaitIdle(v->device);
 	vkDestroyBuffer(v->device, v->index_buffer, VK_NULL_HANDLE);
@@ -796,17 +814,12 @@ void destroy_vulkan(Vulkan* v, SDL_Window* window) {
 	vkDestroyFence(v->device, v->fence, VK_NULL_HANDLE);
 	vkDestroyCommandPool(v->device, v->command_pool, VK_NULL_HANDLE);
 
-	for (size_t i = 0; i < v->num_swaps; i++)
-		vkDestroyFramebuffer(v->device, v->framebuffers[i], VK_NULL_HANDLE);
+	destroy_swapchain(v);
 
 	vkDestroyPipeline(v->device, v->pipeline, VK_NULL_HANDLE);
 	vkDestroyPipelineLayout(v->device, v->pipeline_layout, VK_NULL_HANDLE);
 	vkDestroyRenderPass(v->device, v->renderpass, VK_NULL_HANDLE);
 
-	for (size_t i = 0; i < v->num_swaps; i++)
-		vkDestroyImageView(v->device, v->image_views[i], VK_NULL_HANDLE);
-
-	vkDestroySwapchainKHR(v->device, v->swapchain, VK_NULL_HANDLE);
 	vkDestroyDevice(v->device, VK_NULL_HANDLE);
 
 	PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(v->instance, "vkDestroyDebugUtilsMessengerEXT");
@@ -819,4 +832,15 @@ void destroy_vulkan(Vulkan* v, SDL_Window* window) {
 
 	vkDestroySurfaceKHR(v->instance, v->surface, VK_NULL_HANDLE);
 	vkDestroyInstance(v->instance, VK_NULL_HANDLE);
+}
+
+void resize(Vulkan* v, SDL_Window* window) {
+	vkDeviceWaitIdle(v->device);
+
+	destroy_swapchain(v);
+
+	init_swapchain(v, window);
+	init_image_views(v);
+	init_pipeline(v);
+	init_framebuffers(v);
 }

@@ -1,6 +1,10 @@
-database
-fonts for axes
-virtual console
-  - logger
-  - cube printing
-  - scripting w/julia
+- [x] fix resizing
+- [ ] axes (maybe thick lines?)
+- [ ] fix -y
+- [ ] event pump or dump?
+- [ ] cube borders
+- [ ] fonts for axes
+- [ ] virtual console
+  - [ ] logger
+  - [ ] cube printing
+  - [ ] scripting

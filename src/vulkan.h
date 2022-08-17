@@ -12,6 +12,8 @@
 #define MAX_NUM_SWAPS 4
 
 typedef struct Vulkan {
+	const char* exec_path; // for loading shaders
+
 	VkInstance instance;
 	VkDebugUtilsMessengerEXT debug_messenger;
 	VkSurfaceKHR surface;
@@ -51,5 +53,6 @@ typedef struct Vulkan {
 } Vulkan;
 
 Vulkan create_vulkan(SDL_Window* window, const char* exec_path);
-void draw(Vulkan* v, mat4* mvp);
+void draw(Vulkan* v, SDL_Window* window, mat4* mvp);
+void resize(Vulkan* v, SDL_Window* window);
 void destroy_vulkan(Vulkan* v, SDL_Window* window);

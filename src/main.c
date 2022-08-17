@@ -15,11 +15,6 @@ int main(int argc, char* argv[]) {
 
 	Cam c;
 	cam_default(&c);
-	//c.eye = Vec3(1, 1, 1);
-	//c.direction = Vec3(0.0, 0.0, 0.0);
-	//c.up = Vec3(0, 0, 1);
-	//c.pitch = 0;
-	//c.yaw = 0;
 
 	uint64_t millis_start = SDL_GetTicks64();
 	uint64_t millis_diff = 0;
@@ -32,6 +27,16 @@ int main(int argc, char* argv[]) {
 		while (SDL_PollEvent(&e) != 0) {
 			if (e.type == SDL_QUIT)
 				should_close = 1;
+			else if (e.type == SDL_WINDOWEVENT) {
+				switch (e.window.event) {
+				case SDL_WINDOWEVENT_SIZE_CHANGED:
+				case SDL_WINDOWEVENT_EXPOSED:
+				case SDL_WINDOWEVENT_MINIMIZED:
+				case SDL_WINDOWEVENT_MAXIMIZED:
+				case SDL_WINDOWEVENT_RESTORED:
+					resize(&v, window.window);
+				}
+			}
 			else
 				window_event(&window, &e);
 		}
@@ -58,7 +63,7 @@ int main(int argc, char* argv[]) {
 		if (SDL_GetWindowFlags(window.window) & SDL_WINDOW_MINIMIZED) {
 			LOG("[%s] minimized\n", name);
 		} else {
-			draw(&v, &mvp);
+			draw(&v, window.window, &mvp);
 		}
 
 		// Frame counter
