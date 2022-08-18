@@ -1,6 +1,5 @@
 #pragma once
 #include "inttypes.h"
-#include "wyhash.h"
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -132,11 +131,6 @@ static int string_cmp(const string* a, const string* b) {
 		return memcmp(string_data(a), string_data(b), asize);
 
 	return asize - bsize;
-}
-
-static uint64_t string_hash(const string* s) {
-	int64_t res = wyhash(string_data(s), string_len(s));
-	return res;
 }
 
 static bool string_equalsc(const string* s1, const char* s2) {
