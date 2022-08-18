@@ -12,6 +12,7 @@
 
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
+#define CLAMP(x, min, max) (x > max ? max : (x < min ? min : x))
 
 typedef union vec2 {
 	struct {

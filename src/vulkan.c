@@ -163,18 +163,12 @@ void init_swapchain(Vulkan* v, SDL_Window* window) {
 	VkSurfaceCapabilitiesKHR capabilities;
 	CHECK_VK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(v->physical_device, v->surface, &capabilities));
 
-	if (capabilities.maxImageCount < capabilities.minImageCount) {
-		// Your driver is stupid.
-		capabilities.maxImageCount = capabilities.minImageCount;
-	} else if (capabilities.minImageCount < capabilities.maxImageCount) {
-		capabilities.minImageCount = capabilities.maxImageCount;
-	}
-	v->num_swaps = CLAMP(capabilities.minImageCount + 1, capabilities.minImageCount, capabilities.maxImageCount);
-	if (v->num_swaps == 0) {
-		LOG("capabilities don't report minImageCount or maxImageCount. trying double buffering anyways");
+	LOG("min swaps %d max swaps %d", capabilities.minImageCount, capabilities.maxImageCount);
+	v->num_swaps = capabilities.minImageCount;
+	// Try for double buffering at least
+	if (v->num_swaps == 1 && (capabilities.maxImageCount == 0 || capabilities.maxImageCount > 1))
 		v->num_swaps = 2;
-	}
-	LOG("num swaps %d\n", v->num_swaps);
+	LOG("num swaps %d", v->num_swaps);
 
 	VkSurfaceFormatKHR formats[MAX_NUM_SURFACE_FORMATS];
 	uint32_t count = ARR_LEN(formats);

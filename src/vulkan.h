@@ -14,7 +14,6 @@
 #define MAX_NUM_SWAPS 4
 
 #define ARR_LEN(arr) sizeof(arr)/sizeof(arr[0])
-#define CLAMP(x, lo, hi)    ((x) < (lo) ? (lo) : (x) > (hi) ? (hi) : (x))
 
 
 typedef vec_t(Pipeline) vec_pipeline;
