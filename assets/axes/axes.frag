@@ -2,7 +2,7 @@
 
 #include "axes.h"
 
-float log10(float x) {
+float log10z(float x) {
 	return log(x) / log(10.0);
 }
 
@@ -24,7 +24,7 @@ vec4 gridColor(vec2 uv) {
 		length(vec2(dFdx(uv.y), dFdy(uv.y)))
 	);
 
-	float lodLevel = max(0.0, log10((length(dudv) * gridMinPixelsBetweenCells) / gridCellSize) + 1.0);
+	float lodLevel = max(0.0, log10z((length(dudv) * gridMinPixelsBetweenCells) / gridCellSize) + 1.0);
 	float lodFade = fract(lodLevel);
 
 	// cell sizes for lod0, lod1 and lod2
