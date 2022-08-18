@@ -3,9 +3,6 @@
 #include "error.h"
 #include "pipeline.h"
 
-static VkBuffer index_buffer;
-static VkDeviceMemory index_buffer_mem;
-
 static struct PushConstants {
 	mat4 mvp;
 } PushConstants;

@@ -24,8 +24,7 @@ VkShaderModule create_shader(Vulkan* v, char* asset_path) {
 		exit(1);
 	}
 	size_t offset = 0;
-	// TODO: guarantee a uint32_t*
-	char* bytes = jdalloc(len);
+	char* bytes = jdalloc(len + 4); // guarantee a uint32_t*
 	reader->read(reader, bytes, 1, len);
 	reader->close(reader);
 
@@ -36,6 +35,7 @@ VkShaderModule create_shader(Vulkan* v, char* asset_path) {
 		.pCode = (uint32_t*)bytes,
 	};
 	CHECK_VK(vkCreateShaderModule(v->device, &createInfo, VK_NULL_HANDLE, &res));
+	jdfree(bytes);
 
 	return res;
 }
@@ -110,15 +110,33 @@ Pipeline pipeline_default(Vulkan* v, VkPrimitiveTopology topology, char* asset) 
 
 	VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
+	VkPipelineViewportStateCreateInfo viewport = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+		.viewportCount = 1,
+		.scissorCount = 1,
+	};
+	VkDynamicState dynamicStates[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+	VkPipelineDynamicStateCreateInfo dynamicState = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+		.dynamicStateCount = ARR_LEN(dynamicStates),
+		.pDynamicStates = dynamicStates
+	};
+	VkPipelineVertexInputStateCreateInfo vertex = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+	};
+
 	res.layout = create_layout(v, asset);
 	VkGraphicsPipelineCreateInfo pipelineInfo = {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 		.stageCount = 2,
 		.pStages = shaderStages,
+		.pVertexInputState = &vertex,
 		.pInputAssemblyState = &inputAssembly,
+		.pViewportState = &viewport,
 		.pRasterizationState = &rasterizer,
 		.pMultisampleState = &multisampling,
 		.pColorBlendState = &colorBlending,
+		.pDynamicState = &dynamicState,
 		.layout = res.layout,
 		.renderPass = v->renderpass,
 		.basePipelineHandle = VK_NULL_HANDLE,

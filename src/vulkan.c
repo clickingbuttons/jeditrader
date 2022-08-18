@@ -118,6 +118,8 @@ void init_device(Vulkan *v) {
 	}
 	v->graphics_family = list[v->q_graphics_index];
 	v->presentation_family = list[v->q_presentation_index];
+	LOG("q_graphics_index %d", v->q_graphics_index);
+	LOG("q_presentation_index %d", v->q_presentation_index);
 
 	float prio = 1.0f;
 	VkDeviceQueueCreateInfo queueCreateInfos[] = {
@@ -161,7 +163,18 @@ void init_swapchain(Vulkan* v, SDL_Window* window) {
 	VkSurfaceCapabilitiesKHR capabilities;
 	CHECK_VK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(v->physical_device, v->surface, &capabilities));
 
+	if (capabilities.maxImageCount < capabilities.minImageCount) {
+		// Your driver is stupid.
+		capabilities.maxImageCount = capabilities.minImageCount;
+	} else if (capabilities.minImageCount < capabilities.maxImageCount) {
+		capabilities.minImageCount = capabilities.maxImageCount;
+	}
 	v->num_swaps = CLAMP(capabilities.minImageCount + 1, capabilities.minImageCount, capabilities.maxImageCount);
+	if (v->num_swaps == 0) {
+		LOG("capabilities don't report minImageCount or maxImageCount. trying double buffering anyways");
+		v->num_swaps = 2;
+	}
+	LOG("num swaps %d\n", v->num_swaps);
 
 	VkSurfaceFormatKHR formats[MAX_NUM_SURFACE_FORMATS];
 	uint32_t count = ARR_LEN(formats);
@@ -176,6 +189,7 @@ void init_swapchain(Vulkan* v, SDL_Window* window) {
 		ERR("no valid formats\n");
 		exit(1);
 	}
+	LOG("format %d", v->format.format);
 
 	if (capabilities.currentExtent.width == 0xFFFFFFF) {
 		// window scales based on image (HiDPI)
@@ -203,7 +217,9 @@ void init_swapchain(Vulkan* v, SDL_Window* window) {
 		// TODO: try mailbox (power hungry) or immediate (can tear)
 		.presentMode = VK_PRESENT_MODE_FIFO_KHR,
 		.clipped = VK_TRUE,
+		.oldSwapchain = VK_NULL_HANDLE,
 	};
+	LOG("preTransform %d", createInfo.preTransform);
 	uint32_t indexes[] = { v->q_graphics_index, v->q_presentation_index };
 	if (v->q_graphics_index != v->q_presentation_index) {
 		LOG("Graphics index %d but presentation index %d", v->q_graphics_index, v->q_presentation_index);
@@ -217,6 +233,7 @@ void init_swapchain(Vulkan* v, SDL_Window* window) {
 
 void init_image_views(Vulkan* v) {
 	vkGetSwapchainImagesKHR(v->device, v->swapchain, &v->num_swaps, v->images);
+	LOG("init %d image views", v->num_swaps);
 
 	for (size_t i = 0; i < v->num_swaps; i++) {
 		VkImageViewCreateInfo createInfo = {
@@ -366,6 +383,11 @@ void recordCommandBuffer(Vulkan *v, VkCommandBuffer commandBuffer, uint32_t imag
 		.maxDepth = 1.0f,
 	};
 	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+	VkRect2D scissor = {
+		.offset = {0, 0},
+		.extent = v->extent2d,
+	};
+	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 	for_each(p, v->pipelines) {
 		if (p->draw_fn == NULL) {
@@ -482,7 +504,7 @@ void destroy_vulkan(Vulkan* v, SDL_Window* window) {
 	vkDeviceWaitIdle(v->device);
 
 	LOG("destroy swapchain");
-	//destroy_swapchain(v);
+	destroy_swapchain(v);
 
 	LOG("destroy pipelines");
 	for_each(p, v->pipelines) {
