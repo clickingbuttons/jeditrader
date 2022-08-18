@@ -5,12 +5,12 @@
 #include "string.h"
 #include "vulkan.h"
 
-#define SHADER_PATH "/assets/shaders/"
+#define SHADER_PATH "/assets/"
 
-VkShaderModule create_shader(Vulkan* v, char* shader_name) {
+VkShaderModule create_shader(Vulkan* v, char* asset_path) {
 	string abspath = string_init(v->exec_path);
 	string_catc(&abspath, SHADER_PATH);
-	string_catc(&abspath, shader_name);
+	string_catc(&abspath, asset_path);
 
 	SDL_RWops* reader = SDL_RWFromFile(sdata(abspath), "rb");
 	CHECK_SDL(reader == NULL);
@@ -56,11 +56,11 @@ static VkPipelineLayout create_layout(Vulkan* v, char* name) {
 	return res;
 }
 
-Pipeline pipeline_default(Vulkan* v, char* asset) {
+Pipeline pipeline_default(Vulkan* v, VkPrimitiveTopology topology, char* asset) {
 	Pipeline res;
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
+		.topology = topology,
 		.primitiveRestartEnable = VK_FALSE,
 	};
 
@@ -88,9 +88,9 @@ Pipeline pipeline_default(Vulkan* v, char* asset) {
 		.pAttachments = &colorBlendAttachment,
 	};
 
-	string vert_path = string_init(asset);
-	string_catc(&vert_path, ".vert.spv");
-	VkShaderModule vert_shader = create_shader(v, sdata(vert_path));
+	string path = string_empty;
+	string_printf(&path, "%s/%s.vert.spv", asset, asset);
+	VkShaderModule vert_shader = create_shader(v, sdata(path));
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_VERTEX_BIT,
@@ -98,9 +98,9 @@ Pipeline pipeline_default(Vulkan* v, char* asset) {
 		.pName = "main",
 	};
 
-	string frag_path = string_init(asset);
-	string_catc(&frag_path, ".frag.spv");
-	VkShaderModule frag_shader = create_shader(v, sdata(frag_path));
+	path = string_empty;
+	string_printf(&path, "%s/%s.frag.spv", asset, asset);
+	VkShaderModule frag_shader = create_shader(v, sdata(path));
 	VkPipelineShaderStageCreateInfo fragShaderStageInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_FRAGMENT_BIT,

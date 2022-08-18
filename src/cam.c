@@ -24,6 +24,12 @@ void cam_update(Cam* c, Window* window, double loop_time) {
 		cam_default(c, window);
 	}
 
+	if (window->keyboard_cur[SDLK_p]) {
+		vec3_print(c->eye);
+		vec3_print(c->direction);
+		vec3_print(c->up);
+		printf("%f\n", c->yaw);
+	}
 	float cameraSpeed = (double)loop_time / 200;
 	if (window->keyboard_cur[SDLK_w]) {
 		if (mouse2_down_check) {
@@ -64,6 +70,7 @@ void cam_update(Cam* c, Window* window, double loop_time) {
 		c->start_y = window->mouse_y;
 		SDL_SetRelativeMouseMode(SDL_TRUE);
 		SDL_SetWindowGrab(window->window, SDL_TRUE);
+		cam_calc(c, window);
 		return;
 	} else if (c->mouse2_down && !mouse2_down_check) {
 		c->mouse2_down = false;
@@ -72,6 +79,7 @@ void cam_update(Cam* c, Window* window, double loop_time) {
 		SDL_WarpMouseInWindow(window->window, c->start_x, c->start_y);
 	}
 	if (!c->mouse2_down) {
+		cam_calc(c, window);
 		return;
 	}
 

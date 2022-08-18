@@ -17,9 +17,8 @@ int main(int argc, char* argv[]) {
 
 	Cam c;
 	cam_default(&c, &window);
-	//register_axes_pipeline(&v);
+	register_axes_pipeline(&v, &c);
 	register_cube_pipeline(&v, &c);
-	//mat4_print(mat4_mult(c.proj));
 
 	uint64_t millis_start = SDL_GetTicks64();
 	uint64_t millis_diff = 0;
@@ -63,8 +62,9 @@ int main(int argc, char* argv[]) {
 		millis_start = millis;
 	}
 
-	destroy_cube_pipeline(v.device);
-	destroy_vulkan(&v, window.window);
+	LOG("shutting down");
+	// TODO: why does vkDestroy* hang for 5-10s on X11?!?!
+	// destroy_vulkan(&v, window.window);
 	SDL_DestroyWindow(window.window);
 	SDL_Quit();
 

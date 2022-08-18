@@ -465,30 +465,39 @@ Vulkan create_vulkan(SDL_Window* window, const char* exec_path) {
 }
 
 void destroy_swapchain(Vulkan* v) {
+	LOG("destroy framebuffers");
 	for (size_t i = 0; i < v->num_swaps; i++)
 		vkDestroyFramebuffer(v->device, v->framebuffers[i], VK_NULL_HANDLE);
 
+	LOG("destroy image views");
 	for (size_t i = 0; i < v->num_swaps; i++)
 		vkDestroyImageView(v->device, v->image_views[i], VK_NULL_HANDLE);
 
+	LOG("destroy swapchainKHR");
 	vkDestroySwapchainKHR(v->device, v->swapchain, VK_NULL_HANDLE);
 }
 
 void destroy_vulkan(Vulkan* v, SDL_Window* window) {
+	LOG("wait idle");
 	vkDeviceWaitIdle(v->device);
 
-	destroy_swapchain(v);
+	LOG("destroy swapchain");
+	//destroy_swapchain(v);
 
+	LOG("destroy pipelines");
 	for_each(p, v->pipelines) {
 		pipeline_destroy(p, v->device);
 	}
 
+	LOG("destroy renderpass");
 	vkDestroyRenderPass(v->device, v->renderpass, VK_NULL_HANDLE);
 
+	LOG("destroy sync");
 	vkDestroySemaphore(v->device, v->sem_image_ready, VK_NULL_HANDLE);
 	vkDestroySemaphore(v->device, v->sem_render_done, VK_NULL_HANDLE);
 	vkDestroyFence(v->device, v->fence, VK_NULL_HANDLE);
 
+	LOG("destroy command pool");
 	vkDestroyCommandPool(v->device, v->command_pool, VK_NULL_HANDLE);
 
 	vkDestroyDevice(v->device, VK_NULL_HANDLE);
@@ -501,11 +510,13 @@ void destroy_vulkan(Vulkan* v, SDL_Window* window) {
 		ERR("[%s vulkan] Couldn't cleanup v->debug_messenger", name);
 	}
 
+	LOG("destroy surface");
 	vkDestroySurfaceKHR(v->instance, v->surface, VK_NULL_HANDLE);
 	vkDestroyInstance(v->instance, VK_NULL_HANDLE);
 }
 
 void resize(Vulkan* v, SDL_Window* window) {
+	printf("resize\n");
 	vkDeviceWaitIdle(v->device);
 
 	destroy_swapchain(v);

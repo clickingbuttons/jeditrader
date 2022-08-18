@@ -98,7 +98,7 @@ static void pipeline_draw(Pipeline* p, VkCommandBuffer b, void* data) {
 }
 
 void register_cube_pipeline(Vulkan* v, Cam* c) {
-	Pipeline cube = pipeline_default(v, "cube");
+	Pipeline cube = pipeline_default(v, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, "cube");
 	cube.draw_fn = pipeline_draw;
 	cube.data = c;
 	vec_push(v->pipelines, cube);

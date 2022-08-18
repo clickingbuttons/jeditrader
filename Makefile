@@ -23,7 +23,7 @@ $(BUILD_DIR)/obj/%.c.o: %.c
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/$(ASSET_DIR)/shaders/%.spv: $(ASSET_DIR)/shaders/%
+$(BUILD_DIR)/$(ASSET_DIR)/%.spv: $(ASSET_DIR)/%
 	$(MKDIR_P) $(dir $@)
 	$(GLSLC) $< -o $@
 

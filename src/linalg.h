@@ -579,7 +579,7 @@ static inline mat4 look_at(vec3 eye, vec3 direction, vec3 up) {
 
 	vec3 z = vec3_norm(direction);
 	vec3 x = vec3_norm(cross(up, z));
-	vec3 y = cross(z, x);
+	vec3 y = cross(x, z);
 
 	res.data[0][0] = x.x;
 	res.data[1][0] = x.y;

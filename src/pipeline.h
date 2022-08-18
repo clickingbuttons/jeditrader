@@ -17,6 +17,6 @@ typedef struct Pipeline {
 	draw_fn_t draw_fn;
 } Pipeline;
 
-Pipeline pipeline_default(Vulkan* v, char* asset);
+Pipeline pipeline_default(Vulkan* v, VkPrimitiveTopology topology, char* asset);
 void pipeline_destroy(Pipeline* p, VkDevice d);
 

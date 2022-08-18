@@ -3,14 +3,14 @@
 layout(location = 0) out vec3 fragColor;
 
 vec3 vertices[] = vec3[](
-	vec3(+0.1, +0.1, -0.1),
-	vec3(-0.1, +0.1, -0.1),
-	vec3(+0.1, -0.1, -0.1),
-	vec3(-0.1, -0.1, -0.1),
-	vec3(+0.1, +0.1, +0.1),
-	vec3(-0.1, +0.1, +0.1),
-	vec3(-0.1, -0.1, +0.1),
-	vec3(+0.1, -0.1, +0.1)
+	vec3(+1, +1, -1),
+	vec3(-1, +1, -1),
+	vec3(+1, -1, -1),
+	vec3(-1, -1, -1),
+	vec3(+1, +1, +1),
+	vec3(-1, +1, +1),
+	vec3(-1, -1, +1),
+	vec3(+1, -1, +1)
 );
 
 vec3 colors[] = vec3[](
@@ -29,7 +29,6 @@ layout(push_constant) uniform Constants {
 } constants;
 
 void main() {
-	gl_Position = constants.mvp * vec4(vertices[gl_VertexIndex], 1.0);
-	gl_Position.y = -gl_Position.y;
+	gl_Position = constants.mvp * vec4(vertices[gl_VertexIndex] * 0.1, 1.0);
 	fragColor = colors[gl_VertexIndex];
 }
