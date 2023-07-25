@@ -1,0 +1,41 @@
+{
+  "name": "polyview",
+  "version": "0.0.1",
+  "description": "Polygon data in Tradingview",
+  "main": "index.js",
+  "scripts": {
+    "build": "esbuild-scripts build",
+    "start": "esbuild-scripts start"
+  },
+  "repository": "https://github.com/clickingbuttons/polyview",
+  "keywords": [
+    "polygon",
+    "api",
+    "charting",
+    "tradingview"
+  ],
+  "author": "clickingbuttons",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/clickingbuttons/polyview/issues"
+  },
+  "homepage": "https://github.com/clickingbuttons/polyview#readme",
+  "devDependencies": {
+    "@webgpu/types": "^0.1.34",
+    "esbuild": "^0.18.15",
+    "esbuild-copy-static-files": "^0.1.0",
+    "esbuild-plugin-template": "^0.0.3",
+    "esbuild-scripts": "^0.0.3"
+  },
+  "dependencies": {
+    "@polygon.io/client-js": "^7.2.5",
+    "arcball_camera": "^1.0.1",
+    "date-fns-tz": "^2.0.0",
+    "ez_canvas_controller": "^1.0.0",
+    "gl-matrix": "^3.4.3",
+    "preact": "^10.16.0",
+    "preact-router": "^4.1.2",
+    "webgl-utils": "^1.0.1",
+    "wgpu-matrix": "^2.4.2"
+  }
+}

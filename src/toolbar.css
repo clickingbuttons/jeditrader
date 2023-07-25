@@ -1,0 +1,21 @@
+.toolbar {
+	display: flex;
+	flex-wrap: wrap;
+}
+
+.multiplier {
+	width: 42px;
+}
+
+.toolbar-spacer {
+	flex-grow: 1;
+}
+
+.toolbar-buttons {
+	display: flex;
+}
+
+.toolbar-buttons > button > svg path {
+  fill: var(--fg);
+}
+
