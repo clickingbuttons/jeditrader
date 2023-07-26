@@ -2,20 +2,20 @@ import { restClient } from '@polygon.io/client-js';
 import { useRef, useEffect, useState, useMemo } from 'preact/hooks';
 import { Toolbar, Timespan } from './toolbar';
 import { fetchAggs, Aggregate, toymd } from './helpers';
-import { render } from './renderer/renderer';
+import { Renderer } from './renderer/renderer';
 import './chart.css';
 
 export function Chart({ path, apiKey }: { path: string, apiKey: string }) {
 	const canvas = useRef<HTMLCanvasElement | null>(null);
+	const renderer = useMemo(() => new Renderer(), []);
 
 	// data
 	const client = useMemo(() => restClient(apiKey), [apiKey]);
-	const [aggs, setAggs] = useState([] as Aggregate[]);
 
 	// data picker
 	const [ticker, setTicker] = useState('AAPL');
 	const [multiplier, setMultiplier] = useState(1);
-	const [timespan, setTimespan] = useState<Timespan>('minute');
+	const [timespan, setTimespan] = useState<Timespan>('day');
 	const [date, setDate] = useState(toymd(new Date()));
 	const [timezone, setTimezone] = useState('America/New_York');
 
@@ -29,14 +29,14 @@ export function Chart({ path, apiKey }: { path: string, apiKey: string }) {
 		let isLoading = true;
 		if (!ticker) setStatus('No ticker');
 
-		setAggs([]);
+		renderer.setAggs([]);
 		setStatus(`Loading ${ticker}...`);
 		fetchAggs(client, ticker, multiplier, timespan, date)
 			.then(candles => {
 				if (!isLoading) return;
 				if (candles.length > 0) {
-					setStatus('');
-					setAggs(candles);
+					setStatus(`Loaded ${candles.length} ${ticker} aggs`);
+					renderer.setAggs(candles);
 				} else {
 					setStatus(`No data for ${ticker}`);
 				}
@@ -46,7 +46,7 @@ export function Chart({ path, apiKey }: { path: string, apiKey: string }) {
 	}, [ticker, multiplier, timespan, date]);
 
 	useEffect(() => {
-		if (canvas.current) render(canvas.current).catch(setStatus);
+		if (canvas.current) renderer.render(canvas.current).catch(setStatus);
 		else setStatus("useRef can't get canvas");
 	}, []);
 
@@ -65,8 +65,7 @@ export function Chart({ path, apiKey }: { path: string, apiKey: string }) {
 				timezone={timezone}
 				setTimezone={setTimezone}
 			/>
-			<canvas class="canvas" ref={canvas}>
-			</canvas>
+			<canvas class="canvas" ref={canvas} />
 		</>
 	);
 }

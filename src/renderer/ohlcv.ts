@@ -1,7 +1,7 @@
 import { Camera } from './camera';
 import { presentationFormat, sampleCount } from './util';
-import vertCode from '../shaders/instanced.vert.wgsl';
-import fragCode from '../shaders/vertexPositionColor.frag.wgsl';
+import vertCode from '../shaders/ohlcv.vert.wgsl';
+import fragCode from '../shaders/ohlcv.frag.wgsl';
 
 const vertices = new Float32Array([
 	+1, +1, -1,
@@ -22,12 +22,19 @@ const indices = new Uint16Array([
 	5, 4,
 	1, 0
 ]);
+const instances = new Float32Array([
+	0, 0, 0, 0,
+	1, 1, 1, 1,
+	2, 2, 2, -1,
+]);
+const instanceStep = 4;
 
 export class OHLCV {
 	camera: Camera;
 	pipeline: GPURenderPipeline;
 	vertexBuffer: GPUBuffer;
 	indexBuffer: GPUBuffer;
+	instanceBuffer: GPUBuffer;
 
 	constructor(device: GPUDevice, camera: Camera) {
 		this.camera = camera;
@@ -38,12 +45,23 @@ export class OHLCV {
 				entryPoint: 'main',
 				buffers: [
 					{
-						arrayStride: vertices.byteLength / 8,
+						arrayStride: 3 * 4,
 						attributes: [
 							{
 								format: 'float32x3',
 								offset: 0,
 								shaderLocation: 0
+							},
+						]
+					},
+					{
+						arrayStride: instanceStep * 4,
+						stepMode: 'instance',
+						attributes: [
+							{
+								format: 'float32x4',
+								offset: 0,
+								shaderLocation: 1
 							},
 						]
 					},
@@ -90,14 +108,24 @@ export class OHLCV {
 		});
 		new Uint16Array(this.indexBuffer.getMappedRange()).set(indices);
 		this.indexBuffer.unmap()
+
+		this.instanceBuffer = device.createBuffer({
+			label: 'ohlcv instance buffer',
+			size: instances.byteLength,
+			usage: GPUBufferUsage.VERTEX,
+			mappedAtCreation: true
+		});
+		new Float32Array(this.instanceBuffer.getMappedRange()).set(instances);
+		this.instanceBuffer.unmap()
 	}
 
 	render(pass: GPURenderPassEncoder): void {
 		pass.setPipeline(this.pipeline);
 		pass.setBindGroup(0, this.camera.gpu.bindGroup);
 		pass.setVertexBuffer(0, this.vertexBuffer);
+		pass.setVertexBuffer(1, this.instanceBuffer);
 		pass.setIndexBuffer(this.indexBuffer, 'uint16');
-		pass.drawIndexed(indices.length);
+		pass.drawIndexed(indices.length, instances.length / instanceStep);
 		pass.end();
 	}
 }

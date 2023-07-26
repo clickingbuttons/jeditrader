@@ -77,9 +77,5 @@ export class Input {
 	mouseleave(_ev: MouseEvent) {
 		this.focused = false;
 		this.buttons = { ...defaultButtons };
-		this.posX = -1;
-		this.posY = -1;
-		this.lastPosX = -1;
-		this.lastPosY = -1;
 	}
 };

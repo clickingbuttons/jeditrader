@@ -2,88 +2,98 @@ import { Camera } from './camera';
 import { OHLCV } from './ohlcv';
 import { presentationFormat, sampleCount } from './util';
 import { Input } from './input';
+import { Aggregate } from '../helpers';
 
-export async function render(canvas: HTMLCanvasElement) {
-	if (navigator.gpu === undefined)
-		throw new Error('WebGPU is not supported/enabled in your browser');
+export class Renderer {
+	aggs: Aggregate[] = [];
 
-	var adapter = await navigator.gpu.requestAdapter();
-	if (adapter === null) throw new Error('No WebGPU adapter');
-	var device = await adapter.requestDevice();
-	var context = canvas.getContext('webgpu');
-	if (context === null) throw new Error('No WebGPU context');
-	context.configure({ device, format: presentationFormat });
+	setAggs(aggs: Aggregate[]) {
+		this.aggs = aggs;
+	}
 
-	const input = new Input(canvas);
-	var camera = new Camera(canvas, device);
+	async render(canvas: HTMLCanvasElement) {
+		if (navigator.gpu === undefined)
+			throw new Error('WebGPU is not supported/enabled in your browser');
 
-	const ohlcv = new OHLCV(device, camera);
+		var adapter = await navigator.gpu.requestAdapter();
+		if (adapter === null) throw new Error('No WebGPU adapter');
+		var device = await adapter.requestDevice();
+		var context = canvas.getContext('webgpu');
+		if (context === null) throw new Error('No WebGPU context');
+		context.configure({ device, format: presentationFormat });
 
-	let renderTarget: GPUTexture | undefined = undefined;
-	let renderTargetView: GPUTextureView;
-	let depthTexture: GPUTexture | undefined = undefined;
-	let depthTextureView: GPUTextureView;
+		const input = new Input(canvas);
+		var camera = new Camera(canvas, device);
 
-	let lastTime = performance.now();
-	function frame(time: DOMHighResTimeStamp) {
-		const dt = time - lastTime;
-		lastTime = time;
-		const currentWidth = canvas.clientWidth * devicePixelRatio;
-		const currentHeight = canvas.clientHeight * devicePixelRatio;
+		const ohlcv = new OHLCV(device, camera);
 
-		if (
-			currentWidth !== canvas.width ||
-			currentHeight !== canvas.height ||
-			renderTarget === undefined
-		) {
-			if (renderTarget !== undefined) renderTarget.destroy();
+		let renderTarget: GPUTexture | undefined = undefined;
+		let renderTargetView: GPUTextureView;
+		let depthTexture: GPUTexture | undefined = undefined;
+		let depthTextureView: GPUTextureView;
 
-			canvas.width = currentWidth;
-			canvas.height = currentHeight;
+		let lastTime = performance.now();
+		function frame(time: DOMHighResTimeStamp) {
+			const dt = time - lastTime;
+			lastTime = time;
+			const currentWidth = canvas.clientWidth * devicePixelRatio;
+			const currentHeight = canvas.clientHeight * devicePixelRatio;
 
-			renderTarget = device.createTexture({
-				size: [canvas.width, canvas.height],
-				sampleCount,
-				format: presentationFormat,
-				usage: GPUTextureUsage.RENDER_ATTACHMENT,
-			});
-			depthTexture = device.createTexture({
-				size: [canvas.width, canvas.height],
-				sampleCount,
-				format: 'depth24plus',
-				usage: GPUTextureUsage.RENDER_ATTACHMENT,
-			});
+			if (
+				currentWidth !== canvas.width ||
+				currentHeight !== canvas.height ||
+				renderTarget === undefined
+			) {
+				if (renderTarget !== undefined) renderTarget.destroy();
 
-			renderTargetView = renderTarget.createView();
-			depthTextureView = depthTexture.createView();
-		}
+				canvas.width = currentWidth;
+				canvas.height = currentHeight;
 
-		camera.update(dt, input);
-		input.update();
+				renderTarget = device.createTexture({
+					size: [canvas.width, canvas.height],
+					sampleCount,
+					format: presentationFormat,
+					usage: GPUTextureUsage.RENDER_ATTACHMENT,
+				});
+				depthTexture = device.createTexture({
+					size: [canvas.width, canvas.height],
+					sampleCount,
+					format: 'depth24plus',
+					usage: GPUTextureUsage.RENDER_ATTACHMENT,
+				});
 
-		const commandEncoder = device.createCommandEncoder();
-		const renderPassDescriptor: GPURenderPassDescriptor = {
-			colorAttachments: [
-				{
-					view: renderTargetView,
-					resolveTarget: context?.getCurrentTexture().createView(),
-					clearValue: { r: 0.2, g: 0.2, b: 0.2, a: 1.0 },
-					loadOp: 'clear',
-					storeOp: 'store',
+				renderTargetView = renderTarget.createView();
+				depthTextureView = depthTexture.createView();
+			}
+
+			camera.update(dt, input);
+			input.update();
+
+			const commandEncoder = device.createCommandEncoder();
+			const renderPassDescriptor: GPURenderPassDescriptor = {
+				colorAttachments: [
+					{
+						view: renderTargetView,
+						resolveTarget: context?.getCurrentTexture().createView(),
+						clearValue: { r: 0.2, g: 0.2, b: 0.2, a: 1.0 },
+						loadOp: 'clear',
+						storeOp: 'store',
+					},
+				],
+				depthStencilAttachment: {
+					view: depthTextureView,
+					depthClearValue: 1.0,
+					depthLoadOp: 'clear',
+					depthStoreOp: 'store',
 				},
-			],
-			depthStencilAttachment: {
-				view: depthTextureView,
-				depthClearValue: 1.0,
-				depthLoadOp: 'clear',
-				depthStoreOp: 'store',
-			},
-		};
-		const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-		ohlcv.render(passEncoder);
-		device.queue.submit([commandEncoder.finish()]);
+			};
+			const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+			ohlcv.render(passEncoder);
+			device.queue.submit([commandEncoder.finish()]);
 
+			requestAnimationFrame(frame);
+		}
 		requestAnimationFrame(frame);
 	}
-	requestAnimationFrame(frame);
-}
+};
+
