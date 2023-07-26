@@ -4,16 +4,16 @@ import vertCode from '../shaders/instanced.vert.wgsl';
 import fragCode from '../shaders/vertexPositionColor.frag.wgsl';
 
 const vertices = new Float32Array([
-	+1, +1, -1, 1,
-	-1, +1, -1, 1,
-	+1, -1, -1, 1,
-	-1, -1, -1, 1,
-	+1, +1, +1, 1,
-	-1, +1, +1, 1,
-	-1, -1, +1, 1,
-	+1, -1, +1, 1,
+	+1, +1, -1,
+	-1, +1, -1,
+	+1, -1, -1,
+	-1, -1, -1,
+	+1, +1, +1,
+	-1, +1, +1,
+	-1, -1, +1,
+	+1, -1, +1,
 ]);
-const indices = new Int16Array([
+const indices = new Uint16Array([
 	3, 2,
 	6, 7,
 	4, 2,
@@ -38,9 +38,13 @@ export class OHLCV {
 				entryPoint: 'main',
 				buffers: [
 					{
-						arrayStride: 4 * 4,
+						arrayStride: vertices.byteLength / 8,
 						attributes: [
-							{format: "float32x4", offset: 0, shaderLocation: 0},
+							{
+								format: 'float32x3',
+								offset: 0,
+								shaderLocation: 0
+							},
 						]
 					},
 				],
@@ -54,13 +58,14 @@ export class OHLCV {
 					},
 				],
 			},
-			// depthStencil: {
-			// 	depthWriteEnabled: true,
-			// 	depthCompare: 'less',
-			// 	format: 'depth24plus',
-			// },
+			depthStencil: {
+				depthWriteEnabled: true,
+				depthCompare: 'less',
+				format: 'depth24plus',
+			},
 			primitive: {
 				topology: 'triangle-strip',
+				stripIndexFormat: 'uint16',
 				cullMode: 'none',
 			},
 			multisample: {
@@ -78,12 +83,12 @@ export class OHLCV {
 		this.vertexBuffer.unmap()
 
 		this.indexBuffer = device.createBuffer({
-			label: 'ohlcv vertex buffer',
+			label: 'ohlcv index buffer',
 			size: indices.byteLength,
 			usage: GPUBufferUsage.INDEX,
 			mappedAtCreation: true
 		});
-		new Int16Array(this.indexBuffer.getMappedRange()).set(indices);
+		new Uint16Array(this.indexBuffer.getMappedRange()).set(indices);
 		this.indexBuffer.unmap()
 	}
 
@@ -92,7 +97,7 @@ export class OHLCV {
 		pass.setBindGroup(0, this.camera.gpu.bindGroup);
 		pass.setVertexBuffer(0, this.vertexBuffer);
 		pass.setIndexBuffer(this.indexBuffer, 'uint16');
-		pass.draw(vertices.length / 4, 1, 0, 0);
+		pass.drawIndexed(indices.length);
 		pass.end();
 	}
 }

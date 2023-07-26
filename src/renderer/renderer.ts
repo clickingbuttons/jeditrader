@@ -1,7 +1,7 @@
 import { Camera } from './camera';
 import { OHLCV } from './ohlcv';
 import { presentationFormat, sampleCount } from './util';
-import * as input from './input';
+import { Input } from './input';
 
 export async function render(canvas: HTMLCanvasElement) {
 	if (navigator.gpu === undefined)
@@ -14,22 +14,15 @@ export async function render(canvas: HTMLCanvasElement) {
 	if (context === null) throw new Error('No WebGPU context');
 	context.configure({ device, format: presentationFormat });
 
+	const input = new Input(canvas);
 	var camera = new Camera(canvas, device);
-	document.addEventListener('keydown', input.keydown);
-	document.addEventListener('keyup', input.keyup);
-	canvas.addEventListener('mousemove', input.mousemove);
-	canvas.addEventListener('mousedown', input.mousedown);
-	canvas.addEventListener('mouseup', input.mouseup);
-	canvas.addEventListener('mouseenter', input.mouseenter);
-	canvas.addEventListener('mouseleave', input.mouseleave);
-	canvas.addEventListener('contextmenu', e => e.preventDefault());
 
 	const ohlcv = new OHLCV(device, camera);
 
 	let renderTarget: GPUTexture | undefined = undefined;
 	let renderTargetView: GPUTextureView;
-	// let depthTexture: GPUTexture | undefined = undefined;
-	// let depthTextureView: GPUTextureView;
+	let depthTexture: GPUTexture | undefined = undefined;
+	let depthTextureView: GPUTextureView;
 
 	let lastTime = performance.now();
 	function frame(time: DOMHighResTimeStamp) {
@@ -54,18 +47,19 @@ export async function render(canvas: HTMLCanvasElement) {
 				format: presentationFormat,
 				usage: GPUTextureUsage.RENDER_ATTACHMENT,
 			});
-			// depthTexture = device.createTexture({
-			// 	size: [canvas.width, canvas.height],
-			// 	sampleCount,
-			// 	format: 'depth24plus',
-			// 	usage: GPUTextureUsage.RENDER_ATTACHMENT,
-			// });
+			depthTexture = device.createTexture({
+				size: [canvas.width, canvas.height],
+				sampleCount,
+				format: 'depth24plus',
+				usage: GPUTextureUsage.RENDER_ATTACHMENT,
+			});
 
 			renderTargetView = renderTarget.createView();
-			// depthTextureView = depthTexture.createView();
+			depthTextureView = depthTexture.createView();
 		}
 
-		camera.update(dt, input.input);
+		camera.update(dt, input);
+		input.update();
 
 		const commandEncoder = device.createCommandEncoder();
 		const renderPassDescriptor: GPURenderPassDescriptor = {
@@ -78,12 +72,12 @@ export async function render(canvas: HTMLCanvasElement) {
 					storeOp: 'store',
 				},
 			],
-			// depthStencilAttachment: {
-			// 	view: depthTextureView,
-			// 	depthClearValue: 1.0,
-			// 	depthLoadOp: 'clear',
-			// 	depthStoreOp: 'store',
-			// },
+			depthStencilAttachment: {
+				view: depthTextureView,
+				depthClearValue: 1.0,
+				depthLoadOp: 'clear',
+				depthStoreOp: 'store',
+			},
 		};
 		const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 		ohlcv.render(passEncoder);

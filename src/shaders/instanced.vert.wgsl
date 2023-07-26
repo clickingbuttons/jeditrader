@@ -1,7 +1,7 @@
 alias float4 = vec4<f32>;
 
 struct VertexInput {
-    @location(0) position: float4,
+    @location(0) position: vec3<f32>,
 };
 
 struct VertexOutput {
@@ -19,6 +19,6 @@ var<uniform> view_params: ViewParams;
 fn main(vert: VertexInput) -> VertexOutput {
     var out: VertexOutput;
     out.color = float4(1.0, 0.0, 0.0, 1.0);
-    out.position = view_params.view_proj * vert.position;
+    out.position = view_params.view_proj * float4(vert.position, 1.0);
     return out;
 };

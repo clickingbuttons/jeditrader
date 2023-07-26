@@ -30,9 +30,7 @@ export class Camera {
 
 	canvas: HTMLCanvasElement; // For aspect ratio
 	gpu: CameraGPU; // For convienence
-
-	// Computed
-	direction: vec3.default;
+	direction: vec3.default; // Computed
 
 	constructor(canvas: HTMLCanvasElement, device: GPUDevice) {
 		this.eye = vec3.create(0, 0, -3);
@@ -74,10 +72,10 @@ export class Camera {
 	}
 
 	update(dt: DOMHighResTimeStamp, input: Input) {
-		if (input.button[0]) {
+		if (input.buttons.mouse2) {
 			const mouseSpeed = dt / 4e3;
-			const dx = input.pos.x - input.lastPos.x;
-			const dy = input.pos.y - input.lastPos.y;
+			const dx = input.posX - input.lastPosX;
+			const dy = input.posY - input.lastPosY;
 			this.pitch += mouseSpeed * dy;
 			this.yaw -= mouseSpeed * dx;
 
@@ -88,20 +86,21 @@ export class Camera {
 		 	}
 		}
 
-		const cameraSpeed = dt / 100;
-		if (input.up) {
+		let cameraSpeed = dt / 100;
+		if (input.buttons.shift) cameraSpeed *= 8;
+		if (input.buttons.up) {
 			this.eye = vec3.add(this.eye, vec3.mulScalar(this.direction, cameraSpeed));
 		}
-		if (input.down) {
+		if (input.buttons.down) {
 			this.eye = vec3.sub(this.eye, vec3.mulScalar(this.direction, cameraSpeed));
 		}
-		if (input.left) {
+		if (input.buttons.left) {
 			this.eye = vec3.sub(this.eye, vec3.mulScalar(vec3.cross(this.direction, this.up), cameraSpeed * this.canvas.width / this.canvas.height));
 		}
-		if (input.right) {
+		if (input.buttons.right) {
 			this.eye = vec3.add(this.eye, vec3.mulScalar(vec3.cross(this.direction, this.up), cameraSpeed * this.canvas.width / this.canvas.height));
 		}
-		if (input.space) {
+		if (input.buttons.space) {
 			this.eye = vec3.add(this.eye, vec3.mulScalar(this.up, cameraSpeed));
 		}
 
@@ -118,8 +117,8 @@ export class Camera {
 		const proj = mat4.perspective(
 			utils.degToRad(45),
 			this.canvas.width / this.canvas.height,
-			1,
-			100.0
+			0.01,
+			100_000
 		);
 		const viewProj = mat4.multiply(proj, view);
 
