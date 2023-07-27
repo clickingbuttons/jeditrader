@@ -11,17 +11,16 @@ var<uniform> view_params: ViewParams;
 
 @vertex fn main(
 	@location(0) position: vec3f,
-	@location(1) instancePos: vec4f,
+	@location(1) instancePos: vec3f,
+	@location(2) instanceScale: vec3f,
 ) -> VertexOutput {
-	var out: VertexOutput;
+	var color: vec4f = vec4f(1.0, 1.0, 1.0, 1.0);
+	if (instanceScale.y < 0) { color = vec4f(1.0, 0.0, 0.0, 1.0); }
+	else if (instancePos.y > 0) { color = vec4f(0.0, 1.0, 0.0, 1.0); }
+	var pos = (position + instancePos) * instanceScale;
 
-	if (instancePos.w == -1) { out.color = vec4f(1.0, 0.0, 0.0, 1.0); }
-	else if (instancePos.w == 0) { out.color = vec4f(1.0, 1.0, 1.0, 1.0); }
-	else if (instancePos.w == 1) { out.color = vec4f(0.0, 1.0, 0.0, 1.0); }
-	else { out.color = vec4f(0.0, 0.0, 0.0, 1.0); }
-
-	var pos = position + instancePos.xyz;
-	out.position = view_params.view_proj * vec4f(pos, 1.0);
-
-	return out;
+	return VertexOutput(
+		view_params.view_proj * vec4f(pos, 1.0),
+		color
+	);
 };

@@ -5,10 +5,10 @@ import { Input } from './input';
 import { Aggregate } from '../helpers';
 
 export class Renderer {
-	aggs: Aggregate[] = [];
+	ohlcv?: OHLCV;
 
 	setAggs(aggs: Aggregate[]) {
-		this.aggs = aggs;
+		this.ohlcv?.setAggs(aggs);
 	}
 
 	async render(canvas: HTMLCanvasElement) {
@@ -26,6 +26,7 @@ export class Renderer {
 		var camera = new Camera(canvas, device);
 
 		const ohlcv = new OHLCV(device, camera);
+		this.ohlcv = ohlcv;
 
 		let renderTarget: GPUTexture | undefined = undefined;
 		let renderTargetView: GPUTextureView;
@@ -87,8 +88,9 @@ export class Renderer {
 					depthStoreOp: 'store',
 				},
 			};
-			const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-			ohlcv.render(passEncoder);
+			const pass = commandEncoder.beginRenderPass(renderPassDescriptor);
+			ohlcv.render(pass);
+			pass.end();
 			device.queue.submit([commandEncoder.finish()]);
 
 			requestAnimationFrame(frame);

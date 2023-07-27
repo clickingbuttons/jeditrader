@@ -22,7 +22,7 @@ function keyMap(key: string): keyof Input['buttons'] | undefined {
 
 export class Input {
 	focused = false;
-	buttons = defaultButtons;
+	buttons = { ...defaultButtons };
 
 	posX = -1;
 	posY = -1;
@@ -42,6 +42,7 @@ export class Input {
 
 	handleKey(ev: KeyboardEvent, keydown: boolean) {
 		if (!this.focused) return;
+		ev.preventDefault();
 		let key = keyMap(ev.key);
 		if (key) this.buttons[key] = keydown;
 		this.buttons.shift = ev.shiftKey;
@@ -51,6 +52,7 @@ export class Input {
 	keyup(ev: KeyboardEvent) { this.handleKey(ev, false); }
 
 	mousemove(ev: MouseEvent) {
+		this.focused = true;
 		this.posX = ev.clientX;
 		this.posY = ev.clientY;
 	}
@@ -71,10 +73,12 @@ export class Input {
 	}
 
 	mouseenter(_ev: MouseEvent) {
+		console.log('enter');
 		this.focused = true;
 	}
 
 	mouseleave(_ev: MouseEvent) {
+		console.log('exit');
 		this.focused = false;
 		this.buttons = { ...defaultButtons };
 	}

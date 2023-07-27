@@ -33,10 +33,10 @@ export class Camera {
 	direction: vec3.default; // Computed
 
 	constructor(canvas: HTMLCanvasElement, device: GPUDevice) {
-		this.eye = vec3.create(0, 0, -3);
+		this.eye = vec3.create(131, -110, 180);
 		this.up = vec3.create(0, 0, 1);
-		this.pitch = 0.9;
-		this.yaw = 0.1;
+		this.pitch = -1;
+		this.yaw = 0.003;
 		this.canvas = canvas;
 
 		const buffer = device.createBuffer({
@@ -84,6 +84,9 @@ export class Camera {
 		 	} else if (this.pitch < 0.1 - Math.PI / 2) {
 		 		this.pitch = 0.1 - Math.PI / 2;
 		 	}
+		}
+		if (input.buttons.mouse1) {
+			console.log(this.eye, this.pitch, this.yaw)
 		}
 
 		let cameraSpeed = dt / 100;
