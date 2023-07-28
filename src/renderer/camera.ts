@@ -87,7 +87,7 @@ export class Camera {
 		if (input.buttons.mouse1) console.log(this.eye, this.pitch, this.yaw);
 
 		const absZ = Math.abs(this.eye[2]);
-		let cameraSpeed = dt * Math.max(absZ, 0.1) / 200;
+		let cameraSpeed = dt * Math.max(absZ, 0.001) / 200;
 		if (input.buttons.shift) cameraSpeed *= 8;
 		else if (input.buttons.alt) cameraSpeed *= 4;
 		if (input.buttons.up) {
