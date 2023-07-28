@@ -24,6 +24,7 @@
     "@webgpu/types": "^0.1.34",
     "esbuild": "^0.18.15",
     "esbuild-copy-static-files": "^0.1.0",
+    "esbuild-plugin-glsl": "^1.2.1",
     "esbuild-plugin-template": "^0.0.3",
     "esbuild-scripts": "^0.0.3"
   },

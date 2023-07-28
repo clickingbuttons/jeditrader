@@ -107,3 +107,7 @@ export interface Bounds {
 	y: Range;
 	z: Range;
 }
+
+export function align(n: number, alignment: number) {
+	return (n + alignment - 1) & ~(alignment - 1);
+}

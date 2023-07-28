@@ -1,4 +1,4 @@
-@group(0) @binding(0) var<uniform> viewProj: mat4x4f;
+#include "./camera.wgsl"
 
 struct VertexOutput {
 	@builtin(position) position: vec4f,
@@ -6,29 +6,33 @@ struct VertexOutput {
 }
 
 fn vertex(index: u32, minPos: vec3f, maxPos: vec3f) -> vec3f {
-	switch (index % 8) {
-		case 0: { return vec3f(maxPos.x, maxPos.y, minPos.z); }
-		case 1: { return vec3f(minPos.x, maxPos.y, minPos.z); }
-		case 2: { return vec3f(maxPos.x, minPos.y, minPos.z); }
-		case 3: { return vec3f(minPos.x, minPos.y, minPos.z); }
-		case 4: { return vec3f(maxPos.x, maxPos.y, maxPos.z); }
-		case 5: { return vec3f(minPos.x, maxPos.y, maxPos.z); }
-		case 6: { return vec3f(minPos.x, minPos.y, maxPos.z); }
-		case 7: { return vec3f(maxPos.x, minPos.y, maxPos.z); }
-		default: { return vec3f(0); }
+	switch (index % 8u) {
+		case 0u: { return vec3f(maxPos.x, maxPos.y, minPos.z); }
+		case 1u: { return vec3f(minPos.x, maxPos.y, minPos.z); }
+		case 2u: { return vec3f(maxPos.x, minPos.y, minPos.z); }
+		case 3u: { return vec3f(minPos.x, minPos.y, minPos.z); }
+		case 4u: { return vec3f(maxPos.x, maxPos.y, maxPos.z); }
+		case 5u: { return vec3f(minPos.x, maxPos.y, maxPos.z); }
+		case 6u: { return vec3f(minPos.x, minPos.y, maxPos.z); }
+		case 7u: { return vec3f(maxPos.x, minPos.y, maxPos.z); }
+		default: { return vec3f(0.0); }
 	}
 }
 
 @vertex fn vert(
 	@builtin(vertex_index) index: u32,
 	@location(0) instanceMinPos: vec3f,
-	@location(1) instanceMaxPos: vec3f,
-	@location(2) instanceColor: vec3f,
+	@location(1) instanceMinPosLow: vec3f,
+	@location(2) instanceMaxPos: vec3f,
+	@location(3) instanceMaxPosLow: vec3f,
+	@location(4) instanceColor: vec3f,
 ) -> VertexOutput {
 	let position = vertex(index, instanceMinPos, instanceMaxPos);
+	let positionLow = vertex(index, instanceMinPosLow, instanceMaxPosLow);
+	let position64 = dsFun90(position, positionLow);
 
 	return VertexOutput(
-		viewProj * vec4f(position, 1.0),
+		camera.mvp * vec4f(position64, 1.0),
 		vec4f(instanceColor, 1.0),
 	);
 }

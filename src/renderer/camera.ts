@@ -1,4 +1,5 @@
 import { mat4, vec3, utils } from 'wgpu-matrix';
+import { align } from './util';
 import { Input } from './input';
 
 interface CameraGPU {
@@ -24,10 +25,10 @@ function mat4Print(mat4: mat4.default) {
 }
 
 export class Camera {
-	eye = vec3.create(131, -110, 180);
+	eye = vec3.create(3800, -5000, 21000);
 	up = vec3.create(0, 0, 1);
-	pitch = -1;
-	yaw = 0.003;
+	pitch = -1.34;
+	yaw = 0.015;
 
 	canvas: HTMLCanvasElement; // For aspect ratio
 	gpu: CameraGPU; // For convienence
@@ -36,7 +37,7 @@ export class Camera {
 	constructor(canvas: HTMLCanvasElement, device: GPUDevice) {
 		this.canvas = canvas;
 		const buffer = device.createBuffer({
-			size: 16 * 4,
+			size: align((4 * 4 + 6) * 4, 16),
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
 		});
 		const bindGroupLayout = device.createBindGroupLayout({
@@ -44,7 +45,7 @@ export class Camera {
 			entries: [
 				{
 					binding: 0,
-					visibility: GPUShaderStage.VERTEX,
+					visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
 					buffer: { type: 'uniform' }
 				}
 			]
@@ -83,12 +84,10 @@ export class Camera {
 		 		this.pitch = 0.1 - Math.PI / 2;
 		 	}
 		}
-		if (input.buttons.mouse1) {
-			console.log(this.eye, this.pitch, this.yaw)
-		}
+		if (input.buttons.mouse1) console.log(this.eye, this.pitch, this.yaw);
 
 		const absZ = Math.abs(this.eye[2]);
-		let cameraSpeed = dt * absZ / 200;
+		let cameraSpeed = dt * Math.max(absZ, 0.1) / 200;
 		if (input.buttons.shift) cameraSpeed *= 8;
 		else if (input.buttons.alt) cameraSpeed *= 4;
 		if (input.buttons.up) {
@@ -117,22 +116,20 @@ export class Camera {
 		);
 		const target = vec3.add(this.eye, this.direction);
 		const view = mat4.lookAt(this.eye, target, this.up);
-		const zNear = absZ * 1e-2;
-		const zFar = absZ * 1e2;
+		const zNear = absZ > 1 ? Math.sqrt(absZ) : absZ ** 2;
+		const zFar = absZ * 1e3;
+		if (input.buttons.mouse1) console.log('z', zNear, zFar);
 		const proj = mat4.perspective(
 			utils.degToRad(90),
 			this.canvas.width / this.canvas.height,
-			Math.min(zNear, zFar),
-			Math.max(zNear, zFar),
+			zNear,
+			zFar,
 		);
-		const viewProj = mat4.multiply(proj, view);
+		const cameraBuffer = new Float32Array(this.gpu.buffer.size / Float32Array.BYTES_PER_ELEMENT);
+		cameraBuffer.set(mat4.multiply(proj, view));
+		cameraBuffer.set(this.eye, 16); // Converts to f32
+		cameraBuffer.set(vec3.sub(this.eye, cameraBuffer.slice(16, 19)), 19);
 
-		this.gpu.device.queue.writeBuffer(
-			this.gpu.buffer,
-			0,
-			viewProj as Float32Array,
-			0,
-			16,
-		);
+		this.gpu.device.queue.writeBuffer(this.gpu.buffer, 0, cameraBuffer);
 	}
 }

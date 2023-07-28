@@ -1,9 +1,14 @@
+import { mat4, vec3 } from 'wgpu-matrix';
 import { Camera } from './camera';
 import { Axes } from './axes';
 import { OHLCV } from './ohlcv';
 import { presentationFormat, sampleCount, Bounds } from './util';
 import { Input } from './input';
 import { Aggregate } from '../helpers';
+
+// We need the extra precision since there are ~630 billion milliseconds to potentially render.
+mat4.setDefaultType(Float64Array);
+vec3.setDefaultType(Float64Array);
 
 function getBounds(aggs: Aggregate[]): Bounds {
 	const res: Bounds = {

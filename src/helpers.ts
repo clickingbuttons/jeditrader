@@ -103,68 +103,41 @@ export async function fetchAggs(
 	// Cleverness: desc + reverse
 	const from = '1970-01-01';
 	const to = String(date);
-	return rest.stocks.aggregates(ticker, multiplier, timespan, from, to, { limit: barsPageSize, sort: 'desc' })
+	return rest.stocks.aggregates(
+		ticker,
+		multiplier,
+		timespan,
+		from,
+		to,
+		{ limit: barsPageSize, sort: 'desc' }
+	)
 		.then(resp => {
-			if (!resp.results || resp.results.length === 0)
-				return [];
+			if (!resp.results || resp.results.length === 0) return [];
 
 			// Normalize agg timestamp to 16:00EST because Polygon doesn't
 			const market = getTickerMarket(ticker);
 			if (timespan === 'day' && market === 'stocks')  {
 				resp.results.forEach(agg => {
-					const normalizedMS = toStartOfTimespan(agg.t, timespan, multiplier) + getTimespanMS('hour') * 20;
+					const normalizedMS = toStartOfTimespan(agg.t ?? 0, timespan, multiplier) +
+						getTimespanMS('hour') * 20;
 					agg.t = convertTZ(new Date(normalizedMS), 'America/New_York').getTime();
 				});
 			}
-			const firstMS = resp.results[resp.results.length - 1].t;
-			const lastMS = resp.results[0].t;
-			//console.log(firstMS, lastMS);
 			const res = [] as Aggregate[];
 
-			let j = resp.results.length - 1;
-			for (var ms = firstMS; ms <= lastMS; ms += getTimespanMS(timespan) * multiplier) {
-				const bar = resp.results[j];
-				const barMatches = toStartOfTimespan(bar.t, timespan, multiplier) === toStartOfTimespan(ms, timespan, multiplier);
-
-				if (market === 'stocks' && !(timespan === 'day' && multiplier !== 1)) {
-					const date = new Date(ms);
-					if (['minute', 'hour', 'day'].includes(timespan)) {
-						if (isMarketHoliday(date)) {
-							if (barMatches) {
-								console.warn('agg returned on holiday', bar.t, '=', new Date(bar.t));
-							} else {
-								continue;
-							}
-						}
-					}
-					if (['minute', 'hour'].includes(timespan)) {
-						const hour = convertTZ(date, 'America/New_York').getUTCHours();
-						if (hour < 4 || hour >= 20) {
-							if (barMatches) {
-								console.warn('agg returned during market close', bar.t, '=', new Date(bar.t));
-							} else {
-								continue;
-							}
-						}
-					}
-				}
-
-				const newBar = {
-					time: ms,
-				} as Aggregate;
-				if (barMatches) {
-					// for candlestick series
-					newBar.time = bar.t,
-					newBar.open = bar.o;
-					newBar.high = bar.h;
-					newBar.low = bar.l;
-					newBar.close = bar.c;
-					newBar.volume = bar.v;
-					newBar.vwap = bar.vw;
-
-					j -= 1;
-				}
-				res.push(newBar);
+			var bar;
+			for (let i = 0; i < resp.results.length; i++) {
+				bar = resp.results[i];
+				res.push({
+					time: bar.t ?? 0,
+					open: bar.o ?? 0,
+					high: bar.h ?? 0,
+					low: bar.l ?? 0,
+					close: bar.c ?? 0,
+					volume: bar.v ?? 0,
+					vwap: bar.vw ?? 0,
+					liquidity: 0,
+				});
 			}
 
 			//console.log(res, resp.results);

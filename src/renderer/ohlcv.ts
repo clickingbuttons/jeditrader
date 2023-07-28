@@ -1,3 +1,4 @@
+import { vec3 } from 'wgpu-matrix';
 import { Camera } from './camera';
 import { presentationFormat, sampleCount, createBuffer, Bounds } from './util';
 import { Aggregate } from '../helpers';
@@ -22,7 +23,9 @@ export class OHLCV {
 	pipeline: GPURenderPipeline;
 	indexBuffer: GPUBuffer;
 	instanceMinPos?: GPUBuffer;
+	instanceMinPosLow?: GPUBuffer;
 	instanceMaxPos?: GPUBuffer;
+	instanceMaxPosLow?: GPUBuffer;
 	instanceColor?: GPUBuffer;
 	nInstances = 0;
 
@@ -35,23 +38,11 @@ export class OHLCV {
 			vertex: {
 				module: device.createShaderModule({ code }),
 				entryPoint: 'vert',
-				buffers: [
-					{
-						arrayStride: 4 * 3,
-						stepMode: 'instance',
-						attributes: [{ format: 'float32x3', offset: 0, shaderLocation: 0 }]
-					},
-					{
-						arrayStride: 4 * 3,
-						stepMode: 'instance',
-						attributes: [{ format: 'float32x3', offset: 0, shaderLocation: 1 }]
-					},
-					{
-						arrayStride: 4 * 3,
-						stepMode: 'instance',
-						attributes: [{ format: 'float32x3', offset: 0, shaderLocation: 2 }]
-					},
-				],
+				buffers: [0, 1, 2, 3, 4].map(i => ({
+					arrayStride: 4 * 3,
+					stepMode: 'instance',
+					attributes: [{ format: 'float32x3', offset: 0, shaderLocation: i }]
+				}))
 			},
 			fragment: {
 				module: device.createShaderModule({ code }),
@@ -86,19 +77,19 @@ export class OHLCV {
 			y: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
 			z: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
 		};
-		const round = (x: number) => Math.trunc(x / aggMs) * aggMs;
-		const firstX = round(aggs[0].time);
-		const midX = (round(bounds.x.max) - round(bounds.x.min)) / 2;
-		const midY = (bounds.y.max - bounds.y.min) / 2;
-		console.log(midX, midY)
 		if (aggs.length > 0) {
 			const instanceMinPos = new Float32Array(aggs.length * 3);
+			const instanceMinPosLow = new Float32Array(aggs.length * 3);
 			const instanceMaxPos = new Float32Array(aggs.length * 3);
+			const instanceMaxPosLow = new Float32Array(aggs.length * 3);
 			const instanceColor = new Float32Array(aggs.length * 3);
+
+			const midX = (bounds.x.max - bounds.x.min) / 2;
+			const midY = (bounds.y.max - bounds.y.min) / 2;
 			var agg;
 			for (let i = 0; i < aggs.length; i++) {
 				agg = aggs[i];
-				const minX = (round(agg.time) - firstX - midX) * unitsPerMs;
+				const minX = (agg.time - bounds.x.min - midX) * unitsPerMs;
 				const maxX = minX + unitsPerMs * aggMs;
 				const minY = (Math.min(agg.close, agg.open) - midY) * unitsPerDollar;
 				const maxY = (Math.max(agg.close, agg.open) - midY) * unitsPerDollar;
@@ -114,8 +105,16 @@ export class OHLCV {
 				if (maxY > res.y.max) res.y.max = maxY;
 				if (minZ < res.z.min) res.z.min = minZ;
 				if (maxZ > res.z.max) res.z.max = maxZ;
-				instanceMinPos.set([minX, minY, minZ], i * 3);
-				instanceMaxPos.set([maxX, maxY, maxZ], i * 3);
+
+				const min = [minX, minY, minZ];
+				const max = [maxX, maxY, maxZ];
+				if (min.some(isNaN)) console.log('bad agg', agg);
+				if (max.some(isNaN)) console.log('bad agg', agg);
+
+				instanceMinPos.set(min, i * 3);
+				instanceMinPosLow.set(vec3.sub(min, instanceMinPos.slice(i * 3, i * 3 + 3)), i * 3);
+				instanceMaxPos.set(max, i * 3);
+				instanceMaxPosLow.set(vec3.sub(max, instanceMaxPos.slice(i * 3, i * 3 + 3)), i * 3);
 				instanceColor.set(color, i * 3);
 			}
 
@@ -125,12 +124,24 @@ export class OHLCV {
 				data: instanceMinPos,
 				label: 'ohlcv instance buffer minPos',
 			});
+			if (this.instanceMinPosLow) this.instanceMinPosLow.destroy();
+			this.instanceMinPosLow = createBuffer({
+				device: this.device,
+				data: instanceMinPosLow,
+				label: 'ohlcv instance buffer minPosLow',
+			});
 
 			if (this.instanceMaxPos) this.instanceMaxPos.destroy();
 			this.instanceMaxPos = createBuffer({
 				device: this.device,
 				data: instanceMaxPos,
 				label: 'ohlcv instance buffer maxPos',
+			});
+			if (this.instanceMaxPosLow) this.instanceMaxPosLow.destroy();
+			this.instanceMaxPosLow = createBuffer({
+				device: this.device,
+				data: instanceMaxPosLow,
+				label: 'ohlcv instance buffer maxPosLow',
 			});
 
 			if (this.instanceColor) this.instanceColor.destroy();
@@ -146,12 +157,20 @@ export class OHLCV {
 	}
 
 	render(pass: GPURenderPassEncoder): void {
-		if (!this.instanceMinPos || !this.instanceMaxPos || !this.instanceColor) return;
+		if (
+			!this.instanceMinPos ||
+			!this.instanceMinPosLow ||
+			!this.instanceMaxPos ||
+			!this.instanceMaxPosLow ||
+			!this.instanceColor
+		) return;
 		pass.setPipeline(this.pipeline);
 		pass.setBindGroup(0, this.camera.gpu.bindGroup);
 		pass.setVertexBuffer(0, this.instanceMinPos);
-		pass.setVertexBuffer(1, this.instanceMaxPos);
-		pass.setVertexBuffer(2, this.instanceColor);
+		pass.setVertexBuffer(1, this.instanceMinPosLow);
+		pass.setVertexBuffer(2, this.instanceMaxPos);
+		pass.setVertexBuffer(3, this.instanceMaxPosLow);
+		pass.setVertexBuffer(4, this.instanceColor);
 		pass.setIndexBuffer(this.indexBuffer, 'uint16');
 		pass.drawIndexed(indices.length, this.nInstances);
 	}

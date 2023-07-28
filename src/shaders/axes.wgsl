@@ -1,3 +1,5 @@
+#include "./camera.wgsl"
+
 struct Axes {
 	colorThin: vec4f,
 	colorThick: vec4f,
@@ -5,18 +7,23 @@ struct Axes {
 	minPixelsBetweenCells: f32,
 }
 
-@group(0) @binding(0) var<uniform> viewProj: mat4x4f;
 @group(1) @binding(0) var<uniform> axes: Axes;
 
 struct VertexOutput {
 	@builtin(position) position: vec4f,
 	@location(0) uv: vec2f,
+	@location(1) uvLow: vec2f,
 }
 
-@vertex fn vert(@location(0) position: vec3f) -> VertexOutput {
+@vertex fn vert(
+	@location(0) position: vec3f,
+	@location(1) positionLow: vec3f
+) -> VertexOutput {
+	let position64 = dsFun90(position, positionLow);
 	return VertexOutput(
-		viewProj * vec4f(position, 1.0),
-		position.xy
+		camera.mvp * vec4f(position64, 1.0),
+		position.xy,
+		positionLow.xy,
 	);
 }
 
@@ -27,9 +34,10 @@ fn max2(v: vec2f) -> f32 { return max(v.x, v.y); }
 
 @fragment fn frag(in: VertexOutput) -> @location(0) vec4f {
 	let uv = abs(in.uv);
+	let uvLow = abs(in.uvLow);
 	var dudv = vec2(
-		length(vec2(dpdx(uv.x), dpdy(uv.x))),
-		length(vec2(dpdx(uv.y), dpdy(uv.y)))
+		length(vec2(dpdx(uv.x), dpdy(uv.x))) + length(vec2(dpdx(uvLow.x), dpdy(uvLow.x))),
+		length(vec2(dpdx(uv.y), dpdy(uv.y))) + length(vec2(dpdx(uvLow.y), dpdy(uvLow.y)))
 	);
 
 	let lodLevel = max(

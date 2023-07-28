@@ -1,8 +1,8 @@
 import { Camera } from './camera';
-import { presentationFormat, sampleCount, createBuffer, Bounds } from './util';
+import { presentationFormat, sampleCount, createBuffer, Bounds, align } from './util';
 import code from '../shaders/axes.wgsl';
 
-const vertices = (bounds: Bounds) => new Float32Array([
+const vertices = (bounds: Bounds) => new Float64Array([
 	bounds.x.min, bounds.y.min, 0,
 	bounds.x.max, bounds.y.min, 0,
 	bounds.x.max, bounds.y.max, 0,
@@ -20,6 +20,7 @@ export class Axes {
 	camera: Camera;
 	pipeline: GPURenderPipeline;
 	vertexBuffer: GPUBuffer;
+	vertexBufferLow: GPUBuffer;
 	indexBuffer: GPUBuffer;
 	bounds: Bounds = {
 		x: { min: 0, max: 0 },
@@ -54,12 +55,10 @@ export class Axes {
 			vertex: {
 				module: device.createShaderModule({ code }),
 				entryPoint: 'vert',
-				buffers: [
-					{
-						arrayStride: 4 * 3,
-						attributes: [{ format: 'float32x3', offset: 0, shaderLocation: 0 }]
-					},
-				],
+				buffers: [0, 1].map(i => ({
+					arrayStride: 4 * 3,
+					attributes: [{ format: 'float32x3', offset: 0, shaderLocation: i }]
+				}))
 			},
 			fragment: {
 				module: device.createShaderModule({ code }),
@@ -79,11 +78,6 @@ export class Axes {
 			multisample: { count: sampleCount },
 		});
 
-		this.vertexBuffer = createBuffer({
-			device,
-			data: vertices(this.bounds),
-			label: 'ohlcv vertex buffer'
-		});
 		this.indexBuffer = createBuffer({
 			device,
 			usage: GPUBufferUsage.INDEX,
@@ -92,13 +86,14 @@ export class Axes {
 			label: 'ohlcv index buffer',
 		});
 
-		const data = new Float32Array(64); // Must be multiple of of 16
-		data.set([
+		const uniformData = [
 			0.2, 0.2, 0.2, 1, // colorThin
 			0, 0, 0, 1, // colorThick
 			minCellSize,
 			2, // minPixelsBetweenCells
-		]);
+		];
+		const data = new Float32Array(align(uniformData.length, 4));
+		data.set(uniformData);
 		this.uniformBuffer = createBuffer({
 			device,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -113,24 +108,36 @@ export class Axes {
 				resource: { buffer: this.uniformBuffer }
 			}]
 		});
+		this.setBounds(this.bounds);
 	}
 
 	setBounds(bounds?: Bounds) {
 		if (!bounds) return;
-
 		this.bounds = bounds;
+
+		const vertices64 = vertices(bounds);
+		const vertices32 = new Float32Array(vertices64);
+		const verticesLow = vertices64.map((v, i) => v - vertices32[i]);
 		this.vertexBuffer = createBuffer({
 			device: this.device,
-			data: vertices(bounds),
+			data: vertices32,
 			label: 'ohlcv vertex buffer'
 		});
+		this.vertexBufferLow = createBuffer({
+			device: this.device,
+			data: new Float32Array(verticesLow),
+			label: 'ohlcv vertex buffer low'
+		});
+		console.log(vertices32, new Float32Array(verticesLow))
 	}
 
 	render(pass: GPURenderPassEncoder): void {
+		if (!this.vertexBuffer || !this.vertexBufferLow) return;
 		pass.setPipeline(this.pipeline);
 		pass.setBindGroup(0, this.camera.gpu.bindGroup);
 		pass.setBindGroup(1, this.bindGroup);
 		pass.setVertexBuffer(0, this.vertexBuffer);
+		pass.setVertexBuffer(1, this.vertexBufferLow);
 		pass.setIndexBuffer(this.indexBuffer, 'uint16');
 		pass.drawIndexed(indices.length);
 	}

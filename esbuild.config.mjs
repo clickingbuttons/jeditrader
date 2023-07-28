@@ -1,6 +1,7 @@
 import { sep, resolve } from 'path'
 import htmlPlugin from 'esbuild-plugin-template'
 import copyPlugin from 'esbuild-copy-static-files'
+import { glsl } from 'esbuild-plugin-glsl';
 
 const outdir = 'dist';
 const routes = ['index', 'chart', 'signin'];
@@ -41,14 +42,14 @@ export const esbuildConfig = ({ isProd }) => ({
 	minify: isProd,
 	outdir,
 	tsconfig,
-	loader: {
-		'.wgsl': 'text',
-	},
 	plugins: [
 		htmlPlugin(htmlConfig(isProd)),
 		copyPlugin({
 			src: 'static',
 			dest: outdir,
+		}),
+		glsl({
+			minify: isProd
 		}),
 	]
 })
