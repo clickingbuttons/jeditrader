@@ -1,4 +1,4 @@
-import { sep, resolve } from 'path'
+import { resolve } from 'path'
 import htmlPlugin from 'esbuild-plugin-template'
 import copyPlugin from 'esbuild-copy-static-files'
 import { glsl } from 'esbuild-plugin-glsl';
@@ -12,7 +12,7 @@ function htmlConfig() {
 		filename: `${r}.html`,
 		template(result, initialOptions) {
 			const outputs = (Object.keys(result?.metafile?.outputs ?? []));
-			const stripBase = f => f.replace(initialOptions.outdir + sep, '');
+			const stripBase = f => f.replace(initialOptions.outdir + '/', '');
 			const stylesheets = outputs.filter(f => f.endsWith('.css')).map(stripBase);
 			const scripts = outputs.filter(f => f.endsWith('.js')).map(stripBase);
 

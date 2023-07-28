@@ -128,7 +128,6 @@ export class Axes {
 			data: new Float32Array(verticesLow),
 			label: 'ohlcv vertex buffer low'
 		});
-		console.log(vertices32, new Float32Array(verticesLow))
 	}
 
 	render(pass: GPURenderPassEncoder): void {
