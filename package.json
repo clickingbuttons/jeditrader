@@ -12,7 +12,7 @@
     "polygon",
     "api",
     "charting",
-    "tradingview"
+    "webgpu"
   ],
   "author": "clickingbuttons",
   "license": "MIT",
@@ -26,7 +26,7 @@
     "esbuild-copy-static-files": "^0.1.0",
     "esbuild-plugin-glsl": "^1.2.1",
     "esbuild-plugin-template": "^0.0.3",
-    "esbuild-scripts": "^0.0.3"
+    "esbuild-scripts": "^0.0.4"
   },
   "dependencies": {
     "@polygon.io/client-js": "^7.2.5",
