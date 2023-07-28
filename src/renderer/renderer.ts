@@ -1,14 +1,41 @@
 import { Camera } from './camera';
+import { Axes } from './axes';
 import { OHLCV } from './ohlcv';
-import { presentationFormat, sampleCount } from './util';
+import { presentationFormat, sampleCount, Bounds } from './util';
 import { Input } from './input';
 import { Aggregate } from '../helpers';
 
+function getBounds(aggs: Aggregate[]): Bounds {
+	const res: Bounds = {
+		x: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
+		y: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
+		z: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
+	};
+	var agg;
+	for (let i = 0; i < aggs.length; i++) {
+		agg = aggs[i];
+		if (agg.time < res.x.min) res.x.min = agg.time;
+		if (agg.time > res.x.max) res.x.max = agg.time;
+		if (agg.low < res.y.min) res.y.min = agg.low;
+		if (agg.high > res.y.max) res.y.max = agg.high;
+		if (agg.volume < res.z.min) res.z.min = agg.volume;
+		if (agg.volume > res.z.max) res.z.max = agg.volume;
+	}
+	return res;
+}
+
 export class Renderer {
 	ohlcv?: OHLCV;
+	axes?: Axes;
 
 	setAggs(aggs: Aggregate[]) {
-		this.ohlcv?.setAggs(aggs);
+		if (aggs.length === 0) return;
+		if (!this.ohlcv || !this.axes) throw new Error('aggs fetched too fast')
+		let bounds = getBounds(aggs);
+		console.log('bounds', bounds);
+		bounds = this.ohlcv.setAggs(aggs, bounds, 86400000);
+		console.log('world bounds', bounds)
+		this.axes.setBounds(bounds);
 	}
 
 	async render(canvas: HTMLCanvasElement) {
@@ -27,6 +54,9 @@ export class Renderer {
 
 		const ohlcv = new OHLCV(device, camera);
 		this.ohlcv = ohlcv;
+		const axes = new Axes(device, camera);
+		this.axes = axes;
+		console.log('render');
 
 		let renderTarget: GPUTexture | undefined = undefined;
 		let renderTargetView: GPUTextureView;
@@ -76,7 +106,7 @@ export class Renderer {
 					{
 						view: renderTargetView,
 						resolveTarget: context?.getCurrentTexture().createView(),
-						clearValue: { r: 0.2, g: 0.2, b: 0.2, a: 1.0 },
+						clearValue: { r: 135 / 255, g: 206 / 255, b: 235 / 255, a: 1.0 },
 						loadOp: 'clear',
 						storeOp: 'store',
 					},
@@ -89,6 +119,7 @@ export class Renderer {
 				},
 			};
 			const pass = commandEncoder.beginRenderPass(renderPassDescriptor);
+			axes.render(pass);
 			ohlcv.render(pass);
 			pass.end();
 			device.queue.submit([commandEncoder.finish()]);

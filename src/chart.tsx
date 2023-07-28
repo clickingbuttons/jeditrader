@@ -36,6 +36,8 @@ export function Chart({ path, apiKey }: { path: string, apiKey: string }) {
 				if (!isLoading) return;
 				if (candles.length > 0) {
 					setStatus(`Loaded ${candles.length} ${ticker} aggs`);
+					// tmp
+					candles.splice(0, 3);
 					renderer.setAggs(candles);
 				} else {
 					setStatus(`No data for ${ticker}`);

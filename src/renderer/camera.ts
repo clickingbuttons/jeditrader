@@ -4,6 +4,7 @@ import { Input } from './input';
 interface CameraGPU {
 	device: GPUDevice;
 	buffer: GPUBuffer;
+	bindGroupLayout: GPUBindGroupLayout;
 	bindGroup: GPUBindGroup;
 	layout: GPUPipelineLayout;
 }
@@ -23,52 +24,49 @@ function mat4Print(mat4: mat4.default) {
 }
 
 export class Camera {
-	eye: vec3.default;
-	up: vec3.default;
-	pitch: number;
-	yaw: number;
+	eye = vec3.create(131, -110, 180);
+	up = vec3.create(0, 0, 1);
+	pitch = -1;
+	yaw = 0.003;
 
 	canvas: HTMLCanvasElement; // For aspect ratio
 	gpu: CameraGPU; // For convienence
-	direction: vec3.default; // Computed
+	direction = vec3.create(); // Computed
 
 	constructor(canvas: HTMLCanvasElement, device: GPUDevice) {
-		this.eye = vec3.create(131, -110, 180);
-		this.up = vec3.create(0, 0, 1);
-		this.pitch = -1;
-		this.yaw = 0.003;
 		this.canvas = canvas;
-
 		const buffer = device.createBuffer({
 			size: 16 * 4,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
 		});
 		const bindGroupLayout = device.createBindGroupLayout({
+			label: 'camera bind group layout',
 			entries: [
 				{
 					binding: 0,
 					visibility: GPUShaderStage.VERTEX,
-					buffer: {
-						type: "uniform"
-					}
+					buffer: { type: 'uniform' }
 				}
 			]
+		});
+		const bindGroup = device.createBindGroup({
+			label: 'camera bind group',
+			layout: bindGroupLayout,
+			entries: [{
+				binding: 0,
+				resource: { buffer }
+			}]
 		});
 		this.gpu = {
 			device,
 			buffer,
-			bindGroup: device.createBindGroup({
-				layout: bindGroupLayout,
-				entries: [{
-					binding: 0,
-					resource: {
-						buffer
-					}
-				}]
+			bindGroupLayout,
+			bindGroup,
+			layout: device.createPipelineLayout({
+				label: 'camera uniform pipeline layout',
+				bindGroupLayouts: [bindGroupLayout]
 			}),
-			layout: device.createPipelineLayout({bindGroupLayouts: [bindGroupLayout]}),
 		};
-		this.direction = vec3.create();
 	}
 
 	update(dt: DOMHighResTimeStamp, input: Input) {
@@ -89,8 +87,10 @@ export class Camera {
 			console.log(this.eye, this.pitch, this.yaw)
 		}
 
-		let cameraSpeed = dt / 100;
+		const absZ = Math.abs(this.eye[2]);
+		let cameraSpeed = dt * absZ / 200;
 		if (input.buttons.shift) cameraSpeed *= 8;
+		else if (input.buttons.alt) cameraSpeed *= 4;
 		if (input.buttons.up) {
 			this.eye = vec3.add(this.eye, vec3.mulScalar(this.direction, cameraSpeed));
 		}
@@ -117,11 +117,13 @@ export class Camera {
 		);
 		const target = vec3.add(this.eye, this.direction);
 		const view = mat4.lookAt(this.eye, target, this.up);
+		const zNear = absZ * 1e-2;
+		const zFar = absZ * 1e2;
 		const proj = mat4.perspective(
-			utils.degToRad(45),
+			utils.degToRad(90),
 			this.canvas.width / this.canvas.height,
-			0.01,
-			100_000
+			Math.min(zNear, zFar),
+			Math.max(zNear, zFar),
 		);
 		const viewProj = mat4.multiply(proj, view);
 

@@ -5,6 +5,8 @@ const defaultButtons = {
 	down: false,
 	space: false,
 	shift: false,
+	ctrl: false,
+	alt: false,
 
 	mouse0: false,
 	mouse1: false,
@@ -46,6 +48,8 @@ export class Input {
 		let key = keyMap(ev.key);
 		if (key) this.buttons[key] = keydown;
 		this.buttons.shift = ev.shiftKey;
+		this.buttons.ctrl = ev.ctrlKey;
+		this.buttons.alt = ev.altKey;
 	}
 
 	keydown(ev: KeyboardEvent) { this.handleKey(ev, true); }
@@ -73,12 +77,10 @@ export class Input {
 	}
 
 	mouseenter(_ev: MouseEvent) {
-		console.log('enter');
 		this.focused = true;
 	}
 
 	mouseleave(_ev: MouseEvent) {
-		console.log('exit');
 		this.focused = false;
 		this.buttons = { ...defaultButtons };
 	}

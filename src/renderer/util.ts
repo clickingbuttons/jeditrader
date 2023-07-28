@@ -96,3 +96,14 @@ export function createBuffer4(
 
 	return res;
 }
+
+export interface Range {
+	min: number;
+	max: number;
+}
+
+export interface Bounds {
+	x: Range;
+	y: Range;
+	z: Range;
+}

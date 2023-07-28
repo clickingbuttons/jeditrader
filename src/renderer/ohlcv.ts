@@ -1,20 +1,9 @@
-import { mat4, vec3 } from 'wgpu-matrix';
 import { Camera } from './camera';
-import { presentationFormat, sampleCount, createBuffer } from './util';
+import { presentationFormat, sampleCount, createBuffer, Bounds } from './util';
 import { Aggregate } from '../helpers';
-import vertCode from '../shaders/ohlcv.vert.wgsl';
-import fragCode from '../shaders/ohlcv.frag.wgsl';
+import { minCellSize } from './axes';
+import code from '../shaders/ohlcv.wgsl';
 
-const vertices = new Float32Array([
-	+0.5, +0.5, -0.5,
-	-0.5, +0.5, -0.5,
-	+0.5, -0.5, -0.5,
-	-0.5, -0.5, -0.5,
-	+0.5, +0.5, +0.5,
-	-0.5, +0.5, +0.5,
-	-0.5, -0.5, +0.5,
-	+0.5, -0.5, +0.5,
-]);
 const indices = new Uint16Array([
 	3, 2,
 	6, 7,
@@ -24,56 +13,50 @@ const indices = new Uint16Array([
 	5, 4,
 	1, 0
 ]);
+const unitsPerMs = minCellSize / 1e3;
+const unitsPerDollar = minCellSize * 100e3;
 
 export class OHLCV {
 	device: GPUDevice;
 	camera: Camera;
 	pipeline: GPURenderPipeline;
-	vertexBuffer: GPUBuffer;
 	indexBuffer: GPUBuffer;
-	instanceBufferPos?: GPUBuffer;
-	instanceBufferScale?: GPUBuffer;
+	instanceMinPos?: GPUBuffer;
+	instanceMaxPos?: GPUBuffer;
+	instanceColor?: GPUBuffer;
 	nInstances = 0;
 
 	constructor(device: GPUDevice, camera: Camera) {
 		this.device = device;
 		this.camera = camera;
 		this.pipeline = device.createRenderPipeline({
+			label: 'ohlcv pipeline',
 			layout: camera.gpu.layout,
 			vertex: {
-				module: device.createShaderModule({ code: vertCode }),
-				entryPoint: 'main',
+				module: device.createShaderModule({ code }),
+				entryPoint: 'vert',
 				buffers: [
 					{
-						arrayStride: 3 * 4,
-						attributes: [
-							{ format: 'float32x3', offset: 0, shaderLocation: 0 },
-						]
+						arrayStride: 4 * 3,
+						stepMode: 'instance',
+						attributes: [{ format: 'float32x3', offset: 0, shaderLocation: 0 }]
 					},
 					{
-						arrayStride: 3 * 4,
+						arrayStride: 4 * 3,
 						stepMode: 'instance',
-						attributes: [
-							{ format: 'float32x3', offset: 0, shaderLocation: 1 },
-						]
+						attributes: [{ format: 'float32x3', offset: 0, shaderLocation: 1 }]
 					},
 					{
-						arrayStride: 3 * 4,
+						arrayStride: 4 * 3,
 						stepMode: 'instance',
-						attributes: [
-							{ format: 'float32x3', offset: 0, shaderLocation: 2 },
-						]
+						attributes: [{ format: 'float32x3', offset: 0, shaderLocation: 2 }]
 					},
 				],
 			},
 			fragment: {
-				module: device.createShaderModule({ code: fragCode }),
-				entryPoint: 'main',
-				targets: [
-					{
-						format: presentationFormat,
-					},
-				],
+				module: device.createShaderModule({ code }),
+				entryPoint: 'frag',
+				targets: [{ format: presentationFormat }],
 			},
 			depthStencil: {
 				depthWriteEnabled: true,
@@ -85,16 +68,9 @@ export class OHLCV {
 				stripIndexFormat: 'uint16',
 				cullMode: 'none',
 			},
-			multisample: {
-				count: sampleCount
-			},
+			multisample: { count: sampleCount },
 		});
 
-		this.vertexBuffer = createBuffer({
-			device,
-			data: vertices,
-			label: 'ohlcv vertex buffer'
-		});
 		this.indexBuffer = createBuffer({
 			device,
 			usage: GPUBufferUsage.INDEX,
@@ -104,47 +80,78 @@ export class OHLCV {
 		});
 	}
 
-	setAggs(aggs: Aggregate[]) {
-		if (aggs.length === 0) {
-			this.nInstances = 0;
-			return;
-		}
-		const instancePos = new Float32Array(aggs.length * 3);
-		const instanceScale = new Float32Array(aggs.length * 3);
-		const firstTs = aggs[0].time;
-		for (let i = 0; i < aggs.length; i++) {
-			const agg = aggs[i];
-			const x = (agg.time - firstTs) / 86400000;
-			const y = (agg.close - agg.open) / 2;
-			const z = 0.5;
-			instancePos.set([x, y, z], i * 3);
-			instanceScale.set([1, (agg.close - agg.open), 1], i * 3);
-		}
+	setAggs(aggs: Aggregate[], bounds: Bounds, aggMs: number): Bounds {
+		const res: Bounds = {
+			x: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
+			y: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
+			z: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
+		};
+		const round = (x: number) => Math.trunc(x / aggMs) * aggMs;
+		const firstX = round(aggs[0].time);
+		const midX = (round(bounds.x.max) - round(bounds.x.min)) / 2;
+		const midY = (bounds.y.max - bounds.y.min) / 2;
+		console.log(midX, midY)
+		if (aggs.length > 0) {
+			const instanceMinPos = new Float32Array(aggs.length * 3);
+			const instanceMaxPos = new Float32Array(aggs.length * 3);
+			const instanceColor = new Float32Array(aggs.length * 3);
+			var agg;
+			for (let i = 0; i < aggs.length; i++) {
+				agg = aggs[i];
+				const minX = (round(agg.time) - firstX - midX) * unitsPerMs;
+				const maxX = minX + unitsPerMs * aggMs;
+				const minY = (Math.min(agg.close, agg.open) - midY) * unitsPerDollar;
+				const maxY = (Math.max(agg.close, agg.open) - midY) * unitsPerDollar;
+				const minZ = 0;
+				const maxZ = Math.log(agg.volume);
+				let color = [1, 1, 1];
+				if (agg.close > agg.open) color = [0, 1, 0];
+				else if (agg.close < agg.open) color = [1, 0, 0];
 
-		if (this.instanceBufferPos) this.instanceBufferPos.destroy();
-		this.instanceBufferPos = createBuffer({
-			device: this.device,
-			data: instancePos,
-			label: 'ohlcv instance buffer positions',
-		});
+				if (minX < res.x.min) res.x.min = minX;
+				if (maxX > res.x.max) res.x.max = maxX;
+				if (minY < res.y.min) res.y.min = minY;
+				if (maxY > res.y.max) res.y.max = maxY;
+				if (minZ < res.z.min) res.z.min = minZ;
+				if (maxZ > res.z.max) res.z.max = maxZ;
+				instanceMinPos.set([minX, minY, minZ], i * 3);
+				instanceMaxPos.set([maxX, maxY, maxZ], i * 3);
+				instanceColor.set(color, i * 3);
+			}
 
-		if (this.instanceBufferScale) this.instanceBufferScale.destroy();
-		this.instanceBufferScale = createBuffer({
-			device: this.device,
-			data: instanceScale,
-			label: 'ohlcv instance buffer scales',
-		});
+			if (this.instanceMinPos) this.instanceMinPos.destroy();
+			this.instanceMinPos = createBuffer({
+				device: this.device,
+				data: instanceMinPos,
+				label: 'ohlcv instance buffer minPos',
+			});
+
+			if (this.instanceMaxPos) this.instanceMaxPos.destroy();
+			this.instanceMaxPos = createBuffer({
+				device: this.device,
+				data: instanceMaxPos,
+				label: 'ohlcv instance buffer maxPos',
+			});
+
+			if (this.instanceColor) this.instanceColor.destroy();
+			this.instanceColor = createBuffer({
+				device: this.device,
+				data: instanceColor,
+				label: 'ohlcv instance buffer color',
+			});
+		}
 
 		this.nInstances = aggs.length;
+		return res;
 	}
 
 	render(pass: GPURenderPassEncoder): void {
-		if (!this.instanceBufferPos || !this.instanceBufferScale) return;
+		if (!this.instanceMinPos || !this.instanceMaxPos || !this.instanceColor) return;
 		pass.setPipeline(this.pipeline);
 		pass.setBindGroup(0, this.camera.gpu.bindGroup);
-		pass.setVertexBuffer(0, this.vertexBuffer);
-		pass.setVertexBuffer(1, this.instanceBufferPos);
-		pass.setVertexBuffer(2, this.instanceBufferScale);
+		pass.setVertexBuffer(0, this.instanceMinPos);
+		pass.setVertexBuffer(1, this.instanceMaxPos);
+		pass.setVertexBuffer(2, this.instanceColor);
 		pass.setIndexBuffer(this.indexBuffer, 'uint16');
 		pass.drawIndexed(indices.length, this.nInstances);
 	}
