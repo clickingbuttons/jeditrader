@@ -68,5 +68,6 @@ fn max2(v: vec2f) -> f32 { return max(v.x, v.y); }
 	if (uv.x > -dudv.x && uv.x < dudv.x) { res.y = 0.4; }
 	if (uv.y > -dudv.y && uv.y < dudv.y) { res.x = 0.4; }
 
+	return axes.colorThin;
 	return res;
 }

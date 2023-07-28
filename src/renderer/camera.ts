@@ -25,10 +25,10 @@ function mat4Print(mat4: mat4.default) {
 }
 
 export class Camera {
-	eye = vec3.create(3800, -5000, 21000);
+	eye = vec3.create(.1, -1.8, 1.8);
 	up = vec3.create(0, 0, 1);
-	pitch = -1.34;
-	yaw = 0.015;
+	pitch = -0.75;
+	yaw = 0.016;
 
 	canvas: HTMLCanvasElement; // For aspect ratio
 	gpu: CameraGPU; // For convienence
@@ -116,8 +116,8 @@ export class Camera {
 		);
 		const target = vec3.add(this.eye, this.direction);
 		const view = mat4.lookAt(this.eye, target, this.up);
-		const zNear = absZ > 1 ? Math.sqrt(absZ) : absZ ** 2;
-		const zFar = absZ * 1e3;
+		const zNear = absZ > 1 ? Math.sqrt(absZ) : absZ / 8;
+		const zFar = absZ > 1 ? absZ * 1e3 : Math.sqrt(absZ) * 8;
 		if (input.buttons.mouse1) console.log('z', zNear, zFar);
 		const proj = mat4.perspective(
 			utils.degToRad(90),

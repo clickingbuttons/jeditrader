@@ -14,8 +14,8 @@ const indices = new Uint16Array([
 	5, 4,
 	1, 0
 ]);
-const unitsPerMs = minCellSize / 1e3;
-const unitsPerDollar = minCellSize * 100e3;
+const unitsPerMs = minCellSize;
+const unitsPerDollar = minCellSize * 2e9;
 
 export class OHLCV {
 	device: GPUDevice;
@@ -78,11 +78,11 @@ export class OHLCV {
 			z: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
 		};
 		if (aggs.length > 0) {
-			const instanceMinPos = new Float32Array(aggs.length * 3 + 3);
-			const instanceMinPosLow = new Float32Array(aggs.length * 3 + 3);
-			const instanceMaxPos = new Float32Array(aggs.length * 3 + 3);
-			const instanceMaxPosLow = new Float32Array(aggs.length * 3 + 3);
-			const instanceColor = new Float32Array(aggs.length * 3 + 3);
+			const instanceMinPos = new Float32Array(aggs.length * 3 + 6);
+			const instanceMinPosLow = new Float32Array(aggs.length * 3 + 6);
+			const instanceMaxPos = new Float32Array(aggs.length * 3 + 6);
+			const instanceMaxPosLow = new Float32Array(aggs.length * 3 + 6);
+			const instanceColor = new Float32Array(aggs.length * 3 + 6);
 
 			const midX = (bounds.x.max - bounds.x.min) / 2;
 			const midY = (bounds.y.max - bounds.y.min) / 2;
@@ -120,6 +120,7 @@ export class OHLCV {
 
 			if (this.instanceMinPos) this.instanceMinPos.destroy();
 			instanceMinPos.set([0, 0, 0], aggs.length * 3);
+			instanceMinPos.set([-minCellSize, -minCellSize, 0], aggs.length * 3 - 3);
 			this.instanceMinPos = createBuffer({
 				device: this.device,
 				data: instanceMinPos,
@@ -127,6 +128,7 @@ export class OHLCV {
 			});
 			if (this.instanceMinPosLow) this.instanceMinPosLow.destroy();
 			instanceMinPosLow.set([0, 0, 0], aggs.length * 3);
+			instanceMinPosLow.set([0, 0, 0], aggs.length * 3 - 3);
 			this.instanceMinPosLow = createBuffer({
 				device: this.device,
 				data: instanceMinPosLow,
@@ -135,6 +137,7 @@ export class OHLCV {
 
 			if (this.instanceMaxPos) this.instanceMaxPos.destroy();
 			instanceMaxPos.set([1, 1, 1], aggs.length * 3);
+			instanceMaxPos.set([0, 0, minCellSize], aggs.length * 3 - 3);
 			this.instanceMaxPos = createBuffer({
 				device: this.device,
 				data: instanceMaxPos,
@@ -142,6 +145,7 @@ export class OHLCV {
 			});
 			if (this.instanceMaxPosLow) this.instanceMaxPosLow.destroy();
 			instanceMaxPosLow.set([0, 0, 0], aggs.length * 3);
+			instanceMaxPosLow.set([0, 0, 0], aggs.length * 3 - 3);
 			this.instanceMaxPosLow = createBuffer({
 				device: this.device,
 				data: instanceMaxPosLow,
@@ -150,6 +154,7 @@ export class OHLCV {
 
 			if (this.instanceColor) this.instanceColor.destroy();
 			instanceColor.set([0, 0, 1], aggs.length * 3);
+			instanceColor.set([0, 1, 1], aggs.length * 3 - 3);
 			this.instanceColor = createBuffer({
 				device: this.device,
 				data: instanceColor,
