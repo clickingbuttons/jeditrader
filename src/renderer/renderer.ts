@@ -116,12 +116,12 @@ export class Renderer {
 						storeOp: 'store',
 					},
 				],
-				depthStencilAttachment: {
-					view: depthTextureView,
-					depthClearValue: 1.0,
-					depthLoadOp: 'clear',
-					depthStoreOp: 'store',
-				},
+				// depthStencilAttachment: {
+				// 	view: depthTextureView,
+				// 	depthClearValue: 1.0,
+				// 	depthLoadOp: 'clear',
+				// 	depthStoreOp: 'store',
+				// },
 			};
 			const pass = commandEncoder.beginRenderPass(renderPassDescriptor);
 			axes.render(pass);

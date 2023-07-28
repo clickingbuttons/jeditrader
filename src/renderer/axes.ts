@@ -65,11 +65,11 @@ export class Axes {
 				entryPoint: 'frag',
 				targets: [{ format: presentationFormat }],
 			},
-			depthStencil: {
-				depthWriteEnabled: false,
-				depthCompare: 'less',
-				format: 'depth24plus',
-			},
+			// depthStencil: {
+			// 	depthWriteEnabled: false,
+			// 	depthCompare: 'less',
+			// 	format: 'depth24plus',
+			// },
 			primitive: {
 				topology: 'triangle-strip',
 				stripIndexFormat: 'uint16',
