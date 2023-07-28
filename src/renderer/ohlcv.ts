@@ -14,7 +14,7 @@ const indices = new Uint16Array([
 	5, 4,
 	1, 0
 ]);
-const unitsPerMs = minCellSize / 1e6;
+const unitsPerMs = minCellSize / 1e3;
 const unitsPerDollar = minCellSize * 100e3;
 
 export class OHLCV {

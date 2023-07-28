@@ -30,13 +30,9 @@
   },
   "dependencies": {
     "@polygon.io/client-js": "^7.2.5",
-    "arcball_camera": "^1.0.1",
     "date-fns-tz": "^2.0.0",
-    "ez_canvas_controller": "^1.0.0",
-    "gl-matrix": "^3.4.3",
     "preact": "^10.16.0",
     "preact-router": "^4.1.2",
-    "webgl-utils": "^1.0.1",
     "wgpu-matrix": "^2.4.2"
   }
 }
