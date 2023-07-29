@@ -15,10 +15,25 @@ struct VertexOutput {
 	@location(1) uvLow: vec2f,
 }
 
+fn vertex(index: u32, minPos: vec3f, maxPos: vec3f) -> vec3f {
+	switch (index % 4u) {
+		case 0u: { return vec3f(minPos.x, minPos.y, maxPos.z); }
+		case 1u: { return vec3f(maxPos.x, minPos.y, minPos.z); }
+		case 2u: { return vec3f(maxPos.x, maxPos.y, maxPos.z); }
+		case 3u: { return vec3f(minPos.x, maxPos.y, minPos.z); }
+		default: { return vec3f(0.0); }
+	}
+}
+
 @vertex fn vert(
-	@location(0) position: vec3f,
-	@location(1) positionLow: vec3f
+	@builtin(vertex_index) index: u32,
+	@location(0) minPos: vec3f,
+	@location(1) minPosLow: vec3f,
+	@location(2) maxPos: vec3f,
+	@location(3) maxPosLow: vec3f
 ) -> VertexOutput {
+	let position = vertex(index, minPos, maxPos);
+	let positionLow = vertex(index, minPosLow, maxPosLow);
 	let position64 = dsFun90(position, positionLow);
 	return VertexOutput(
 		camera.mvp * vec4f(position64, 1.0),
@@ -68,6 +83,5 @@ fn max2(v: vec2f) -> f32 { return max(v.x, v.y); }
 	if (uv.x > -dudv.x && uv.x < dudv.x) { res.y = 0.4; }
 	if (uv.y > -dudv.y && uv.y < dudv.y) { res.x = 0.4; }
 
-	return axes.colorThin;
 	return res;
 }

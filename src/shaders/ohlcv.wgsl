@@ -21,19 +21,19 @@ fn vertex(index: u32, minPos: vec3f, maxPos: vec3f) -> vec3f {
 
 @vertex fn vert(
 	@builtin(vertex_index) index: u32,
-	@location(0) instanceMinPos: vec3f,
-	@location(1) instanceMinPosLow: vec3f,
-	@location(2) instanceMaxPos: vec3f,
-	@location(3) instanceMaxPosLow: vec3f,
-	@location(4) instanceColor: vec3f,
+	@location(0) minPos: vec3f,
+	@location(1) minPosLow: vec3f,
+	@location(2) maxPos: vec3f,
+	@location(3) maxPosLow: vec3f,
+	@location(4) color: vec3f,
 ) -> VertexOutput {
-	let position = vertex(index, instanceMinPos, instanceMaxPos);
-	let positionLow = vertex(index, instanceMinPosLow, instanceMaxPosLow);
+	let position = vertex(index, minPos, maxPos);
+	let positionLow = vertex(index, minPosLow, maxPosLow);
 	let position64 = dsFun90(position, positionLow);
 
 	return VertexOutput(
 		camera.mvp * vec4f(position64, 1.0),
-		vec4f(instanceColor, 1.0),
+		vec4f(color, 1.0),
 	);
 }
 

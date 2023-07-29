@@ -21,12 +21,12 @@ export class OHLCV {
 	device: GPUDevice;
 	camera: Camera;
 	pipeline: GPURenderPipeline;
-	indexBuffer: GPUBuffer;
-	instanceMinPos?: GPUBuffer;
-	instanceMinPosLow?: GPUBuffer;
-	instanceMaxPos?: GPUBuffer;
-	instanceMaxPosLow?: GPUBuffer;
-	instanceColor?: GPUBuffer;
+	indices: GPUBuffer;
+	minPos?: GPUBuffer;
+	minPosLow?: GPUBuffer;
+	maxPos?: GPUBuffer;
+	maxPosLow?: GPUBuffer;
+	color?: GPUBuffer;
 	nInstances = 0;
 
 	constructor(device: GPUDevice, camera: Camera) {
@@ -62,7 +62,7 @@ export class OHLCV {
 			multisample: { count: sampleCount },
 		});
 
-		this.indexBuffer = createBuffer({
+		this.indices = createBuffer({
 			device,
 			usage: GPUBufferUsage.INDEX,
 			data: indices,
@@ -118,44 +118,44 @@ export class OHLCV {
 				instanceColor.set(color, i * 3);
 			}
 
-			if (this.instanceMinPos) this.instanceMinPos.destroy();
+			if (this.minPos) this.minPos.destroy();
 			instanceMinPos.set([0, 0, 0], aggs.length * 3);
 			instanceMinPos.set([-minCellSize, -minCellSize, 0], aggs.length * 3 - 3);
-			this.instanceMinPos = createBuffer({
+			this.minPos = createBuffer({
 				device: this.device,
 				data: instanceMinPos,
 				label: 'ohlcv instance buffer minPos',
 			});
-			if (this.instanceMinPosLow) this.instanceMinPosLow.destroy();
+			if (this.minPosLow) this.minPosLow.destroy();
 			instanceMinPosLow.set([0, 0, 0], aggs.length * 3);
 			instanceMinPosLow.set([0, 0, 0], aggs.length * 3 - 3);
-			this.instanceMinPosLow = createBuffer({
+			this.minPosLow = createBuffer({
 				device: this.device,
 				data: instanceMinPosLow,
 				label: 'ohlcv instance buffer minPosLow',
 			});
 
-			if (this.instanceMaxPos) this.instanceMaxPos.destroy();
+			if (this.maxPos) this.maxPos.destroy();
 			instanceMaxPos.set([1, 1, 1], aggs.length * 3);
 			instanceMaxPos.set([0, 0, minCellSize], aggs.length * 3 - 3);
-			this.instanceMaxPos = createBuffer({
+			this.maxPos = createBuffer({
 				device: this.device,
 				data: instanceMaxPos,
 				label: 'ohlcv instance buffer maxPos',
 			});
-			if (this.instanceMaxPosLow) this.instanceMaxPosLow.destroy();
+			if (this.maxPosLow) this.maxPosLow.destroy();
 			instanceMaxPosLow.set([0, 0, 0], aggs.length * 3);
 			instanceMaxPosLow.set([0, 0, 0], aggs.length * 3 - 3);
-			this.instanceMaxPosLow = createBuffer({
+			this.maxPosLow = createBuffer({
 				device: this.device,
 				data: instanceMaxPosLow,
 				label: 'ohlcv instance buffer maxPosLow',
 			});
 
-			if (this.instanceColor) this.instanceColor.destroy();
+			if (this.color) this.color.destroy();
 			instanceColor.set([0, 0, 1], aggs.length * 3);
-			instanceColor.set([0, 1, 1], aggs.length * 3 - 3);
-			this.instanceColor = createBuffer({
+			instanceColor.set([1, 1, 0], aggs.length * 3 - 3);
+			this.color = createBuffer({
 				device: this.device,
 				data: instanceColor,
 				label: 'ohlcv instance buffer color',
@@ -168,20 +168,20 @@ export class OHLCV {
 
 	render(pass: GPURenderPassEncoder): void {
 		if (
-			!this.instanceMinPos ||
-			!this.instanceMinPosLow ||
-			!this.instanceMaxPos ||
-			!this.instanceMaxPosLow ||
-			!this.instanceColor
+			!this.minPos ||
+			!this.minPosLow ||
+			!this.maxPos ||
+			!this.maxPosLow ||
+			!this.color
 		) return;
 		pass.setPipeline(this.pipeline);
 		pass.setBindGroup(0, this.camera.gpu.bindGroup);
-		pass.setVertexBuffer(0, this.instanceMinPos);
-		pass.setVertexBuffer(1, this.instanceMinPosLow);
-		pass.setVertexBuffer(2, this.instanceMaxPos);
-		pass.setVertexBuffer(3, this.instanceMaxPosLow);
-		pass.setVertexBuffer(4, this.instanceColor);
-		pass.setIndexBuffer(this.indexBuffer, 'uint16');
+		pass.setVertexBuffer(0, this.minPos);
+		pass.setVertexBuffer(1, this.minPosLow);
+		pass.setVertexBuffer(2, this.maxPos);
+		pass.setVertexBuffer(3, this.maxPosLow);
+		pass.setVertexBuffer(4, this.color);
+		pass.setIndexBuffer(this.indices, 'uint16');
 		pass.drawIndexed(indices.length, this.nInstances);
 	}
 }
