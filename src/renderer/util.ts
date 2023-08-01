@@ -1,3 +1,5 @@
+import { Range } from '../providers/provider';
+
 export async function compileShader(device: GPUDevice, code: string) {
 	var shaderModule = device.createShaderModule({ code });
 	var compilationInfo = await shaderModule.getCompilationInfo();
@@ -19,6 +21,7 @@ export async function compileShader(device: GPUDevice, code: string) {
 
 export const sampleCount = 4;
 export const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+export const depthFormat: GPUTextureFormat = 'depth32float';
 
 interface TypedArray {
 	readonly BYTES_PER_ELEMENT: number;
@@ -31,7 +34,7 @@ interface TypedArray {
 export function createBuffer({
 	device,
 	usage = GPUBufferUsage.VERTEX,
-	data,
+	data = new Float32Array(0),
 	arrayTag = 'f32',
 	label,
 }: {
@@ -78,34 +81,6 @@ export function createBuffer({
 	res.unmap()
 
 	return res;
-}
-
-export function createBuffer4(
-	device: GPUDevice,
-	data: TypedArray,
-	label?: string
-): GPUBuffer {
-	const res = device.createBuffer({
-		label,
-		size: data.byteLength,
-		usage: GPUBufferUsage.VERTEX,
-		mappedAtCreation: true
-	});
-	new Int32Array(res.getMappedRange()).set(data);
-	res.unmap()
-
-	return res;
-}
-
-export interface Range {
-	min: number;
-	max: number;
-}
-
-export interface Bounds {
-	x: Range;
-	y: Range;
-	z: Range;
 }
 
 export function align(n: number, alignment: number) {

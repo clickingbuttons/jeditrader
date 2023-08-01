@@ -1,11 +1,12 @@
 import { setCookie } from './cookies';
-import { restClient } from "@polygon.io/client-js";
 import { useState } from 'preact/hooks';
+import { Polygon } from './providers/polygon';
+import { toymd } from './helpers';
 
 export async function isValidAPIKey(apiKey?: string): Promise<Boolean> {
 	if (typeof apiKey !== 'string' || apiKey.length === 0) return false;
-	const client = restClient(apiKey);
-	return client.reference.tickerDetails('AAPL')
+	const client = new Polygon(apiKey);
+	return client.year('AAPL', '2020-01-01', toymd(new Date()))
 		.then(() => true)
 		.catch(() => false);
 }
@@ -32,7 +33,7 @@ export function Signin({ path, apiKey, setAPIKey }) {
 			<input type="submit" value="Submit" />
 			<br />
 			<br />
-			<div>This is the only cookie saved on this site. Lasts forever.</div>
+			<div>This is the only cookie saved on this site. Lasts 1 year.</div>
 			<div>{error}</div>
 		</form>
 	);

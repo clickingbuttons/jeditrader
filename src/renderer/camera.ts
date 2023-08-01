@@ -25,10 +25,14 @@ function mat4Print(mat4: mat4.default) {
 }
 
 export class Camera {
-	eye = vec3.create(-.8, -29, 28);
+	eye = vec3.create(
+693120483.9616739,
+36268462.87449349,
+163448196.60386318,
+	);
 	up = vec3.create(0, 0, 1);
-	pitch = -0.75;
-	yaw = 0.016;
+	pitch = -1.398;
+	yaw = -0.011;
 
 	canvas: HTMLCanvasElement; // For aspect ratio
 	gpu: CameraGPU; // For convienence
@@ -41,7 +45,6 @@ export class Camera {
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
 		});
 		const bindGroupLayout = device.createBindGroupLayout({
-			label: 'camera bind group layout',
 			entries: [
 				{
 					binding: 0,
@@ -51,22 +54,15 @@ export class Camera {
 			]
 		});
 		const bindGroup = device.createBindGroup({
-			label: 'camera bind group',
 			layout: bindGroupLayout,
-			entries: [{
-				binding: 0,
-				resource: { buffer }
-			}]
+			entries: [{ binding: 0, resource: { buffer } }]
 		});
 		this.gpu = {
 			device,
 			buffer,
 			bindGroupLayout,
 			bindGroup,
-			layout: device.createPipelineLayout({
-				label: 'camera uniform pipeline layout',
-				bindGroupLayouts: [bindGroupLayout]
-			}),
+			layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
 		};
 	}
 
@@ -116,8 +112,8 @@ export class Camera {
 		);
 		const target = vec3.add(this.eye, this.direction);
 		const view = mat4.lookAt(this.eye, target, this.up);
-		const zNear = window.zNear || absZ > 1 ? Math.sqrt(absZ) : absZ / 8;
-		const zFar = window.zFar || absZ > 1 ? absZ * 1e3 : Math.sqrt(absZ) * 8;
+		const zNear = absZ > 1 ? Math.sqrt(absZ) : absZ / 8;
+		const zFar = absZ > 1 ? absZ * 1e3 : Math.sqrt(absZ) * 8;
 		if (input.buttons.mouse1) console.log('z', zNear, zFar);
 		const proj = mat4.perspective(
 			utils.degToRad(90),

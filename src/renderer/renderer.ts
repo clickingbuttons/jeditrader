@@ -2,136 +2,189 @@ import { mat4, vec3 } from 'wgpu-matrix';
 import { Camera } from './camera';
 import { Axes } from './axes';
 import { OHLCV } from './ohlcv';
-import { presentationFormat, sampleCount, Bounds } from './util';
+import { depthFormat, presentationFormat, sampleCount } from './util';
 import { Input } from './input';
-import { Aggregate } from '../helpers';
+import { Provider, Aggregate, AggBounds } from '../providers/provider';
+import { Lods } from './lod';
+import { toymd, debounce } from '../helpers';
 
 // We need the extra precision since there are ~630 billion milliseconds to potentially render.
 mat4.setDefaultType(Float64Array);
 vec3.setDefaultType(Float64Array);
 
-function getBounds(aggs: Aggregate[]): Bounds {
-	const res: Bounds = {
-		x: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
-		y: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
-		z: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
-	};
-	var agg;
-	for (let i = 0; i < aggs.length; i++) {
-		agg = aggs[i];
-		if (agg.time < res.x.min) res.x.min = agg.time;
-		if (agg.time > res.x.max) res.x.max = agg.time;
-		if (agg.low < res.y.min) res.y.min = agg.low;
-		if (agg.high > res.y.max) res.y.max = agg.high;
-		if (agg.volume < res.z.min) res.z.min = agg.volume;
-		if (agg.volume > res.z.max) res.z.max = agg.volume;
-	}
-	return res;
-}
-
 export class Renderer {
-	ohlcv?: OHLCV;
-	axes?: Axes;
+	canvas: HTMLCanvasElement;
+	device: GPUDevice;
+	context: GPUCanvasContext;
+	renderTarget: GPUTexture;
+	renderTargetView: GPUTextureView;
+	depthTexture: GPUTexture;
+	depthTextureView: GPUTextureView;
+	forceRender = true;
+	lastTime = performance.now();
 
-	setAggs(aggs: Aggregate[]) {
-		if (aggs.length === 0) return;
-		if (!this.ohlcv || !this.axes) throw new Error('aggs fetched too fast')
-		let bounds = getBounds(aggs);
-		console.log('bounds', bounds);
-		bounds = this.ohlcv.setAggs(aggs, bounds, 86400000);
-		console.log('world bounds', bounds)
-		this.axes.setBounds(bounds);
+	provider: Provider;
+	input: Input;
+	camera: Camera;
+	ohlcv: OHLCV;
+	axes: Axes;
+	lods = new Lods();
+
+	private constructor(
+		canvas: HTMLCanvasElement,
+		device: GPUDevice,
+		context: GPUCanvasContext,
+		provider: Provider,
+	) {
+		this.canvas = canvas;
+		this.device = device;
+		this.context = context;
+		this.renderTarget = this.createRenderTarget();
+		this.renderTargetView = this.renderTarget.createView();
+		this.depthTexture = this.createDepthTarget();
+		this.depthTextureView = this.depthTexture.createView();
+		this.provider = provider;
+		this.input = new Input(canvas);
+		this.camera = new Camera(canvas, this.device);
+		this.ohlcv = new OHLCV(this.device, this.camera, this.lods);
+		this.axes = new Axes(this.device, this.camera, this.lods);
+
+		const observer = new ResizeObserver(debounce(this.onResize.bind(this)));
+		observer.observe(canvas);
 	}
 
-	async render(canvas: HTMLCanvasElement) {
+	onResize(entries: ResizeObserverEntry[]) {
+		console.log('onResize')
+		const entry = entries[0];
+		const canvas = entry.target as HTMLCanvasElement;
+		const width = entry.contentBoxSize[0].inlineSize;
+		const height = entry.contentBoxSize[0].blockSize;
+		canvas.width = Math.max(1, Math.min(width, this.device.limits.maxTextureDimension2D));
+		canvas.height = Math.max(1, Math.min(height, this.device.limits.maxTextureDimension2D));
+
+		this.renderTarget.destroy();
+		this.renderTarget = this.createRenderTarget();
+		this.renderTargetView = this.renderTarget.createView();
+
+		this.depthTexture.destroy();
+		this.depthTexture = this.createDepthTarget();
+		this.depthTextureView = this.depthTexture.createView();
+	}
+
+	onData(aggs: Aggregate[], lodName: string, aggBounds: AggBounds) {
+		const lodIndex = this.lods.lods.findIndex(l => l.name === lodName);
+		const lod = this.lods.lods[lodIndex];
+		if (!lod) throw new Error('unknown lod ' + lodName);
+
+		lod.aggs = aggs;
+		lod.aggBounds = aggBounds;
+		this.axes.update(true);
+		this.ohlcv.update(true);
+		this.forceRender = true;
+	}
+
+	setTicker(ticker: string) {
+		const from = '1970-01-01';
+		const to = toymd(new Date());
+
+		// These are cheap to call. Network boundary is most of overhead.
+		// TODO: make month + year aggs from daily aggs
+		this.provider.year(ticker, from, to).then(({ aggs, bounds }) => {
+			this.onData(aggs, 'year', bounds);
+		});
+		this.provider.month(ticker, from, to).then(({ aggs, bounds }) => {
+			this.onData(aggs, 'month', bounds);
+		});
+		this.provider.week(ticker, from, to).then(({ aggs, bounds }) => {
+			this.onData(aggs, 'week', bounds);
+		});
+		this.provider.day(ticker, from, to).then(({ aggs, bounds }) => {
+			this.onData(aggs, 'day', bounds);
+		});
+	}
+
+	createRenderTarget() {
+		return this.device.createTexture({
+			size: [this.canvas.width, this.canvas.height],
+			sampleCount,
+			format: presentationFormat,
+			usage: GPUTextureUsage.RENDER_ATTACHMENT,
+		})
+	}
+
+	createDepthTarget() {
+		return this.device.createTexture({
+			size: [this.canvas.width, this.canvas.height],
+			sampleCount,
+			format: depthFormat,
+			usage: GPUTextureUsage.RENDER_ATTACHMENT,
+		});
+	}
+
+	frame(time: DOMHighResTimeStamp): void {
+		const dt = time - this.lastTime;
+		this.lastTime = time;
+
+		this.camera.update(dt, this.input);
+		const newLod = this.lods.update(this.camera.eye[2]);
+		this.axes.update(newLod);
+		this.ohlcv.update(newLod);
+		this.input.update();
+		// Save CPU
+		if (!this.input.focused && !this.forceRender) {
+			requestAnimationFrame(this.frame.bind(this));
+			return;
+		}
+
+		const commandEncoder = this.device.createCommandEncoder();
+		const renderPassDescriptor: GPURenderPassDescriptor = {
+			colorAttachments: [
+				{
+					view: this.renderTargetView,
+					resolveTarget: this.context.getCurrentTexture().createView(),
+					clearValue: { r: 135 / 255, g: 206 / 255, b: 235 / 255, a: 1.0 },
+					loadOp: 'clear',
+					storeOp: 'store',
+				},
+			],
+			depthStencilAttachment: {
+				view: this.depthTextureView,
+				depthClearValue: 1.0,
+				depthLoadOp: 'clear',
+				depthStoreOp: 'store',
+			},
+		};
+		const pass = commandEncoder.beginRenderPass(renderPassDescriptor);
+		this.axes.render(pass);
+		this.ohlcv.render(pass);
+		pass.end();
+		this.device.queue.submit([commandEncoder.finish()]);
+
+		this.forceRender = false;
+		requestAnimationFrame(this.frame.bind(this));
+	}
+
+	render() {
+		requestAnimationFrame(this.frame.bind(this));
+	}
+
+	static error(canvas: HTMLCanvasElement, msg: string) {
+		canvas.innerText = msg;
+		return new Error(msg);
+	}
+
+	static async init(canvas: HTMLCanvasElement, provider: Provider) {
 		if (navigator.gpu === undefined)
-			throw new Error('WebGPU is not supported/enabled in your browser');
+			throw Renderer.error(canvas, 'WebGPU is not supported/enabled in your browser');
 
 		var adapter = await navigator.gpu.requestAdapter();
-		if (adapter === null) throw new Error('No WebGPU adapter');
+		if (adapter === null) throw Renderer.error(canvas, 'No WebGPU adapter');
 		var device = await adapter.requestDevice();
 		var context = canvas.getContext('webgpu');
-		if (context === null) throw new Error('No WebGPU context');
+		if (context === null) throw Renderer.error(canvas, 'No WebGPU context');
 		context.configure({ device, format: presentationFormat });
 
-		const input = new Input(canvas);
-		var camera = new Camera(canvas, device);
-
-		const ohlcv = new OHLCV(device, camera);
-		this.ohlcv = ohlcv;
-		const axes = new Axes(device, camera);
-		this.axes = axes;
-		console.log('render');
-
-		let renderTarget: GPUTexture | undefined = undefined;
-		let renderTargetView: GPUTextureView;
-		let depthTexture: GPUTexture | undefined = undefined;
-		let depthTextureView: GPUTextureView;
-
-		let lastTime = performance.now();
-		function frame(time: DOMHighResTimeStamp) {
-			const dt = time - lastTime;
-			lastTime = time;
-			const currentWidth = canvas.clientWidth * devicePixelRatio;
-			const currentHeight = canvas.clientHeight * devicePixelRatio;
-
-			if (
-				currentWidth !== canvas.width ||
-				currentHeight !== canvas.height ||
-				renderTarget === undefined
-			) {
-				if (renderTarget !== undefined) renderTarget.destroy();
-
-				canvas.width = currentWidth;
-				canvas.height = currentHeight;
-
-				renderTarget = device.createTexture({
-					size: [canvas.width, canvas.height],
-					sampleCount,
-					format: presentationFormat,
-					usage: GPUTextureUsage.RENDER_ATTACHMENT,
-				});
-				depthTexture = device.createTexture({
-					size: [canvas.width, canvas.height],
-					sampleCount,
-					format: 'depth24plus',
-					usage: GPUTextureUsage.RENDER_ATTACHMENT,
-				});
-
-				renderTargetView = renderTarget.createView();
-				depthTextureView = depthTexture.createView();
-			}
-
-			camera.update(dt, input);
-			input.update();
-
-			const commandEncoder = device.createCommandEncoder();
-			const renderPassDescriptor: GPURenderPassDescriptor = {
-				colorAttachments: [
-					{
-						view: renderTargetView,
-						resolveTarget: context?.getCurrentTexture().createView(),
-						clearValue: { r: 135 / 255, g: 206 / 255, b: 235 / 255, a: 1.0 },
-						loadOp: 'clear',
-						storeOp: 'store',
-					},
-				],
-				// depthStencilAttachment: {
-				// 	view: depthTextureView,
-				// 	depthClearValue: 1.0,
-				// 	depthLoadOp: 'clear',
-				// 	depthStoreOp: 'store',
-				// },
-			};
-			const pass = commandEncoder.beginRenderPass(renderPassDescriptor);
-			axes.render(pass);
-			ohlcv.render(pass);
-			pass.end();
-			device.queue.submit([commandEncoder.finish()]);
-
-			requestAnimationFrame(frame);
-		}
-		requestAnimationFrame(frame);
+		return new Renderer(canvas, device, context, provider);
 	}
 };
 

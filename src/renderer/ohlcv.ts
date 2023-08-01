@@ -1,8 +1,8 @@
 import { vec3 } from 'wgpu-matrix';
 import { Camera } from './camera';
-import { presentationFormat, sampleCount, createBuffer, Bounds } from './util';
-import { Aggregate } from '../helpers';
-import { minCellSize } from './axes';
+import { presentationFormat, sampleCount, createBuffer, depthFormat } from './util';
+import { Aggregate, Period, Range, AggBounds } from '../providers/provider';
+import { Lods } from './lod';
 import code from '../shaders/ohlcv.wgsl';
 
 const indices = new Uint16Array([
@@ -14,8 +14,109 @@ const indices = new Uint16Array([
 	5, 4,
 	1, 0
 ]);
+
+function getNext(d: Date, p: Period): Date {
+	const res = new Date(d);
+	switch (p) {
+	case 'year':
+		res.setFullYear(d.getFullYear() + 1);
+		break;
+	case 'month':
+		res.setMonth(d.getMonth() + 1);
+		break;
+	case 'week':
+		res.setDate(d.getDate() + 7);
+		break;
+	case 'day':
+		res.setDate(d.getDate() + 1);
+		break;
+	case 'hour':
+		res.setHours(d.getHours() + 1);
+		break;
+	case 'minute':
+		res.setMinutes(d.getMinutes() + 1);
+		break;
+	default:
+		throw new Error('unknown period ' + p);
+	}
+	return res;
+}
+
+const minCellSize = 0.001;
 const unitsPerMs = minCellSize;
 const unitsPerDollar = minCellSize * 2e9;
+const start = new Date(2003);
+export type Vec3 = [number, number, number];
+export interface Candle {
+	body: Range<Vec3>;
+	wick: Range<Vec3>;
+	color: Vec3;
+}
+
+export function toCandle(agg: Aggregate, period: Period): Candle {
+	const bodyMin = [0, 0, 0];
+	const bodyMax = [0, 0, 0];
+
+	bodyMin[0] = (agg.time.getTime() - start.getTime()) * unitsPerMs;
+	bodyMax[0] = (getNext(agg.time, period).getTime() - start.getTime()) * unitsPerMs;
+
+	bodyMin[1] = Math.min(agg.close, agg.open) * unitsPerDollar;
+	bodyMax[1] = Math.max(agg.close, agg.open) * unitsPerDollar;
+
+	bodyMin[2] = 0;
+	bodyMax[2] = agg.volume / 1e3;
+
+	const wickMin = [...bodyMin];
+	const wickMax = [...bodyMax];
+
+	const center = [
+		(bodyMax[0] - bodyMin[0]) / 2,
+		(bodyMax[1] - bodyMin[1]) / 2,
+		(bodyMax[2] - bodyMin[2]) / 2,
+	];
+
+	wickMin[0] = bodyMin[0] + (bodyMax[0] - bodyMin[0]) / 4;
+	wickMax[0] = bodyMax[0] - (bodyMax[0] - bodyMin[0]) / 4;
+	wickMin[1] = agg.low * unitsPerDollar;
+	wickMax[1] = agg.high * unitsPerDollar;
+	wickMin[2] = bodyMin[2] + (bodyMax[2] - bodyMin[2]) / 2.5;
+	wickMax[2] = bodyMax[2] - (bodyMax[2] - bodyMin[2]) / 2.5;
+
+	let color = [1, 1, 1];
+	if (agg.close > agg.open) color = [0, 1, 0];
+	else if (agg.close < agg.open) color = [1, 0, 0];
+
+	return {
+		body: {
+			min: bodyMin as [number, number, number],
+			max: bodyMax as [number, number, number],
+		},
+		wick: {
+			min: wickMin as [number, number, number],
+			max: wickMax as [number, number, number],
+		},
+		color: color as [number, number, number],
+	};
+}
+
+export function toBounds(agg: AggBounds, period: Period): Range<Vec3> {
+	const min = [0, 0, 0];
+	const max = [0, 0, 0];
+
+	min[0] = (agg.time.min.getTime() - start.getTime()) * unitsPerMs;
+	max[0] = (getNext(agg.time.max, period).getTime() - start.getTime()) * unitsPerMs;
+
+	min[1] = agg.low.min * unitsPerDollar;
+	max[1] = agg.high.max * unitsPerDollar;
+
+	min[2] = 0;
+	max[2] = Math.sqrt(agg.volume.max);
+
+	return {
+		min: min as [number, number, number],
+		max: max as [number, number, number],
+	};
+}
 
 export class OHLCV {
 	device: GPUDevice;
@@ -28,12 +129,13 @@ export class OHLCV {
 	maxPosLow?: GPUBuffer;
 	color?: GPUBuffer;
 	nInstances = 0;
+	lods: Lods;
 
-	constructor(device: GPUDevice, camera: Camera) {
+	constructor(device: GPUDevice, camera: Camera, lods: Lods) {
 		this.device = device;
 		this.camera = camera;
+		this.lods = lods;
 		this.pipeline = device.createRenderPipeline({
-			label: 'ohlcv pipeline',
 			layout: camera.gpu.layout,
 			vertex: {
 				module: device.createShaderModule({ code }),
@@ -49,11 +151,11 @@ export class OHLCV {
 				entryPoint: 'frag',
 				targets: [{ format: presentationFormat }],
 			},
-			// depthStencil: {
-			// 	depthWriteEnabled: true,
-			// 	depthCompare: 'less',
-			// 	format: 'depth24plus',
-			// },
+			depthStencil: {
+				depthWriteEnabled: true,
+				depthCompare: 'less',
+				format: depthFormat,
+			},
 			primitive: {
 				topology: 'triangle-strip',
 				stripIndexFormat: 'uint16',
@@ -67,103 +169,86 @@ export class OHLCV {
 			usage: GPUBufferUsage.INDEX,
 			data: indices,
 			arrayTag: 'u16',
-			label: 'ohlcv index buffer',
 		});
 	}
 
-	setAggs(aggs: Aggregate[], bounds: Bounds, aggMs: number): Bounds {
-		const res: Bounds = {
-			x: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
-			y: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
-			z: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
-		};
-		if (aggs.length > 0) {
-			const instanceMinPos = new Float32Array(aggs.length * 3 + 6);
-			const instanceMinPosLow = new Float32Array(aggs.length * 3 + 6);
-			const instanceMaxPos = new Float32Array(aggs.length * 3 + 6);
-			const instanceMaxPosLow = new Float32Array(aggs.length * 3 + 6);
-			const instanceColor = new Float32Array(aggs.length * 3 + 6);
+	getGeometry(aggs: Aggregate[], period: Period) {
+		const mins = new Float32Array(aggs.length * 2 * 3);
+		const minsLow = new Float32Array(aggs.length * 2 * 3);
+		const maxs = new Float32Array(aggs.length * 2 * 3);
+		const maxsLow = new Float32Array(aggs.length * 2 * 3);
+		const colors = new Float32Array(aggs.length * 2 * 3);
 
-			const midX = (bounds.x.max - bounds.x.min) / 2;
-			const midY = (bounds.y.max - bounds.y.min) / 2;
-			var agg;
-			for (let i = 0; i < aggs.length; i++) {
-				agg = aggs[i];
-				const minX = (agg.time - bounds.x.min - midX) * unitsPerMs;
-				const maxX = minX + unitsPerMs * aggMs;
-				const minY = (Math.min(agg.close, agg.open) - midY) * unitsPerDollar;
-				const maxY = (Math.max(agg.close, agg.open) - midY) * unitsPerDollar;
-				const minZ = 0;
-				const maxZ = Math.log(agg.volume);
-				let color = [1, 1, 1];
-				if (agg.close > agg.open) color = [0, 1, 0];
-				else if (agg.close < agg.open) color = [1, 0, 0];
+		var agg;
+		for (let i = 0; i < aggs.length; i++) {
+			agg = aggs[i];
 
-				if (minX < res.x.min) res.x.min = minX;
-				if (maxX > res.x.max) res.x.max = maxX;
-				if (minY < res.y.min) res.y.min = minY;
-				if (maxY > res.y.max) res.y.max = maxY;
-				if (minZ < res.z.min) res.z.min = minZ;
-				if (maxZ > res.z.max) res.z.max = maxZ;
+			const { body, wick, color } = toCandle(agg, period);
+			let index = i * 6;
 
-				const min = [minX, minY, minZ];
-				const max = [maxX, maxY, maxZ];
-				if (min.some(isNaN)) console.log('bad agg', agg);
-				if (max.some(isNaN)) console.log('bad agg', agg);
+			mins.set(body.min, index);
+			minsLow.set(vec3.sub(body.min, mins.slice(index, index + 3)), index);
+			maxs.set(body.max, index);
+			maxsLow.set(vec3.sub(body.max, maxs.slice(index, index + 3)), index);
+			colors.set(color, index);
 
-				instanceMinPos.set(min, i * 3);
-				instanceMinPosLow.set(vec3.sub(min, instanceMinPos.slice(i * 3, i * 3 + 3)), i * 3);
-				instanceMaxPos.set(max, i * 3);
-				instanceMaxPosLow.set(vec3.sub(max, instanceMaxPos.slice(i * 3, i * 3 + 3)), i * 3);
-				instanceColor.set(color, i * 3);
-			}
+			index += 3;
 
-			if (this.minPos) this.minPos.destroy();
-			instanceMinPos.set([0, 0, 0], aggs.length * 3);
-			instanceMinPos.set([-minCellSize, -minCellSize, 0], aggs.length * 3 - 3);
-			this.minPos = createBuffer({
-				device: this.device,
-				data: instanceMinPos,
-				label: 'ohlcv instance buffer minPos',
-			});
-			if (this.minPosLow) this.minPosLow.destroy();
-			instanceMinPosLow.set([0, 0, 0], aggs.length * 3);
-			instanceMinPosLow.set([0, 0, 0], aggs.length * 3 - 3);
-			this.minPosLow = createBuffer({
-				device: this.device,
-				data: instanceMinPosLow,
-				label: 'ohlcv instance buffer minPosLow',
-			});
-
-			if (this.maxPos) this.maxPos.destroy();
-			instanceMaxPos.set([1, 1, 1], aggs.length * 3);
-			instanceMaxPos.set([0, 0, minCellSize], aggs.length * 3 - 3);
-			this.maxPos = createBuffer({
-				device: this.device,
-				data: instanceMaxPos,
-				label: 'ohlcv instance buffer maxPos',
-			});
-			if (this.maxPosLow) this.maxPosLow.destroy();
-			instanceMaxPosLow.set([0, 0, 0], aggs.length * 3);
-			instanceMaxPosLow.set([0, 0, 0], aggs.length * 3 - 3);
-			this.maxPosLow = createBuffer({
-				device: this.device,
-				data: instanceMaxPosLow,
-				label: 'ohlcv instance buffer maxPosLow',
-			});
-
-			if (this.color) this.color.destroy();
-			instanceColor.set([0, 0, 1], aggs.length * 3);
-			instanceColor.set([1, 1, 0], aggs.length * 3 - 3);
-			this.color = createBuffer({
-				device: this.device,
-				data: instanceColor,
-				label: 'ohlcv instance buffer color',
-			});
+			mins.set(wick.min, index);
+			minsLow.set(vec3.sub(wick.min, mins.slice(index, index + 3)), index);
+			maxs.set(wick.max, index);
+			maxsLow.set(vec3.sub(wick.max, maxs.slice(index, index + 3)), index);
+			colors.set([179 / 255, 153 / 255, 132 / 255], index);
 		}
 
-		this.nInstances = aggs.length + 1;
-		return res;
+		return {
+			mins,
+			minsLow,
+			maxs,
+			maxsLow,
+			colors
+		};
+	}
+
+	updateGeometry() {
+		const lod = this.lods.lods[this.lods.lod];
+		if (!lod || !lod.aggs || lod.aggs.length === 0 || !lod.aggBounds) return;
+
+		const { mins, minsLow, maxs, maxsLow, colors } = this.getGeometry(lod.aggs, lod.name);
+		if (this.minPos) this.minPos.destroy();
+		this.minPos = createBuffer({
+			device: this.device,
+			data: mins,
+		});
+		if (this.minPosLow) this.minPosLow.destroy();
+		this.minPosLow = createBuffer({
+			device: this.device,
+			data: minsLow,
+		});
+
+		if (this.maxPos) this.maxPos.destroy();
+		this.maxPos = createBuffer({
+			device: this.device,
+			data: maxs,
+		});
+		if (this.maxPosLow) this.maxPosLow.destroy();
+		this.maxPosLow = createBuffer({
+			device: this.device,
+			data: maxsLow,
+		});
+
+		if (this.color) this.color.destroy();
+		this.color = createBuffer({
+			device: this.device,
+			data: colors,
+		});
+		this.nInstances = mins.length / 3;
+	}
+
+	update(newLod: boolean) {
+		if (!newLod) return;
+
+		this.updateGeometry();
 	}
 
 	render(pass: GPURenderPassEncoder): void {
@@ -172,7 +257,8 @@ export class OHLCV {
 			!this.minPosLow ||
 			!this.maxPos ||
 			!this.maxPosLow ||
-			!this.color
+			!this.color ||
+			this.nInstances === 0
 		) return;
 		pass.setPipeline(this.pipeline);
 		pass.setBindGroup(0, this.camera.gpu.bindGroup);

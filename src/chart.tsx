@@ -1,71 +1,41 @@
-import { restClient } from '@polygon.io/client-js';
 import { useRef, useEffect, useState, useMemo } from 'preact/hooks';
-import { Toolbar, Timespan } from './toolbar';
-import { fetchAggs, Aggregate, toymd } from './helpers';
+import { Toolbar } from './toolbar';
 import { Renderer } from './renderer/renderer';
+import { Polygon } from './providers/polygon';
 import './chart.css';
 
 export function Chart({ path, apiKey }: { path: string, apiKey: string }) {
 	const canvas = useRef<HTMLCanvasElement | null>(null);
-	const renderer = useMemo(() => new Renderer(), []);
-
-	// data
-	const client = useMemo(() => restClient(apiKey), [apiKey]);
-
-	// data picker
+	const provider = useMemo(() => new Polygon(apiKey), [apiKey]);
+	const [renderer, setRenderer] = useState<Renderer | null>(null);
 	const [ticker, setTicker] = useState('AAPL');
-	const [multiplier, setMultiplier] = useState(1);
-	const [timespan, setTimespan] = useState<Timespan>('day');
-	const [date, setDate] = useState(toymd(new Date()));
-	const [timezone, setTimezone] = useState('America/New_York');
+
+	useEffect(() => {
+		if (canvas.current) {
+			Renderer.init(canvas.current, provider).then(r => {
+				setRenderer(r);
+				r.render();
+			});
+		} else setStatus("useRef couldn't find a canvas");
+	}, []);
+
 
 	function setStatus(text: string, color: string = 'white') {
 		console.log('status', text)
 	}
-	if (Number.isNaN(multiplier)) setStatus(`Invalid multiplier ${multiplier}`);
 
-	// Update data based on picker
-	useEffect(() => {
-		let isLoading = true;
-		if (!ticker) setStatus('No ticker');
+	useEffect(function loadData() {
+		if (!ticker) return setStatus('No ticker');
+		if (!renderer) return setStatus('No renderer');
 
-		renderer.setAggs([]);
-		setStatus(`Loading ${ticker}...`);
-		fetchAggs(client, ticker, multiplier, timespan, date)
-			.then(candles => {
-				if (!isLoading) return;
-				if (candles.length > 0) {
-					setStatus(`Loaded ${candles.length} ${ticker} aggs`);
-					// tmp
-					candles.splice(0, 3);
-					renderer.setAggs(candles);
-				} else {
-					setStatus(`No data for ${ticker}`);
-				}
-			});
-
-		return () => isLoading = false;
-	}, [ticker, multiplier, timespan, date]);
-
-	useEffect(() => {
-		if (canvas.current) renderer.render(canvas.current).catch(setStatus);
-		else setStatus("useRef can't get canvas");
-	}, []);
+		renderer.setTicker(ticker);
+	}, [ticker, renderer]);
 
 	return (
 		<>
 			<Toolbar
 				ticker={ticker}
 				setTicker={setTicker}
-				multiplier={multiplier}
-				setMultipler={setMultiplier}
-				timespan={timespan}
-				setTimespan={setTimespan}
-				date={date}
-				setDate={setDate}
-				client={client}
-				timezone={timezone}
-				setTimezone={setTimezone}
 			/>
 			<canvas class="canvas" ref={canvas} />
 		</>
