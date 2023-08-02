@@ -1,37 +1,30 @@
 import { Camera } from './camera';
 import { presentationFormat, sampleCount, createBuffer, align, depthFormat } from './util';
-import { toBounds, toCandle, Vec3 } from './ohlcv';
 import { Range } from '../providers/provider';
-import { Lods } from './lod';
+import { Vec3 } from './chart';
 import code from '../shaders/axes.wgsl';
-
-const indices = new Uint16Array([
-	0, 1,
-	2, 2,
-	3, 0
-]);
 
 export class Axes {
 	device: GPUDevice;
-	camera: Camera;
 	pipeline: GPURenderPipeline;
-	minPos?: GPUBuffer;
-	minPosLow?: GPUBuffer;
-	maxPos?: GPUBuffer;
-	maxPosLow?: GPUBuffer;
-	indices: GPUBuffer;
+	vertices?: GPUBuffer;
+	verticesLow?: GPUBuffer;
+	indices?: GPUBuffer;
 	uniforms: GPUBuffer;
 	horizontalLines: GPUBuffer;
 	verticalLines: GPUBuffer;
 	bindGroupLayout: GPUBindGroupLayout;
 	bindGroup: GPUBindGroup;
-	nInstances = 0;
-	lods: Lods;
 
-	constructor(device: GPUDevice, camera: Camera, lods: Lods) {
+	camera: Camera;
+	range: Range<Vec3> = {
+		min: [-5000, -5000, -5000],
+		max: [5000, 5000, 5000]
+	};
+
+	constructor(device: GPUDevice, camera: Camera) {
 		this.device = device;
 		this.camera = camera;
-		this.lods = lods;
 		this.bindGroupLayout = device.createBindGroupLayout({
 			entries: [
 				{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
@@ -49,10 +42,9 @@ export class Axes {
 			vertex: {
 				module: device.createShaderModule({ code }),
 				entryPoint: 'vert',
-				buffers: [0, 1, 2, 3].map(i => ({
-					arrayStride: 4 * 3,
-					stepMode: 'instance',
-					attributes: [{ format: 'float32x3', offset: 0, shaderLocation: i }]
+				buffers: [0, 1].map(i => ({
+					arrayStride: 4 * 2,
+					attributes: [{ format: 'float32x2', offset: 0, shaderLocation: i }]
 				}))
 			},
 			fragment: {
@@ -66,18 +58,10 @@ export class Axes {
 				format: depthFormat,
 			},
 			primitive: {
-				topology: 'triangle-strip',
-				stripIndexFormat: 'uint16',
+				topology: 'line-list',
 				cullMode: 'none',
 			},
 			multisample: { count: sampleCount },
-		});
-
-		this.indices = createBuffer({
-			device,
-			usage: GPUBufferUsage.INDEX,
-			data: indices,
-			arrayTag: 'u16',
 		});
 
 		const uniformData = [
@@ -113,97 +97,49 @@ export class Axes {
 		});
 	}
 
-	getVerticalLines(): number[] {
-		const verticalLines = [];
+	getGeometry(range: Range<Vec3>) {
+		const min = [range.min[0], range.min[1]];
+		const max = [range.max[0], range.max[1]];
+		const vertices = new Float64Array([
+			min[0], min[1],
+			min[0], max[1],
+			max[0], max[1],
 
-		const minDate = new Date(this.aggBounds.x.min);
-		const maxDate = new Date(this.aggBounds.x.max);
+			max[0], min[1],
+			min[0], min[1],
+		]);
+		const verticesLow = new Float32Array(vertices.map(v => v - Math.fround(v)));
+		const indices = new Uint16Array([
+			0, 1, 2,
+			2, 3, 4,
+			// For debugging
+			4, 2,
+			2, 3,
+			2, 1
+		]);
 
-		switch (this.getLod()) {
-			case LOD.year: {
-				const startOfYear = new Date(minDate.getFullYear() + 1, 0);
-				for (let d = startOfYear; d <= maxDate; d.setFullYear(d.getFullYear() + 1)) {
-					verticalLines.push(toWorldX(d.getTime(), this.aggBounds));
-				}
-				break;
-			}
-			case LOD.month: {
-				const startOfMonth = new Date(minDate.getFullYear(), minDate.getMonth() + 1);
-				for (let d = startOfMonth; d <= maxDate; d.setMonth(d.getMonth() + 1)) {
-					verticalLines.push(toWorldX(d.getTime(), this.aggBounds));
-				}
-				break;
-			}
-		}
-
-		return verticalLines;
+		return { vertices, verticesLow, indices };
 	}
 
-	getBounds(lodLevel: number): Range<Vec3>[] {
-		var res: Range<Vec3>[] = [];
+	updateGeometry(range: Range<Vec3>) {
+		const { vertices, verticesLow, indices } = this.getGeometry(range);
 
-		const lod = this.lods.lods[Math.max(lodLevel, 0)];
-		if (!lod?.aggBounds) return res;
-
-		if (lodLevel === -1) {
-			return [toBounds(lod.aggBounds, lod.name)];
-		}
-
-		if (!lod?.aggs) return res;
-		for (var i = 0; i < lod.aggs.length; i++) {
-			const agg = lod.aggs[i];
-			const candle = toCandle(agg, lod.name);
-			res.push({
-				min: [candle.body.min[0], candle.wick.min[1], 0],
-				max: [candle.body.max[0], candle.wick.max[1], 0],
-			});
-		}
-
-		return res;
-	}
-
-	getGeometry() {
-		const mins = [];
-		const maxs = [];
-
-		const bounds = this.getBounds(this.lods.lod - 1);
-		for (let i = 0; i < bounds.length; i++) {
-			const bound = bounds[i];
-			mins.push(bound.min[0], bound.min[1], bound.min[2]);
-			maxs.push(bound.max[0], bound.max[1], bound.max[2]);
-		}
-
-		return { mins, maxs };
-	}
-
-	updateGeometry() {
-		const { mins, maxs } = this.getGeometry();
-		this.nInstances = mins.length / 3;
-
-		const min32 = new Float32Array(mins);
-		if (this.minPos) this.minPos.destroy();
-		this.minPos = createBuffer({
+		if (this.vertices) this.vertices.destroy();
+		this.vertices = createBuffer({
 			device: this.device,
-			data: min32,
+			data: vertices,
 		});
-		const min32Low = mins.map((v, i) => v - min32[i]);
-		if (this.minPosLow) this.minPosLow.destroy();
-		this.minPosLow = createBuffer({
+		if (this.verticesLow) this.verticesLow.destroy();
+		this.verticesLow = createBuffer({
 			device: this.device,
-			data: new Float32Array(min32Low),
+			data: verticesLow,
 		});
-
-		const max32 = new Float32Array(maxs);
-		if (this.maxPos) this.maxPos.destroy();
-		this.maxPos = createBuffer({
+		if (this.indices) this.indices.destroy();
+		this.indices = createBuffer({
 			device: this.device,
-			data: max32,
-		});
-		const max32Low = maxs.map((v, i) => v - max32[i]);
-		if (this.maxPosLow) this.maxPosLow.destroy();
-		this.maxPosLow = createBuffer({
-			device: this.device,
-			data: new Float32Array(max32Low),
+			usage: GPUBufferUsage.INDEX,
+			data: indices,
+			arrayTag: 'u16',
 		});
 	}
 
@@ -216,7 +152,7 @@ export class Axes {
 		this.verticalLines = createBuffer({
 			device: this.device,
 			usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-			data: new Float32Array(this.getVerticalLines()),
+			data: new Float32Array([0]),
 		});
 		this.bindGroup = this.device.createBindGroup({
 			layout: this.bindGroupLayout,
@@ -228,23 +164,21 @@ export class Axes {
 		});
 	}
 
-	update(newLod: boolean) {
-		if (!newLod) return;
-
-		this.updateGeometry();
+	setRange(newRange: Range<Vec3>) {
+		this.updateGeometry(newRange);
 		// this.updateLines();
 	}
 
 	render(pass: GPURenderPassEncoder): void {
-		if (!this.minPos || !this.minPosLow || !this.maxPos || !this.maxPosLow || this.nInstances === 0) return;
+		if (!this.vertices || !this.verticesLow || !this.indices) return;
 		pass.setPipeline(this.pipeline);
 		pass.setBindGroup(0, this.camera.gpu.bindGroup);
 		pass.setBindGroup(1, this.bindGroup);
-		pass.setVertexBuffer(0, this.minPos);
-		pass.setVertexBuffer(1, this.minPosLow);
-		pass.setVertexBuffer(2, this.maxPos);
-		pass.setVertexBuffer(3, this.maxPosLow);
+		pass.setVertexBuffer(0, this.vertices);
+		pass.setVertexBuffer(1, this.verticesLow);
+		// On most hardware, indexed triangle lists are the most efficient way to drive the GPU.
+		// https://meshoptimizer.org/
 		pass.setIndexBuffer(this.indices, 'uint16');
-		pass.drawIndexed(indices.length, this.nInstances);
+		pass.drawIndexed(this.indices.size / Uint16Array.BYTES_PER_ELEMENT);
 	}
 }

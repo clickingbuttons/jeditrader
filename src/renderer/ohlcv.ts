@@ -1,8 +1,8 @@
 import { vec3 } from 'wgpu-matrix';
 import { Camera } from './camera';
 import { presentationFormat, sampleCount, createBuffer, depthFormat } from './util';
-import { Aggregate, Period, Range, AggBounds } from '../providers/provider';
-import { Lods } from './lod';
+import { Aggregate, Period, Range } from '../providers/provider';
+import { Lod, unitsPerMs, unitsPerDollar, getNext } from './chart';
 import code from '../shaders/ohlcv.wgsl';
 
 const indices = new Uint16Array([
@@ -15,107 +15,11 @@ const indices = new Uint16Array([
 	1, 0
 ]);
 
-function getNext(d: Date, p: Period): Date {
-	const res = new Date(d);
-	switch (p) {
-	case 'year':
-		res.setFullYear(d.getFullYear() + 1);
-		break;
-	case 'month':
-		res.setMonth(d.getMonth() + 1);
-		break;
-	case 'week':
-		res.setDate(d.getDate() + 7);
-		break;
-	case 'day':
-		res.setDate(d.getDate() + 1);
-		break;
-	case 'hour':
-		res.setHours(d.getHours() + 1);
-		break;
-	case 'minute':
-		res.setMinutes(d.getMinutes() + 1);
-		break;
-	default:
-		throw new Error('unknown period ' + p);
-	}
-	return res;
-}
-
-const minCellSize = 0.001;
-const unitsPerMs = minCellSize;
-const unitsPerDollar = minCellSize * 2e9;
-const start = new Date(2003);
-export type Vec3 = [number, number, number];
+type Vec3 = vec3.default;
 export interface Candle {
 	body: Range<Vec3>;
 	wick: Range<Vec3>;
 	color: Vec3;
-}
-
-export function toCandle(agg: Aggregate, period: Period): Candle {
-	const bodyMin = [0, 0, 0];
-	const bodyMax = [0, 0, 0];
-
-	bodyMin[0] = (agg.time.getTime() - start.getTime()) * unitsPerMs;
-	bodyMax[0] = (getNext(agg.time, period).getTime() - start.getTime()) * unitsPerMs;
-
-	bodyMin[1] = Math.min(agg.close, agg.open) * unitsPerDollar;
-	bodyMax[1] = Math.max(agg.close, agg.open) * unitsPerDollar;
-
-	bodyMin[2] = 0;
-	bodyMax[2] = agg.volume / 1e3;
-
-	const wickMin = [...bodyMin];
-	const wickMax = [...bodyMax];
-
-	const center = [
-		(bodyMax[0] - bodyMin[0]) / 2,
-		(bodyMax[1] - bodyMin[1]) / 2,
-		(bodyMax[2] - bodyMin[2]) / 2,
-	];
-
-	wickMin[0] = bodyMin[0] + (bodyMax[0] - bodyMin[0]) / 4;
-	wickMax[0] = bodyMax[0] - (bodyMax[0] - bodyMin[0]) / 4;
-	wickMin[1] = agg.low * unitsPerDollar;
-	wickMax[1] = agg.high * unitsPerDollar;
-	wickMin[2] = bodyMin[2] + (bodyMax[2] - bodyMin[2]) / 2.5;
-	wickMax[2] = bodyMax[2] - (bodyMax[2] - bodyMin[2]) / 2.5;
-
-	let color = [1, 1, 1];
-	if (agg.close > agg.open) color = [0, 1, 0];
-	else if (agg.close < agg.open) color = [1, 0, 0];
-
-	return {
-		body: {
-			min: bodyMin as [number, number, number],
-			max: bodyMax as [number, number, number],
-		},
-		wick: {
-			min: wickMin as [number, number, number],
-			max: wickMax as [number, number, number],
-		},
-		color: color as [number, number, number],
-	};
-}
-
-export function toBounds(agg: AggBounds, period: Period): Range<Vec3> {
-	const min = [0, 0, 0];
-	const max = [0, 0, 0];
-
-	min[0] = (agg.time.min.getTime() - start.getTime()) * unitsPerMs;
-	max[0] = (getNext(agg.time.max, period).getTime() - start.getTime()) * unitsPerMs;
-
-	min[1] = agg.low.min * unitsPerDollar;
-	max[1] = agg.high.max * unitsPerDollar;
-
-	min[2] = 0;
-	max[2] = Math.sqrt(agg.volume.max);
-
-	return {
-		min: min as [number, number, number],
-		max: max as [number, number, number],
-	};
 }
 
 export class OHLCV {
@@ -129,12 +33,10 @@ export class OHLCV {
 	maxPosLow?: GPUBuffer;
 	color?: GPUBuffer;
 	nInstances = 0;
-	lods: Lods;
 
-	constructor(device: GPUDevice, camera: Camera, lods: Lods) {
+	constructor(device: GPUDevice, camera: Camera) {
 		this.device = device;
 		this.camera = camera;
-		this.lods = lods;
 		this.pipeline = device.createRenderPipeline({
 			layout: camera.gpu.layout,
 			vertex: {
@@ -172,6 +74,46 @@ export class OHLCV {
 		});
 	}
 
+	toCandle(agg: Aggregate, period: Period): Candle {
+		const bodyMin = [
+			agg.time.getTime() * unitsPerMs,
+			Math.min(agg.close, agg.open) * unitsPerDollar,
+			0
+		];
+		const bodyMax = [
+			getNext(agg.time, period).getTime() * unitsPerMs,
+			Math.max(agg.close, agg.open) * unitsPerDollar,
+			agg.volume / 1e3,
+		];
+
+		const wickMin = [
+			bodyMin[0] + (bodyMax[0] - bodyMin[0]) / 4,
+			agg.low * unitsPerDollar,
+			bodyMin[2] + (bodyMax[2] - bodyMin[2]) / 2.5,
+		];
+		const wickMax = [
+			bodyMax[0] - (bodyMax[0] - bodyMin[0]) / 4,
+			agg.high * unitsPerDollar,
+			bodyMax[2] - (bodyMax[2] - bodyMin[2]) / 2.5,
+		];
+
+		let color = [1, 1, 1];
+		if (agg.close > agg.open) color = [0, 1, 0];
+		else if (agg.close < agg.open) color = [1, 0, 0];
+
+		return {
+			body: {
+				min: bodyMin,
+				max: bodyMax,
+			},
+			wick: {
+				min: wickMin,
+				max: wickMax,
+			},
+			color: color,
+		};
+	}
+
 	getGeometry(aggs: Aggregate[], period: Period) {
 		const mins = new Float32Array(aggs.length * 2 * 3);
 		const minsLow = new Float32Array(aggs.length * 2 * 3);
@@ -183,7 +125,7 @@ export class OHLCV {
 		for (let i = 0; i < aggs.length; i++) {
 			agg = aggs[i];
 
-			const { body, wick, color } = toCandle(agg, period);
+			const { body, wick, color } = this.toCandle(agg, period);
 			let index = i * 6;
 
 			mins.set(body.min, index);
@@ -210,9 +152,8 @@ export class OHLCV {
 		};
 	}
 
-	updateGeometry() {
-		const lod = this.lods.lods[this.lods.lod];
-		if (!lod || !lod.aggs || lod.aggs.length === 0 || !lod.aggBounds) return;
+	updateGeometry(lod: Lod) {
+		if (!lod.aggs) return;
 
 		const { mins, minsLow, maxs, maxsLow, colors } = this.getGeometry(lod.aggs, lod.name);
 		if (this.minPos) this.minPos.destroy();
@@ -245,10 +186,8 @@ export class OHLCV {
 		this.nInstances = mins.length / 3;
 	}
 
-	update(newLod: boolean) {
-		if (!newLod) return;
-
-		this.updateGeometry();
+	setLod(newLod: Lod) {
+		this.updateGeometry(newLod);
 	}
 
 	render(pass: GPURenderPassEncoder): void {

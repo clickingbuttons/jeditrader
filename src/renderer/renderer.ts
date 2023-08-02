@@ -1,12 +1,8 @@
 import { mat4, vec3 } from 'wgpu-matrix';
-import { Camera } from './camera';
-import { Axes } from './axes';
-import { OHLCV } from './ohlcv';
 import { depthFormat, presentationFormat, sampleCount } from './util';
-import { Input } from './input';
-import { Provider, Aggregate, AggBounds } from '../providers/provider';
-import { Lods } from './lod';
-import { toymd, debounce } from '../helpers';
+import { Provider } from '../providers/provider';
+import { Chart } from './chart';
+import { debounce } from '../helpers';
 
 // We need the extra precision since there are ~630 billion milliseconds to potentially render.
 mat4.setDefaultType(Float64Array);
@@ -20,21 +16,16 @@ export class Renderer {
 	renderTargetView: GPUTextureView;
 	depthTexture: GPUTexture;
 	depthTextureView: GPUTextureView;
-	forceRender = true;
 	lastTime = performance.now();
 
-	provider: Provider;
-	input: Input;
-	camera: Camera;
-	ohlcv: OHLCV;
-	axes: Axes;
-	lods = new Lods();
+	chart: Chart;
 
 	private constructor(
 		canvas: HTMLCanvasElement,
 		device: GPUDevice,
 		context: GPUCanvasContext,
 		provider: Provider,
+		ticker: string,
 	) {
 		this.canvas = canvas;
 		this.device = device;
@@ -43,22 +34,19 @@ export class Renderer {
 		this.renderTargetView = this.renderTarget.createView();
 		this.depthTexture = this.createDepthTarget();
 		this.depthTextureView = this.depthTexture.createView();
-		this.provider = provider;
-		this.input = new Input(canvas);
-		this.camera = new Camera(canvas, this.device);
-		this.ohlcv = new OHLCV(this.device, this.camera, this.lods);
-		this.axes = new Axes(this.device, this.camera, this.lods);
+
+		this.chart = new Chart(canvas, this.device, provider, ticker);
 
 		const observer = new ResizeObserver(debounce(this.onResize.bind(this)));
 		observer.observe(canvas);
 	}
 
 	onResize(entries: ResizeObserverEntry[]) {
-		console.log('onResize')
 		const entry = entries[0];
 		const canvas = entry.target as HTMLCanvasElement;
 		const width = entry.contentBoxSize[0].inlineSize;
 		const height = entry.contentBoxSize[0].blockSize;
+		console.log('resize', width, height)
 		canvas.width = Math.max(1, Math.min(width, this.device.limits.maxTextureDimension2D));
 		canvas.height = Math.max(1, Math.min(height, this.device.limits.maxTextureDimension2D));
 
@@ -69,38 +57,6 @@ export class Renderer {
 		this.depthTexture.destroy();
 		this.depthTexture = this.createDepthTarget();
 		this.depthTextureView = this.depthTexture.createView();
-	}
-
-	onData(aggs: Aggregate[], lodName: string, aggBounds: AggBounds) {
-		const lodIndex = this.lods.lods.findIndex(l => l.name === lodName);
-		const lod = this.lods.lods[lodIndex];
-		if (!lod) throw new Error('unknown lod ' + lodName);
-
-		lod.aggs = aggs;
-		lod.aggBounds = aggBounds;
-		this.axes.update(true);
-		this.ohlcv.update(true);
-		this.forceRender = true;
-	}
-
-	setTicker(ticker: string) {
-		const from = '1970-01-01';
-		const to = toymd(new Date());
-
-		// These are cheap to call. Network boundary is most of overhead.
-		// TODO: make month + year aggs from daily aggs
-		this.provider.year(ticker, from, to).then(({ aggs, bounds }) => {
-			this.onData(aggs, 'year', bounds);
-		});
-		this.provider.month(ticker, from, to).then(({ aggs, bounds }) => {
-			this.onData(aggs, 'month', bounds);
-		});
-		this.provider.week(ticker, from, to).then(({ aggs, bounds }) => {
-			this.onData(aggs, 'week', bounds);
-		});
-		this.provider.day(ticker, from, to).then(({ aggs, bounds }) => {
-			this.onData(aggs, 'day', bounds);
-		});
 	}
 
 	createRenderTarget() {
@@ -125,13 +81,9 @@ export class Renderer {
 		const dt = time - this.lastTime;
 		this.lastTime = time;
 
-		this.camera.update(dt, this.input);
-		const newLod = this.lods.update(this.camera.eye[2]);
-		this.axes.update(newLod);
-		this.ohlcv.update(newLod);
-		this.input.update();
+		const needsRerender = this.chart.update(dt);
 		// Save CPU
-		if (!this.input.focused && !this.forceRender) {
+		if (!needsRerender) {
 			requestAnimationFrame(this.frame.bind(this));
 			return;
 		}
@@ -155,12 +107,10 @@ export class Renderer {
 			},
 		};
 		const pass = commandEncoder.beginRenderPass(renderPassDescriptor);
-		this.axes.render(pass);
-		this.ohlcv.render(pass);
+		this.chart.render(pass);
 		pass.end();
 		this.device.queue.submit([commandEncoder.finish()]);
 
-		this.forceRender = false;
 		requestAnimationFrame(this.frame.bind(this));
 	}
 
@@ -173,7 +123,7 @@ export class Renderer {
 		return new Error(msg);
 	}
 
-	static async init(canvas: HTMLCanvasElement, provider: Provider) {
+	static async init(canvas: HTMLCanvasElement, provider: Provider, ticker: string) {
 		if (navigator.gpu === undefined)
 			throw Renderer.error(canvas, 'WebGPU is not supported/enabled in your browser');
 
@@ -184,7 +134,7 @@ export class Renderer {
 		if (context === null) throw Renderer.error(canvas, 'No WebGPU context');
 		context.configure({ device, format: presentationFormat });
 
-		return new Renderer(canvas, device, context, provider);
+		return new Renderer(canvas, device, context, provider, ticker);
 	}
 };
 

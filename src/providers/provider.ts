@@ -11,12 +11,12 @@ export type Range<T> = {
 	min: T;
 	max: T;
 }
-export type AggBounds = {
+export type AggRange = {
 	[Property in keyof Aggregate]: Range<Aggregate[Property]>;
 }
 export interface AggResponse {
 	aggs: Aggregate[],
-	bounds: AggBounds,
+	range: AggRange,
 }
 export type Period = 'year' | 'month' | 'week' | 'day' | 'hour' | 'minute';
 

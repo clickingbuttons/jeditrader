@@ -1,4 +1,4 @@
-import { Aggregate, AggResponse, AggBounds, Period } from './provider';
+import { Aggregate, AggResponse, AggRange, Period } from './provider';
 
 // https://stackoverflow.com/questions/11526504/minimum-and-maximum-date
 const maxDate = new Date(8640000000000000);
@@ -33,7 +33,7 @@ export class Polygon {
 			.then(res => {
 				var aggs: Aggregate[] = [];
 				var newAgg: Aggregate;
-				var bounds = {
+				var range = {
 					time: { min: maxDate, max: minDate },
 					open: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
 					high: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
@@ -41,11 +41,11 @@ export class Polygon {
 					close: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
 					volume: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
 					vwap: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
-				} as AggBounds;
-				const keys = Object.keys(bounds) as (keyof typeof bounds)[];
-				function updateBound(prop: keyof typeof bounds) {
-					if (newAgg[prop] < bounds[prop].min) bounds[prop].min = newAgg[prop];
-					if (newAgg[prop] > bounds[prop].max) bounds[prop].max = newAgg[prop];
+				} as AggRange;
+				const keys = Object.keys(range) as (keyof typeof range)[];
+				function updateRange(prop: keyof typeof range) {
+					if (newAgg[prop] < range[prop].min) range[prop].min = newAgg[prop];
+					if (newAgg[prop] > range[prop].max) range[prop].max = newAgg[prop];
 				}
 				for (var i = 0; i < res.length; i++) {
 					var agg = res[i];
@@ -59,10 +59,10 @@ export class Polygon {
 						vwap: agg.vw,
 					} as Aggregate;
 					aggs.push(newAgg);
-					for (var j = 0; j < keys.length; j++) updateBound(keys[j]);
+					for (var j = 0; j < keys.length; j++) updateRange(keys[j]);
 				}
 
-				return { aggs, bounds };
+				return { aggs, range };
 			});
 	}
 

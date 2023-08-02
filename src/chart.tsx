@@ -12,7 +12,7 @@ export function Chart({ path, apiKey }: { path: string, apiKey: string }) {
 
 	useEffect(() => {
 		if (canvas.current) {
-			Renderer.init(canvas.current, provider).then(r => {
+			Renderer.init(canvas.current, provider, ticker).then(r => {
 				setRenderer(r);
 				r.render();
 			});
@@ -28,7 +28,7 @@ export function Chart({ path, apiKey }: { path: string, apiKey: string }) {
 		if (!ticker) return setStatus('No ticker');
 		if (!renderer) return setStatus('No renderer');
 
-		renderer.setTicker(ticker);
+		renderer.chart.setTicker(ticker);
 	}, [ticker, renderer]);
 
 	return (

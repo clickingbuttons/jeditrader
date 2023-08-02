@@ -15,41 +15,16 @@ struct VertexOutput {
 	@location(0) uv: vec2f,
 }
 
-fn vertex(index: u32, minPos: vec3f, maxPos: vec3f) -> vec3f {
-	switch (index % 4u) {
-		case 0u: { return vec3f(minPos.x, minPos.y, maxPos.z); }
-		case 1u: { return vec3f(maxPos.x, minPos.y, minPos.z); }
-		case 2u: { return vec3f(maxPos.x, maxPos.y, maxPos.z); }
-		case 3u: { return vec3f(minPos.x, maxPos.y, minPos.z); }
-		default: { return vec3f(0.0); }
-	}
-}
-
-fn vertexUV(index: u32) -> vec2f {
-	return array(
-		vec2f(-1.0, -1.0),
-		vec2f(1.0, -1.0),
-		vec2f(1.0, 1.0),
-		vec2f(-1.0, 1.0)
-	)[index % 4u];
-}
-
 @vertex fn vert(
-	@builtin(vertex_index) index: u32,
-	@location(0) minPos: vec3f,
-	@location(1) minPosLow: vec3f,
-	@location(2) maxPos: vec3f,
-	@location(3) maxPosLow: vec3f
+	@location(0) pos: vec2f,
+	@location(1) posLow: vec2f,
 ) -> VertexOutput {
-	let position = vertex(index, minPos, maxPos);
-	let positionLow = vertex(index, minPosLow, maxPosLow);
-	let position64 = dsFun90(position, positionLow);
+	let position64 = dsFun90(vec3f(pos, 0.0), vec3f(posLow, 0.0));
 	return VertexOutput(
 		camera.mvp * vec4f(position64, 1.0),
-		position.xy
+		pos,
 	);
 }
-
 
 @fragment fn frag(in: VertexOutput) -> @location(0) vec4f {
 	let uv = in.uv;
