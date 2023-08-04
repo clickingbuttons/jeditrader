@@ -18,6 +18,7 @@
 		"esbuild-scripts": "^0.0.5"
 	},
 	"dependencies": {
+		"@jeditrader/linalg": "^0.0.1",
 		"@jeditrader/providers": "^0.0.1",
 		"@jeditrader/renderer": "^0.0.1",
 		"preact": "^10.16.0",

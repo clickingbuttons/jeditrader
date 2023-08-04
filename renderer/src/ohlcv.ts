@@ -1,4 +1,4 @@
-import { vec3 } from 'wgpu-matrix';
+import { Vec3 } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
 import { presentationFormat, sampleCount, createBuffer, depthFormat } from './util.js';
 import { Aggregate, Period, Range } from '@jeditrader/providers';
@@ -15,7 +15,6 @@ const indices = new Uint16Array([
 	1, 0
 ]);
 
-type Vec3 = vec3.default;
 export interface Candle {
 	body: Range<Vec3>;
 	wick: Range<Vec3>;
@@ -75,31 +74,31 @@ export class OHLCV {
 	}
 
 	toCandle(agg: Aggregate, period: Period): Candle {
-		const bodyMin = [
+		const bodyMin = new Vec3(
 			agg.time.getTime() * unitsPerMs,
 			Math.min(agg.close, agg.open) * unitsPerDollar,
 			0
-		];
-		const bodyMax = [
+		);
+		const bodyMax = new Vec3(
 			getNext(agg.time, period).getTime() * unitsPerMs,
 			Math.max(agg.close, agg.open) * unitsPerDollar,
 			agg.volume / 1e3,
-		];
+		);
 
-		const wickMin = [
-			bodyMin[0] + (bodyMax[0] - bodyMin[0]) / 4,
+		const wickMin = new Vec3(
+			bodyMin.x + (bodyMax.x - bodyMin.x) / 4,
 			agg.low * unitsPerDollar,
-			bodyMin[2] + (bodyMax[2] - bodyMin[2]) / 2.5,
-		];
-		const wickMax = [
-			bodyMax[0] - (bodyMax[0] - bodyMin[0]) / 4,
+			bodyMin.z + (bodyMax.z - bodyMin.z) / 2.5,
+		);
+		const wickMax = new Vec3(
+			bodyMax.x - (bodyMax.x - bodyMin.x) / 4,
 			agg.high * unitsPerDollar,
-			bodyMax[2] - (bodyMax[2] - bodyMin[2]) / 2.5,
-		];
+			bodyMax.z - (bodyMax.z - bodyMin.z) / 2.5,
+		);
 
-		let color = [1, 1, 1];
-		if (agg.close > agg.open) color = [0, 1, 0];
-		else if (agg.close < agg.open) color = [1, 0, 0];
+		let color = new Vec3(1, 1, 1);
+		if (agg.close > agg.open) color = new Vec3(0, 1, 0);
+		else if (agg.close < agg.open) color = new Vec3(1, 0, 0);
 
 		return {
 			body: {
@@ -128,18 +127,18 @@ export class OHLCV {
 			const { body, wick, color } = this.toCandle(agg, period);
 			let index = i * 6;
 
-			mins.set(body.min, index);
-			minsLow.set(vec3.sub(body.min, mins.slice(index, index + 3)), index);
-			maxs.set(body.max, index);
-			maxsLow.set(vec3.sub(body.max, maxs.slice(index, index + 3)), index);
-			colors.set(color, index);
+			mins.set(body.min.elements(), index);
+			minsLow.set(body.min.elementsLow(), index);
+			maxs.set(body.max.elements(), index);
+			maxsLow.set(body.max.elementsLow(), index);
+			colors.set(color.elements(), index);
 
 			index += 3;
 
-			mins.set(wick.min, index);
-			minsLow.set(vec3.sub(wick.min, mins.slice(index, index + 3)), index);
-			maxs.set(wick.max, index);
-			maxsLow.set(vec3.sub(wick.max, maxs.slice(index, index + 3)), index);
+			mins.set(wick.min.elements(), index);
+			minsLow.set(wick.min.elementsLow(), index);
+			maxs.set(wick.max.elements(), index);
+			maxsLow.set(wick.max.elementsLow(), index);
 			colors.set([179 / 255, 153 / 255, 132 / 255], index);
 		}
 

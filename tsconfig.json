@@ -1,6 +1,7 @@
 {
 	"files": [],
 	"references": [
+		{"path": "./linalg/tsconfig.json"},
 		{"path": "./providers/tsconfig.json"},
 		{"path": "./renderer/tsconfig.json"}
 	]

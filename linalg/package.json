@@ -1,13 +1,10 @@
 {
-	"name": "@jeditrader/renderer",
+	"name": "@jeditrader/linalg",
 	"version": "0.0.1",
+	"description": "Linear algebra library. View transforms assume WebGPU.",
 	"module": "dist/esm/index.js",
 	"types": "dist/esm/index.d.ts",
-	"description": "WebGPU chart renderer",
 	"repository": "https://github.com/clickingbuttons/jeditrader",
 	"author": "clickingbuttons",
-	"license": "MIT",
-	"dependencies": {
-		"@webgpu/types": "^0.1.34"
-	}
+	"license": "MIT"
 }

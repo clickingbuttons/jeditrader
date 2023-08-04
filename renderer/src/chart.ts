@@ -1,4 +1,4 @@
-import { vec3 } from 'wgpu-matrix';
+import { Vec3 } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
 import { Axes } from './axes.js';
 import { OHLCV } from './ohlcv.js';
@@ -6,7 +6,6 @@ import { Input } from './input.js';
 import { Aggregate, AggRange, Period, Range, Provider } from '@jeditrader/providers';
 import { toymd } from './helpers.js';
 
-export type Vec3 = vec3.default;
 export interface Lod {
 	name: Period;
 	cameraZ: number;
@@ -46,17 +45,16 @@ export function getNext(d: Date, p: Period): Date {
 }
 
 function toBounds(agg: AggRange, period: Period): Range<Vec3> {
-	const min = [0, 0, 0];
-	const max = [0, 0, 0];
-
-	min[0] = agg.time.min.getTime() * unitsPerMs;
-	max[0] = getNext(agg.time.max, period).getTime() * unitsPerMs;
-
-	min[1] = agg.low.min * unitsPerDollar;
-	max[1] = agg.high.max * unitsPerDollar;
-
-	min[2] = 0;
-	max[2] = Math.sqrt(agg.volume.max);
+	const min = new Vec3(
+		agg.time.min.getTime() * unitsPerMs,
+		agg.low.min * unitsPerDollar,
+		0
+	);
+	const max = new Vec3(
+		getNext(agg.time.max, period).getTime() * unitsPerMs,
+		agg.high.max * unitsPerDollar,
+		Math.sqrt(agg.volume.max)
+	);
 
 	return { min, max };
 }
@@ -177,7 +175,7 @@ export class Chart {
 
 	update(dt: DOMHighResTimeStamp): boolean {
 		this.camera.update(dt, this.input);
-		const lodChanged = this.updateLod(this.camera.eye[2]);
+		const lodChanged = this.updateLod(this.camera.eye.z);
 		this.input.update();
 
 		const res = this.input.focused || lodChanged || this.forceRender;

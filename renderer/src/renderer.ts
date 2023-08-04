@@ -1,12 +1,7 @@
-import { mat4, vec3 } from 'wgpu-matrix';
 import { depthFormat, presentationFormat, sampleCount } from './util.js';
 import { Provider } from '@jeditrader/providers';
 import { Chart } from './chart.js';
 import { debounce } from './helpers.js';
-
-// We need the extra precision since there are ~630 billion milliseconds to potentially render.
-mat4.setDefaultType(Float64Array);
-vec3.setDefaultType(Float64Array);
 
 export class Renderer {
 	canvas: HTMLCanvasElement;

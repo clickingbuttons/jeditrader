@@ -1,7 +1,7 @@
 import { Camera } from './camera.js';
 import { presentationFormat, sampleCount, createBuffer, align, depthFormat } from './util.js';
 import { Range } from '@jeditrader/providers';
-import { Vec3 } from './chart.js';
+import { Vec3 } from '@jeditrader/linalg';
 import { axes as code } from './shaders/index.js';
 
 export class Axes {
@@ -18,8 +18,8 @@ export class Axes {
 
 	camera: Camera;
 	range: Range<Vec3> = {
-		min: [-5000, -5000, -5000],
-		max: [5000, 5000, 5000]
+		min: new Vec3(-5000, -5000, -5000),
+		max: new Vec3(5000, 5000, 5000)
 	};
 
 	constructor(device: GPUDevice, camera: Camera) {
@@ -98,8 +98,8 @@ export class Axes {
 	}
 
 	getGeometry(range: Range<Vec3>) {
-		const min = [range.min[0], range.min[1]];
-		const max = [range.max[0], range.max[1]];
+		const min = [range.min.x, range.min.y];
+		const max = [range.max.x, range.max.y];
 		const vertices = new Float64Array([
 			min[0], min[1],
 			min[0], max[1],

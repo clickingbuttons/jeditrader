@@ -6,12 +6,14 @@
 	"repository": "https://github.com/clickingbuttons/jeditrader.git",
 	"author": "clickingbuttons",
 	"scripts": {
-		"start": "npm run build && npm start --workspace=app",
-		"build": "tsc --build --verbose",
+		"start": "npm run watch & npm start --workspace=app",
+		"build": "tsc --build",
+		"watch": "tsc --build --watch ",
 		"clean": "tsc --build --clean && npm run clean --workspace=app"
 	},
 	"workspaces": [
 		"providers",
+		"linalg",
 		"renderer",
 		"app"
 	],
