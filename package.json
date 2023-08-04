@@ -1,36 +1,22 @@
 {
-  "name": "polyview",
-  "version": "0.0.1",
-  "description": "Polygon data in Tradingview",
-  "main": "index.js",
-  "scripts": {
-    "build": "esbuild-scripts build",
-    "start": "esbuild-scripts start"
-  },
-  "repository": "https://github.com/clickingbuttons/polyview",
-  "keywords": [
-    "polygon",
-    "api",
-    "charting",
-    "webgpu"
-  ],
-  "author": "clickingbuttons",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/clickingbuttons/polyview/issues"
-  },
-  "homepage": "https://github.com/clickingbuttons/polyview#readme",
-  "devDependencies": {
-    "@webgpu/types": "^0.1.34",
-    "esbuild": "^0.18.15",
-    "esbuild-copy-static-files": "^0.1.0",
-    "esbuild-plugin-glsl": "^1.2.1",
-    "esbuild-plugin-template": "^0.0.3",
-    "esbuild-scripts": "^0.0.5"
-  },
-  "dependencies": {
-    "preact": "^10.16.0",
-    "preact-router": "^4.1.2",
-    "wgpu-matrix": "^2.4.2"
-  }
+	"name": "@jeditrader/monorepo",
+	"version": "0.0.1",
+	"private": true,
+	"description": "JediTrader NPM packages",
+	"repository": "https://github.com/clickingbuttons/jeditrader.git",
+	"author": "clickingbuttons",
+	"scripts": {
+		"start": "npm run build && npm start --workspace=app",
+		"build": "tsc --build --verbose",
+		"clean": "tsc --build --clean && npm run clean --workspace=app"
+	},
+	"workspaces": [
+		"providers",
+		"renderer",
+		"app"
+	],
+	"license": "MIT",
+	"devDependencies": {
+		"typescript": "^5.1.6"
+	}
 }

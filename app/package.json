@@ -1,0 +1,26 @@
+{
+	"name": "@jeditrader/app",
+	"version": "0.0.1",
+	"description": "WebGPU charting application",
+	"keywords": ["polygon", "api", "charting", "webgpu"],
+	"type": "module",
+	"scripts": {
+		"build": "esbuild-scripts build",
+		"start": "esbuild-scripts start"
+	},
+	"repository": "https://github.com/clickingbuttons/jeditrader",
+	"author": "clickingbuttons",
+	"license": "MIT",
+	"devDependencies": {
+		"esbuild": "^0.18.15",
+		"esbuild-copy-static-files": "^0.1.0",
+		"esbuild-plugin-template": "^0.0.3",
+		"esbuild-scripts": "^0.0.5"
+	},
+	"dependencies": {
+		"@jeditrader/providers": "^0.0.1",
+		"@jeditrader/renderer": "^0.0.1",
+		"preact": "^10.16.0",
+		"preact-router": "^4.1.2"
+	}
+}

@@ -1,22 +1,7 @@
 {
-	"compilerOptions": {
-		"target": "esnext",
-		"noEmit": true,
-		"strict": true,
-		"isolatedModules": true,
-		"moduleResolution": "node",
-		"esModuleInterop": true,
-		"jsx": "react-jsx",
-		"jsxFactory": "h",
-		"jsxFragmentFactory": "Fragment",
-		"jsxImportSource": "preact",
-		"resolveJsonModule": true,
-		"typeRoots": [
-			"./node_modules/@webgpu/types",
-			"./node_modules/@types"
-		]
-	},
-	"include": [
-		"src"
+	"files": [],
+	"references": [
+		{"path": "./providers/tsconfig.json"},
+		{"path": "./renderer/tsconfig.json"}
 	]
 }

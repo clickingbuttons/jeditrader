@@ -1,0 +1,19 @@
+{
+	"compilerOptions": {
+		"strict": true,
+		"isolatedModules": true,
+		"target": "esnext",
+		"skipLibCheck": true,
+		"module": "node16",
+		"moduleResolution": "node16",
+		"esModuleInterop": true,
+		"jsx": "react-jsx",
+		"jsxImportSource": "preact",
+		"resolveJsonModule": true,
+		"typeRoots": [
+			"./node_modules/@webgpu/types",
+			"./node_modules/@types"
+		],
+		"composite": true
+	}
+}
