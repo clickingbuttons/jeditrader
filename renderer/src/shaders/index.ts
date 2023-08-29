@@ -4,7 +4,6 @@ struct Camera {
 	eye: vec3f,
 	eyeLow: vec3f,
 }
-
 @group(0) @binding(0) var<uniform> camera: Camera;
 
 // https://prideout.net/emulating-double-precision
@@ -18,6 +17,11 @@ fn dsFun90(position: vec3f, positionLow: vec3f) -> vec3f {
 }
 `;
 
+// const uniformData = [
+// 	0.2, 0.2, 0.2, 1, // backgroundColor
+// 	0, 0, 0, 1, // lineColor
+// 	2, // lineThickness
+// ];
 export const axes = `${camera}
 struct Axes {
 	backgroundColor: vec4f,

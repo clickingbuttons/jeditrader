@@ -29,52 +29,66 @@ interface TypedArray {
 	[index: number]: number;
 }
 
+export function wgslType(arr: TypedArray) {
+	const objectType = Object.prototype.toString.call(arr);
+	switch (objectType) {
+		case '[object Float32Array]':
+			return 'f32';
+		case '[object Int32Array]':
+			return 'i32';
+		case '[object Uint32Array]':
+			return 'u32';
+		default:
+			throw new Error('unknown data type ' + objectType);
+	}
+}
+
 export function createBuffer({
 	device,
-	usage = GPUBufferUsage.VERTEX,
+	usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
 	data = new Float32Array(0),
-	arrayTag = 'f32',
 	label,
 }: {
 	device: GPUDevice,
 	data: TypedArray,
-	arrayTag?: 'f64' | 'f32' | 'i32' | 'u32' | 'i16' | 'u16' | 'i8' | 'u8',
 	usage?: GPUBufferUsageFlags,
 	label?: string,
 }): GPUBuffer {
+	const alignment = usage & GPUBufferUsage.UNIFORM ? 16 : 1;
 	const res = device.createBuffer({
 		label,
-		size: data.byteLength,
+		size: align(data.byteLength, alignment),
 		usage,
 		mappedAtCreation: true
 	});
-	switch (arrayTag) {
-		case 'f64':
+	const objectType = Object.prototype.toString.call(data);
+	switch (objectType) {
+		case '[object Float64Array]':
 			new Float64Array(res.getMappedRange()).set(data);
 			break;
-		case 'f32':
+		case '[object Float32Array]':
 			new Float32Array(res.getMappedRange()).set(data);
 			break;
-		case 'i32':
+		case '[object Int32Array]':
 			new Int32Array(res.getMappedRange()).set(data);
 			break;
-		case 'u32':
+		case '[object Uint32Array]':
 			new Uint32Array(res.getMappedRange()).set(data);
 			break;
-		case 'i16':
+		case '[object Int16Array]':
 			new Int16Array(res.getMappedRange()).set(data);
 			break;
-		case 'u16':
+		case '[object Uint16Array]':
 			new Uint16Array(res.getMappedRange()).set(data);
 			break;
-		case 'i8':
+		case '[object Int8Array]':
 			new Int8Array(res.getMappedRange()).set(data);
 			break;
-		case 'u8':
+		case '[object Uint8Array]':
 			new Uint8Array(res.getMappedRange()).set(data);
 			break;
 		default:
-			throw new Error('unknown array tag ' + arrayTag);
+			throw new Error('unknown data type ' + objectType);
 	}
 	res.unmap()
 

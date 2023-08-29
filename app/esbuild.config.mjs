@@ -1,10 +1,8 @@
-import { resolve } from 'path'
 import htmlPlugin from 'esbuild-plugin-template'
 import copyPlugin from 'esbuild-copy-static-files'
 
 const outdir = 'dist';
 const routes = ['index', 'chart', 'signin'];
-const tsconfig = resolve(process.cwd(), '../tsconfig.base.json');
 
 function htmlConfig() {
 	return routes.map(r => ({
@@ -40,7 +38,6 @@ export const esbuildConfig = ({ isProd }) => ({
 	sourcemap: isProd ? 'external' : 'inline',
 	minify: isProd,
 	outdir,
-	tsconfig,
 	plugins: [
 		htmlPlugin(htmlConfig(isProd)),
 		copyPlugin({

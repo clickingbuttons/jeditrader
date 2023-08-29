@@ -5,9 +5,6 @@ import { Input } from './input.js';
 interface CameraGPU {
 	device: GPUDevice;
 	buffer: GPUBuffer;
-	bindGroupLayout: GPUBindGroupLayout;
-	bindGroup: GPUBindGroup;
-	layout: GPUPipelineLayout;
 }
 
 export class Camera {
@@ -21,34 +18,17 @@ export class Camera {
 	yaw = -0.011;
 
 	canvas: HTMLCanvasElement; // For aspect ratio
-	gpu: CameraGPU; // For convienence
+	gpu: CameraGPU;
 	direction = new Vec3(0, 0, 0); // Computed
 
 	constructor(canvas: HTMLCanvasElement, device: GPUDevice) {
 		this.canvas = canvas;
-		const buffer = device.createBuffer({
-			size: align((4 * 4 + 6) * 4, 16),
-			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-		});
-		const bindGroupLayout = device.createBindGroupLayout({
-			entries: [
-				{
-					binding: 0,
-					visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-					buffer: { type: 'uniform' }
-				}
-			]
-		});
-		const bindGroup = device.createBindGroup({
-			layout: bindGroupLayout,
-			entries: [{ binding: 0, resource: { buffer } }]
-		});
 		this.gpu = {
 			device,
-			buffer,
-			bindGroupLayout,
-			bindGroup,
-			layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
+			buffer: device.createBuffer({
+				size: align((4 * 4 + 6) * 4, 16),
+				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+			}),
 		};
 	}
 
@@ -110,7 +90,7 @@ export class Camera {
 		);
 		const cameraBuffer = new Float32Array(this.gpu.buffer.size / Float32Array.BYTES_PER_ELEMENT);
 		cameraBuffer.set(proj.multiply(view).f32());
-		cameraBuffer.set(this.eye.f32(), 16); // Converts to f32
+		cameraBuffer.set(this.eye.f32(), 16);
 		cameraBuffer.set(this.eye.f32Low(), 19);
 
 		this.gpu.device.queue.writeBuffer(this.gpu.buffer, 0, cameraBuffer);

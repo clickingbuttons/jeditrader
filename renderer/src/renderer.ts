@@ -131,5 +131,13 @@ export class Renderer {
 
 		return new Renderer(canvas, device, context, provider, ticker);
 	}
+
+	toggleWireframe() {
+		this.chart.toggleWireframe();
+	}
+
+	toggleLodLock() {
+		this.chart.lockLod = !this.chart.lockLod;
+	}
 };
 

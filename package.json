@@ -5,15 +5,17 @@
 	"description": "JediTrader NPM packages",
 	"repository": "https://github.com/clickingbuttons/jeditrader.git",
 	"author": "clickingbuttons",
+	"type": "module",
 	"scripts": {
 		"start": "npm run watch & npm start --workspace=app",
 		"build": "tsc --build",
-		"watch": "tsc --build --watch ",
+		"watch": "tsc --build --watch",
 		"clean": "tsc --build --clean && npm run clean --workspace=app"
 	},
 	"workspaces": [
 		"providers",
 		"linalg",
+		"geometry",
 		"renderer",
 		"app"
 	],

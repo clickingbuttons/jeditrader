@@ -97,6 +97,7 @@ export class Chart {
 		},
 	];
 	lod = -1;
+	lockLod = false;
 
 	constructor(
 		canvas: HTMLCanvasElement,
@@ -142,6 +143,7 @@ export class Chart {
 	}
 
 	updateLod(cameraZ: number): boolean {
+		if (this.lockLod) return false;
 		const from = '1970-01-01';
 		const to = toymd(new Date());
 
@@ -186,5 +188,11 @@ export class Chart {
 	render(pass: GPURenderPassEncoder) {
 		this.axes.render(pass);
 		this.ohlcv.render(pass);
+	}
+
+	toggleWireframe() {
+		this.axes.toggleWireframe();
+		this.ohlcv.toggleWireframe();
+		this.forceRender = true;
 	}
 };

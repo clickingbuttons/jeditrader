@@ -4,8 +4,5 @@
 		"rootDir": "src",
 		"outDir": "./dist/esm"
 	},
-	"include": ["src"],
-	"references": [
-		{ "path": "../geometry" }
-	]
+	"include": ["src"]
 }

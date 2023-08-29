@@ -2,12 +2,14 @@
 	"name": "@jeditrader/providers",
 	"version": "0.0.1",
 	"description": "WebGPU chart renderer",
-	"module": "dist/esm/index.js",
+	"type": "module",
+	"exports": { ".":"./dist/esm/index.js" },
 	"types": "dist/esm/index.d.ts",
 	"repository": "https://github.com/clickingbuttons/jeditrader",
 	"author": "clickingbuttons",
 	"license": "MIT",
 	"dependencies": {
-		"@webgpu/types": "^0.1.34"
+		"@webgpu/types": "^0.1.34",
+		"date-fns": "^2.30.0"
 	}
 }

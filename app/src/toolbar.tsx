@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'preact/hooks';
 import { SymbolPicker } from './select.js';
 import { LightMode, DarkMode } from './icons/index.js';
+import { Renderer } from '@jeditrader/renderer';
 import './toolbar.css';
 
 export function Toolbar({
 	ticker,
 	setTicker,
+	renderer
 }: {
 	ticker: string;
 	setTicker(ticker: string): void;
+	renderer: Renderer | null;
 }) {
 	const [percent, setPercent] = useState(false);
 	const [dark, setDark] = useState(document.body.classList.contains('dark'));
@@ -33,6 +36,12 @@ export function Toolbar({
 				</button>
 				<button title={`Activate ${dark ? 'light' : 'dark'} mode`} onClick={() => setDark(!dark)}>
 					{dark ? <LightMode /> : <DarkMode />}
+				</button>
+				<button title="Toggle wireframe" onClick={() => renderer?.toggleWireframe()}>
+					W
+				</button>
+				<button title="Lock LOD" onClick={() => renderer?.toggleLodLock()}>
+					L
 				</button>
 			</div>
 		</div>

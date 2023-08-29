@@ -12,14 +12,14 @@ if (preferDark()) document.body.classList.replace('light', 'dark');
 function Main() {
 	const [apiKey, setAPIKey] = useState(getCookie('POLY_API_KEY') || '');
 
-	useEffect(() => {
-		isValidAPIKey(apiKey).then(isValid => route(isValid ? '/chart' : '/signin'));
-	}, [apiKey]);
+	// useEffect(() => {
+	// 	isValidAPIKey(apiKey).then(isValid => route(isValid ? '/chart' : '/signin'));
+	// }, [apiKey]);
 
 	return (
 		<Router>
 			<div path="/">Checking API key</div>
-			<Signin path="/signin" apiKey={apiKey} setAPIKey={setAPIKey} />
+			{/*<Signin path="/signin" apiKey={apiKey} setAPIKey={setAPIKey} />*/}
 			<Chart path="/chart" apiKey={apiKey} />
 		</Router>
 	);

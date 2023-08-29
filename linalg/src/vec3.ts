@@ -10,6 +10,10 @@ export class Vec3 {
 		this.z = z;
 	}
 
+	clone(): Vec3 {
+		return new Vec3(this.x, this.y, this.z);
+	}
+
 	add(v: Vec3): Vec3 {
 		return new Vec3(this.x + v.x, this.y + v.y, this.z + v.z);
 	}

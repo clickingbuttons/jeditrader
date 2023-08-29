@@ -1,16 +1,17 @@
+import { Vec3 } from '@jeditrader/linalg';
+import { Vertex } from './vertex.js';
 import { Polygon } from './polygon.js';
-import { Node } from './node.js';
-import { vec3, Vec3 } from './util.js';
+import { CSG } from './csg.js';
 
 // In case you want normals
 export function sphereDirection(theta: number, phi: number): Vec3 {
 	theta *= Math.PI * 2;
 	phi *= Math.PI;
-	return [
+	return new Vec3(
 		Math.cos(theta) * Math.sin(phi),
 		Math.cos(phi),
 		Math.sin(theta) * Math.sin(phi)
-	];
+	);
 }
 
 export function sphereVertex(
@@ -18,22 +19,22 @@ export function sphereVertex(
 	radius: number,
 	theta: number,
 	phi: number,
-): Vec3 {
+): Vertex {
 	const dir = sphereDirection(theta, phi);
-	return vec3.add(center, vec3.mulScalar(dir, radius));
+	return new Vertex(center.add(dir.mulScalar(radius)), dir);
 }
 
-export class Sphere extends Node {
+export class Sphere extends CSG {
 	constructor(
-		center: Vec3 = [0, 0, 0],
-		radius: number = 1,
-		slices: number = 16,
-		stacks: number = 8
+		center = new Vec3(0, 0, 0),
+		radius = 1,
+		slices = 16,
+		stacks = 8
 	) {
 		const polygons: Polygon[] = [];
 		for (var i = 0; i < slices; i++) {
 			for (var j = 0; j < stacks; j++) {
-				const vertices: Vec3[] = [];
+				const vertices: Vertex[] = [];
 				vertices.push(sphereVertex(center, radius, i / slices, j / stacks));
 				if (j > 0) {
 					vertices.push(sphereVertex(center, radius, (i + 1) / slices, j / stacks));

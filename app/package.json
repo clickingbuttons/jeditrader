@@ -6,7 +6,8 @@
 	"type": "module",
 	"scripts": {
 		"build": "esbuild-scripts build",
-		"start": "esbuild-scripts start"
+		"start": "esbuild-scripts start",
+		"clean": "rm -rf dist"
 	},
 	"repository": "https://github.com/clickingbuttons/jeditrader",
 	"author": "clickingbuttons",
