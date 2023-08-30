@@ -5,6 +5,11 @@ import { Vec3 } from '@jeditrader/linalg';
 import { CSG, Polygon, Vertex } from '@jeditrader/geometry';
 import { createBuffer } from './util.js';
 
+const wgslStruct = `struct Axes {
+	backgroundColor: vec4f,
+	lineColor: vec4f,
+	lineThickness: f32,
+}`;
 const vertCode = `
 	let p = pos(arg);
 	return VertexOutput(camera.mvp * p, p.xy);
@@ -111,11 +116,7 @@ export class Axes extends Mesh {
 						type: 'uniform',
 						buffer: uniform,
 						visibility: GPUShaderStage.FRAGMENT,
-						wgslStruct: `struct Axes {
-	backgroundColor: vec4f,
-	lineColor: vec4f,
-	lineThickness: f32,
-}`,
+						wgslStruct,
 						wgslType: 'Axes',
 					}),
 					new ShaderBinding({

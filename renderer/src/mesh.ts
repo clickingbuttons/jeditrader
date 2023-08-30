@@ -22,7 +22,7 @@ const defaultOptions = {
 	cullMode: 'back',
 	vertOutputFields: [],
 	vertCode: 'return VertexOutput(camera.mvp * pos(vertex));',
-	fragCode: 'reture in.color;',
+	fragCode: 'return vec4f(1.0, 1.0, 0.0, 1.0);',
 } as MeshOptions;
 
 // https://prideout.net/emulating-double-precision
@@ -136,9 +136,9 @@ fn pos(vertex: Vertex) -> vec4f {
 				}],
 			},
 			depthStencil: {
-				depthWriteEnabled: options.depthWriteEnabled,
-				depthCompare: 'less',
 				format: depthFormat,
+				depthCompare: 'less',
+				depthWriteEnabled: options.depthWriteEnabled,
 			},
 			primitive: {
 				topology: wireframe ? 'line-list' : 'triangle-list',
