@@ -5,10 +5,33 @@ import { Vec3 } from '@jeditrader/linalg';
 import { CSG, Polygon, Vertex } from '@jeditrader/geometry';
 import { createBuffer } from './util.js';
 
-const indices = [
-	0, 1, 2,
-	2, 3, 0,
-];
+const vertCode = `
+	let p = pos(arg);
+	return VertexOutput(camera.mvp * p, p.xy);
+`;
+const fragCode = `
+	let uv = arg.uv;
+	var dudv = vec2(
+		length(vec2(dpdx(uv.x), dpdy(uv.x))),
+		length(vec2(dpdx(uv.y), dpdy(uv.y)))
+	);
+	dudv *= axes.lineThickness;
+
+	for (var i: u32 = 0; i < arrayLength(&horizontalLines); i++) {
+		let xVal = horizontalLines[i];
+		if (uv.y > -dudv.y + xVal && uv.y < dudv.y + xVal) {
+			return axes.lineColor;
+		}
+	}
+	for (var i: u32 = 0; i < arrayLength(&verticalLines); i++) {
+		let yVal = verticalLines[i];
+		if (uv.x > -dudv.x + yVal && uv.x < dudv.x + yVal) {
+			return axes.lineColor;
+		}
+	}
+
+	return axes.backgroundColor;
+`;
 
 class BoundedPlane extends CSG {
 	constructor(min = new Vec3(0, 0, 0), max = new Vec3(1, 1, 1)) {
@@ -33,7 +56,7 @@ export class Axes extends Mesh {
 	};
 	range: Range<Vec3> = Axes.defaultRange;
 
-	positions: GPUBuffer;
+	camera: Camera;
 	uniform: GPUBuffer;
 	horizontalLines: GPUBuffer;
 	verticalLines: GPUBuffer;
@@ -41,6 +64,8 @@ export class Axes extends Mesh {
 	static getGeometry(range: Range<Vec3> = Axes.defaultRange) {
 		const min = [range.min.x, range.min.y];
 		const max = [range.max.x, range.max.y];
+
+		// Use tiling approach.
 
 		return [
 			// cw from bottom left
@@ -52,34 +77,6 @@ export class Axes extends Mesh {
 	}
 
 	constructor(device: GPUDevice, camera: Camera) {
-		const positions = createBuffer({
-			device,
-			data: new Float32Array(Axes.getGeometry()),
-		});
-
-		const fragShader = `
-			let uv = in.uv;
-			var dudv = vec2(
-				length(vec2(dpdx(uv.x), dpdy(uv.x))),
-				length(vec2(dpdx(uv.y), dpdy(uv.y)))
-			);
-			dudv *= axes.lineThickness;
-
-			for (var i: u32 = 0; i < arrayLength(&horizontalLines); i++) {
-				let xVal = horizontalLines[i];
-				if (uv.y > -dudv.y + xVal && uv.y < dudv.y + xVal) {
-					return axes.lineColor;
-				}
-			}
-			for (var i: u32 = 0; i < arrayLength(&verticalLines); i++) {
-				let yVal = verticalLines[i];
-				if (uv.x > -dudv.x + yVal && uv.x < dudv.x + yVal) {
-					return axes.lineColor;
-				}
-			}
-
-			return axes.backgroundColor;
-		`;
 		const uniform = createBuffer({
 			device,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -101,45 +98,58 @@ export class Axes extends Mesh {
 		super(
 			device,
 			camera,
-			ShaderBinding.positions(positions, 2),
-			ShaderBinding.indices(device, indices),
-			ShaderBinding.colors(createBuffer({ device, data: new Float32Array([0.2, 0.2, 0.2]) }), 0),
-			[
-				new ShaderBinding({
-					name: 'axes',
-					type: 'uniform',
-					buffer: uniform,
-					visibility: GPUShaderStage.FRAGMENT,
-					wgslStruct: `struct Axes {
-							backgroundColor: vec4f,
-							lineColor: vec4f,
-							lineThickness: f32,
-						}
-					`,
-					wgslType: 'Axes',
-				}),
-				new ShaderBinding({
-					name: 'horizontalLines',
-					buffer: horizontalLines,
-					visibility: GPUShaderStage.FRAGMENT,
-				}),
-				new ShaderBinding({
-					name: 'verticalLines',
-					buffer: verticalLines,
-					visibility: GPUShaderStage.FRAGMENT,
-				}),
-			],
-			false,
-			fragShader
+			new Float32Array(Axes.getGeometry()),
+			new Uint32Array([
+				0, 1, 2,
+				2, 3, 0,
+			]),
+			{
+				vertexStride: 2,
+				bindings: [
+					new ShaderBinding({
+						name: 'axes',
+						type: 'uniform',
+						buffer: uniform,
+						visibility: GPUShaderStage.FRAGMENT,
+						wgslStruct: `struct Axes {
+	backgroundColor: vec4f,
+	lineColor: vec4f,
+	lineThickness: f32,
+}`,
+						wgslType: 'Axes',
+					}),
+					new ShaderBinding({
+						name: 'horizontalLines',
+						buffer: horizontalLines,
+						visibility: GPUShaderStage.FRAGMENT,
+					}),
+					new ShaderBinding({
+						name: 'verticalLines',
+						buffer: verticalLines,
+						visibility: GPUShaderStage.FRAGMENT,
+					}),
+				],
+				depthWriteEnabled: false,
+				cullMode: 'none',
+				vertOutputFields: [ 'uv: vec2f' ],
+				vertCode,
+				fragCode,
+			}
 		);
-		this.positions = positions;
 		this.uniform = uniform;
 		this.horizontalLines = horizontalLines;
 		this.verticalLines = verticalLines;
+		this.camera = camera;
 	}
 
 	setRange(range: Range<Vec3>) {
 		const positions = new Float32Array(Axes.getGeometry(range));
+		this.range = range;
+		this.device.queue.writeBuffer(this.positions, 0, positions);
+	}
+
+	update() {
+		const positions = new Float32Array(Axes.getGeometry(this.range));
 		this.device.queue.writeBuffer(this.positions, 0, positions);
 	}
 }

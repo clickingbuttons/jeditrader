@@ -7,6 +7,12 @@ interface CameraGPU {
 	buffer: GPUBuffer;
 }
 
+const wgslStruct = `struct Camera {
+	mvp: mat4x4f,
+	eye: vec3f,
+	eyeLow: vec3f,
+}`;
+
 declare let window: {
 	zNear: number;
 	zFar: number;
@@ -14,9 +20,12 @@ declare let window: {
 
 export class Camera {
 	eye = new Vec3(
-		1376541887.1159537,
-		-39459822.09626397,
-		263892695.1522381
+// 		1376541887.1159537,
+// 		-39459822.09626397,
+// 		263892695.1522381
+		693185120.460306,
+		-19706451.764332887,
+		89346579.2761759
 	);
 	up = new Vec3(0, 0, 1);
 	pitch = -1.398;
@@ -24,6 +33,7 @@ export class Camera {
 
 	canvas: HTMLCanvasElement; // For aspect ratio
 	gpu: CameraGPU;
+	static wgslStruct = wgslStruct;
 	direction = new Vec3(0, 0, 0); // Computed
 
 	constructor(canvas: HTMLCanvasElement, device: GPUDevice) {
@@ -96,7 +106,7 @@ export class Camera {
 		const cameraBuffer = new Float32Array(this.gpu.buffer.size / Float32Array.BYTES_PER_ELEMENT);
 		cameraBuffer.set(proj.multiply(view).f32());
 		cameraBuffer.set(this.eye.f32(), 16);
-		cameraBuffer.set(this.eye.f32Low(), 19);
+		cameraBuffer.set(this.eye.f32Low(), 20);
 
 		this.gpu.device.queue.writeBuffer(this.gpu.buffer, 0, cameraBuffer);
 	}

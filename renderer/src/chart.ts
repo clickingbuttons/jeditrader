@@ -60,6 +60,7 @@ function toBounds(agg: AggRange, period: Period): Range<Vec3> {
 }
 
 const largestPeriod = 'year';
+const msPerDay = 24 * 60 * 60 * 1e3;
 
 export class Chart {
 	ticker: string;
@@ -157,8 +158,9 @@ export class Chart {
 			console.log('high lod', this.lod, lod);
 
 			const horizonDistance = this.camera.eye.z * 4;
-			const from = toymd(new Date((this.camera.eye.x - horizonDistance) / unitsPerMs));
-			const to = toymd(new Date((this.camera.eye.x + horizonDistance) / unitsPerMs));
+			const from = toymd(new Date((this.camera.eye.x * 2 - horizonDistance) / unitsPerMs));
+			const to = toymd(new Date((this.camera.eye.x * 2 + horizonDistance) / unitsPerMs));
+			console.log(from, to)
 			this.provider[lod.name](this.ticker, from, to).then(({ aggs, range }) => {
 				this.onData(aggs, lod.name, range);
 				if (updateGeometry) this.ohlcv.updateGeometry(lod);
@@ -170,9 +172,9 @@ export class Chart {
 		if (this.lockLod) return false;
 
 		const lastLod = this.lod;
-		for (var i = 0; i < this.lods.length; i++) {
-			if (this.lods[i].cameraZ < cameraZ) {
-				const newLod = Math.max(i - 1, 0);
+		for (var i = this.lods.length - 1; i >= 0; i--) {
+			if (cameraZ < this.lods[i].cameraZ) {
+				const newLod = i;
 				if (newLod !== lastLod) {
 					this.lod = newLod;
 					this.updateAggData(this.lods[newLod]);
@@ -192,6 +194,7 @@ export class Chart {
 		this.camera.update(dt, this.input);
 		const lodChanged = this.updateLod(this.camera.eye.z);
 		this.input.update();
+		this.axes.update();
 
 		const res = this.input.focused || lodChanged || this.forceRender;
 		this.forceRender = false;

@@ -13,28 +13,28 @@ const indices = [
 	//   /   /
 	//  0---3
 	// bottom face
-	0, 1, 2,
-	2, 3, 0,
+	0, 3, 2,
+	2, 1, 0,
 
 	// top face
-	4, 5, 6,
-	6, 7, 4,
+	4, 7, 6,
+	6, 5, 4,
 
 	// left face
-	0, 1, 4,
-	4, 5, 1,
+	0, 4, 5,
+	5, 1, 0,
 
 	// right face
-	2, 3, 7,
-	7, 6, 2,
+	2, 6, 7,
+	7, 3, 2,
 
 	// front face
-	0, 3, 4,
-	4, 7, 3,
+	0, 3, 7,
+	7, 4, 0,
 
 	// back face
-	1, 2, 5,
-	5, 6, 2,
+	1, 5, 2,
+	2, 5, 6,
 ];
 
 export interface Candle {
@@ -43,7 +43,7 @@ export interface Candle {
 	color: Vec3;
 }
 
-const vertStride = 24;
+const instanceStride = 24;
 function toCube(range: Range<Vec3>): number[] {
 	return [
 		range.min.x, range.min.y, range.min.z,
@@ -59,16 +59,11 @@ function toCube(range: Range<Vec3>): number[] {
 }
 
 export class OHLCV extends Mesh {
-	positions: GPUBuffer;
 	colors: GPUBuffer;
 	opacity: GPUBuffer;
 
 	constructor(device: GPUDevice, camera: Camera) {
 		const maxCandles = 1e6;
-		const positions = createBuffer({
-			device,
-			data: new Float32Array(3 * maxCandles),
-		});
 		const colors = createBuffer({
 			device,
 			data: new Float32Array(3 * maxCandles),
@@ -76,27 +71,39 @@ export class OHLCV extends Mesh {
 		const opacity = createBuffer({
 			device,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-			data: new Float32Array([0.2])
+			data: new Float32Array([1])
 		});
 		super(
 			device,
 			camera,
-			ShaderBinding.positions(positions, 3, vertStride),
-			ShaderBinding.indices(device, indices),
-			ShaderBinding.colors(colors, 0, 3),
-			[
-				new ShaderBinding({
-					name: 'opacity',
-					type: 'uniform',
-					buffer: opacity,
-					visibility: GPUShaderStage.FRAGMENT,
-					wgslType: 'f32'
-				}),
-			],
-			true,
-			`return vec4f(in.color.xyz, opacity);`
+			new Float32Array(3 * maxCandles),
+			new Uint32Array(indices),
+			{
+				instanceStride,
+				bindings: [
+					new ShaderBinding({
+						name: 'colors',
+						visibility: GPUShaderStage.FRAGMENT,
+						buffer: colors
+					}),
+					new ShaderBinding({
+						name: 'opacity',
+						type: 'uniform',
+						buffer: opacity,
+						visibility: GPUShaderStage.FRAGMENT,
+						wgslType: 'f32'
+					}),
+				],
+				vertOutputFields: ['@interpolate(flat) instance: u32'],
+				vertCode: 'return VertexOutput(camera.mvp * pos(arg), arg.instance);',
+				fragCode: `return vec4f(
+					colors[arg.instance * 3 + 0],
+					colors[arg.instance * 3 + 1],
+					colors[arg.instance * 3 + 2],
+					opacity
+				);`,
+			}
 		);
-		this.positions = positions;
 		this.colors = colors;
 		this.opacity = opacity;
 		this.nInstances = 0;
@@ -174,6 +181,6 @@ export class OHLCV extends Mesh {
 		this.device.queue.writeBuffer(this.positions, 0, new Float32Array(positions));
 		this.device.queue.writeBuffer(this.colors, 0, new Float32Array(colors));
 
-		this.nInstances = positions.length / vertStride;
+		this.nInstances = positions.length / instanceStride;
 	}
 }
