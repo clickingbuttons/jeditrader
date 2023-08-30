@@ -32,7 +32,11 @@ export class Axes extends Mesh {
 		max: new Vec3(5000, 5000, 5000)
 	};
 	range: Range<Vec3> = Axes.defaultRange;
+
 	positions: GPUBuffer;
+	uniform: GPUBuffer;
+	horizontalLines: GPUBuffer;
+	verticalLines: GPUBuffer;
 
 	static getGeometry(range: Range<Vec3> = Axes.defaultRange) {
 		const min = [range.min.x, range.min.y];
@@ -53,15 +57,85 @@ export class Axes extends Mesh {
 			data: new Float32Array(Axes.getGeometry()),
 		});
 
+		const fragShader = `
+			let uv = in.uv;
+			var dudv = vec2(
+				length(vec2(dpdx(uv.x), dpdy(uv.x))),
+				length(vec2(dpdx(uv.y), dpdy(uv.y)))
+			);
+			dudv *= axes.lineThickness;
+
+			for (var i: u32 = 0; i < arrayLength(&horizontalLines); i++) {
+				let xVal = horizontalLines[i];
+				if (uv.y > -dudv.y + xVal && uv.y < dudv.y + xVal) {
+					return axes.lineColor;
+				}
+			}
+			for (var i: u32 = 0; i < arrayLength(&verticalLines); i++) {
+				let yVal = verticalLines[i];
+				if (uv.x > -dudv.x + yVal && uv.x < dudv.x + yVal) {
+					return axes.lineColor;
+				}
+			}
+
+			return axes.backgroundColor;
+		`;
+		const uniform = createBuffer({
+			device,
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+			data: new Float32Array([
+				0.2, 0.2, 0.2, 1, // backgroundColor
+				0, 0, 0, 1, // lineColor
+				2, // lineThickness
+			])
+		});
+		const horizontalLines = createBuffer({
+			device,
+			data: new Float32Array([0])
+		});
+		const verticalLines = createBuffer({
+			device,
+			data: new Float32Array([0])
+		});
+
 		super(
 			device,
 			camera,
 			ShaderBinding.positions(positions, 2),
 			ShaderBinding.indices(device, indices),
 			ShaderBinding.colors(createBuffer({ device, data: new Float32Array([0.2, 0.2, 0.2]) }), 0),
-			false
+			[
+				new ShaderBinding({
+					name: 'axes',
+					type: 'uniform',
+					buffer: uniform,
+					visibility: GPUShaderStage.FRAGMENT,
+					wgslStruct: `struct Axes {
+							backgroundColor: vec4f,
+							lineColor: vec4f,
+							lineThickness: f32,
+						}
+					`,
+					wgslType: 'Axes',
+				}),
+				new ShaderBinding({
+					name: 'horizontalLines',
+					buffer: horizontalLines,
+					visibility: GPUShaderStage.FRAGMENT,
+				}),
+				new ShaderBinding({
+					name: 'verticalLines',
+					buffer: verticalLines,
+					visibility: GPUShaderStage.FRAGMENT,
+				}),
+			],
+			false,
+			fragShader
 		);
 		this.positions = positions;
+		this.uniform = uniform;
+		this.horizontalLines = horizontalLines;
+		this.verticalLines = verticalLines;
 	}
 
 	setRange(range: Range<Vec3>) {

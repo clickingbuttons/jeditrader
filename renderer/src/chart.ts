@@ -59,7 +59,7 @@ function toBounds(agg: AggRange, period: Period): Range<Vec3> {
 	return { min, max };
 }
 
-const defaultPeriods: Period[] = ['year', 'month', 'week', 'day'];
+const largestPeriod = 'year';
 
 export class Chart {
 	ticker: string;
@@ -110,8 +110,9 @@ export class Chart {
 		this.ohlcv = new OHLCV(device, this.camera);
 		this.axes = new Axes(device, this.camera);
 		this.provider = provider;
-		this.setTicker(ticker);
 		this.ticker = ticker;
+
+		this.updateAggData(this.lods[0], false);
 	}
 
 	onData(aggs: Aggregate[], period: Period, range: AggRange) {
@@ -133,19 +134,40 @@ export class Chart {
 			lod.range = undefined;
 		});
 
-		const from = '1970-01-01';
-		const to = toymd(new Date());
-		const largestPeriod = 'year';
-		this.provider[largestPeriod](this.ticker, from, to).then(({ aggs, range }) => {
-			this.axes.setRange(toBounds(range, largestPeriod));
-			this.onData(aggs, largestPeriod, range);
-		});
+		this.updateAggData(this.lods[this.lod]);
+	}
+
+	updateAggData(lod: Lod, updateGeometry: boolean = true) {
+		// Even 100 years of daily aggs are only ~1MB.
+		// Because of this, just cache everything that's daily or above.
+		if (this.lod <= 3) {
+			console.log('lod', this.lod, lod);
+			if (lod.aggs && updateGeometry) {
+				this.ohlcv.updateGeometry(this.lods[this.lod]);
+			} else {
+				const from = '1800-01-01';
+				const to = toymd(new Date());
+				this.provider[lod.name](this.ticker, from, to).then(({ aggs, range }) => {
+					this.onData(aggs, lod.name, range);
+					if (lod.name === largestPeriod) this.axes.setRange(toBounds(range, lod.name));
+					if (updateGeometry) this.ohlcv.updateGeometry(lod);
+				});
+			}
+		} else {
+			console.log('high lod', this.lod, lod);
+
+			const horizonDistance = this.camera.eye.z * 4;
+			const from = toymd(new Date((this.camera.eye.x - horizonDistance) / unitsPerMs));
+			const to = toymd(new Date((this.camera.eye.x + horizonDistance) / unitsPerMs));
+			this.provider[lod.name](this.ticker, from, to).then(({ aggs, range }) => {
+				this.onData(aggs, lod.name, range);
+				if (updateGeometry) this.ohlcv.updateGeometry(lod);
+			});
+		}
 	}
 
 	updateLod(cameraZ: number): boolean {
 		if (this.lockLod) return false;
-		const from = '1970-01-01';
-		const to = toymd(new Date());
 
 		const lastLod = this.lod;
 		for (var i = 0; i < this.lods.length; i++) {
@@ -153,20 +175,11 @@ export class Chart {
 				const newLod = Math.max(i - 1, 0);
 				if (newLod !== lastLod) {
 					this.lod = newLod;
-					const period = this.lods[newLod].name;
-					console.log('lod', newLod, period, cameraZ);
-					if (!this.lods[newLod].aggs) {
-						this.provider[period](this.ticker, from, to).then(({ aggs, range }) => {
-							if (period === 'year') this.axes.setRange(toBounds(range, period));
-							this.onData(aggs, period, range);
-							this.ohlcv.setLod(this.lods[newLod]);
-						});
-					} else {
-						this.ohlcv.setLod(this.lods[newLod]);
-					}
+					this.updateAggData(this.lods[newLod]);
 
 					return true;
 				} else {
+					if (this.lod > 3) console.log('maybe update data');
 					return false;
 				}
 			}

@@ -7,11 +7,16 @@ interface CameraGPU {
 	buffer: GPUBuffer;
 }
 
+declare let window: {
+	zNear: number;
+	zFar: number;
+};
+
 export class Camera {
 	eye = new Vec3(
-		693120483.9616739,
-		36268462.87449349,
-		163448196.60386318,
+		1376541887.1159537,
+		-39459822.09626397,
+		263892695.1522381
 	);
 	up = new Vec3(0, 0, 1);
 	pitch = -1.398;
@@ -79,8 +84,8 @@ export class Camera {
 		).normalize();
 		const target = this.eye.add(this.direction);
 		const view = Mat4.lookAt(this.eye, target, this.up);
-		const zNear = absZ > 1 ? Math.sqrt(absZ) : absZ / 8;
-		const zFar = absZ > 1 ? absZ * 1e3 : Math.sqrt(absZ) * 8;
+		const zNear = window.zNear || absZ / 32;
+		const zFar = window.zFar || absZ * 1e3;
 		if (input.buttons.mouse1) console.log('z', zNear, zFar);
 		const proj = Mat4.perspective(
 			degToRad(90),

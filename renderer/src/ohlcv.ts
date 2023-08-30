@@ -6,10 +6,10 @@ import { Lod, unitsPerMs, unitsPerDollar, getNext } from './chart.js';
 import { createBuffer } from './util.js';
 
 const indices = [
-	//    5 --6
+	//    5---6
 	//   /   /
 	//  4---7
-	//    1 --2
+	//    1---2
 	//   /   /
 	//  0---3
 	// bottom face
@@ -39,10 +39,11 @@ const indices = [
 
 export interface Candle {
 	body: Range<Vec3>;
-	wick: Range<Vec3>;
+	wick?: Range<Vec3>;
 	color: Vec3;
 }
 
+const vertStride = 24;
 function toCube(range: Range<Vec3>): number[] {
 	return [
 		range.min.x, range.min.y, range.min.z,
@@ -60,6 +61,7 @@ function toCube(range: Range<Vec3>): number[] {
 export class OHLCV extends Mesh {
 	positions: GPUBuffer;
 	colors: GPUBuffer;
+	opacity: GPUBuffer;
 
 	constructor(device: GPUDevice, camera: Camera) {
 		const maxCandles = 1e6;
@@ -71,15 +73,32 @@ export class OHLCV extends Mesh {
 			device,
 			data: new Float32Array(3 * maxCandles),
 		});
+		const opacity = createBuffer({
+			device,
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+			data: new Float32Array([0.2])
+		});
 		super(
 			device,
 			camera,
-			ShaderBinding.positions(positions, 3, 24),
+			ShaderBinding.positions(positions, 3, vertStride),
 			ShaderBinding.indices(device, indices),
 			ShaderBinding.colors(colors, 0, 3),
+			[
+				new ShaderBinding({
+					name: 'opacity',
+					type: 'uniform',
+					buffer: opacity,
+					visibility: GPUShaderStage.FRAGMENT,
+					wgslType: 'f32'
+				}),
+			],
+			true,
+			`return vec4f(in.color.xyz, opacity);`
 		);
 		this.positions = positions;
 		this.colors = colors;
+		this.opacity = opacity;
 		this.nInstances = 0;
 	}
 
@@ -115,10 +134,10 @@ export class OHLCV extends Mesh {
 				min: bodyMin,
 				max: bodyMax,
 			},
-			wick: {
+			wick: wickMin.y < bodyMin.y || wickMax.y > bodyMax.y ? {
 				min: wickMin,
 				max: wickMax,
-			},
+			} : undefined,
 			color: color,
 		};
 	}
@@ -133,8 +152,10 @@ export class OHLCV extends Mesh {
 
 			const { body, wick, color } = this.toCandle(agg, period);
 
-			positions.push(...toCube(wick));
-			colors.push(179 / 255, 153 / 255, 132 / 255);
+			if (wick) {
+				positions.push(...toCube(wick));
+				colors.push(179 / 255, 153 / 255, 132 / 255);
+			}
 			positions.push(...toCube(body));
 			colors.push(...color.elements());
 		}
@@ -153,10 +174,6 @@ export class OHLCV extends Mesh {
 		this.device.queue.writeBuffer(this.positions, 0, new Float32Array(positions));
 		this.device.queue.writeBuffer(this.colors, 0, new Float32Array(colors));
 
-		this.nInstances = lod.aggs.length * 2;
-	}
-
-	setLod(newLod: Lod) {
-		this.updateGeometry(newLod);
+		this.nInstances = positions.length / vertStride;
 	}
 }
