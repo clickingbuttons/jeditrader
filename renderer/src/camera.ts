@@ -22,9 +22,9 @@ export class Camera {
 	static wgslStruct = wgslStruct;
 
 	eye = new Vec3(
-12643857.982124045,
--14807888.725856734,
--71263453.95401435,
+// 12643857.982124045,
+// -14807888.725856734,
+// -71263453.95401435,
 // 		153,
 // 		-768,
 // 		9195,
@@ -34,11 +34,13 @@ export class Camera {
 // 		693185120,
 // 		-19706451,
 // 		89346579,
-		//
+1419508.9753791892,
+25654.911609532486,
+15.211539793897,
 	);
 	up = new Vec3(0, 0, 1);
-	pitch = 1.38; // -1.47;
-	yaw = -1.54; // -0.002;
+	pitch = -1.47;
+	yaw = -0.002;
 	canvas: HTMLCanvasElement; // For aspect ratio
 	gpu: CameraGPU;
 	direction = new Vec3(0, 0, 0); // Computed
@@ -101,11 +103,14 @@ export class Camera {
 		).normalize();
 		const target = this.eye.add(this.direction);
 		const view = Mat4.lookAt(this.eye, target, this.up);
+		view.elements[12] = 0;
+		view.elements[13] = 0;
+		view.elements[14] = 0;
 		const zNear = window.zNear || absZ / 32;
 		const zFar = window.zFar || absZ * 1e3;
 		if (input.buttons.mouse1) console.log('z', zNear, zFar);
 		const proj = Mat4.perspective(
-			degToRad(60),
+			degToRad(90),
 			this.canvas.width / this.canvas.height,
 			zNear,
 			zFar,

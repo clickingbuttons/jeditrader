@@ -84,7 +84,7 @@ export class Axes extends Mesh {
 		const cameraZ = this.camera.eye.z;
 		const camPos = this.camera.eye;
 		const lod0 = cameraZ / 16;
-		const lod1 = cameraZ / 2;
+		const lod1 = cameraZ;
 
 		const clampX = (x: number) => clamp(x, range.min.x, range.max.x);
 		const clampY = (y: number) => clamp(y, range.min.y, range.max.y);
@@ -169,10 +169,11 @@ export class Axes extends Mesh {
 
 	setRange(range: Range<Vec3>) {
 		this.range = range;
-		this.updatePositions(this.getGeometry());
+		this.positionsRaw = new Float64Array(this.getGeometry());
 	}
 
 	update() {
+		super.update();
 		this.setRange(this.range);
 	}
 }

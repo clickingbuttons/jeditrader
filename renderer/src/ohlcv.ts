@@ -59,6 +59,8 @@ function toCube(range: Range<Vec3>): number[] {
 	];
 }
 
+export const timeOffset = new Date(2010, 1, 1).getTime();
+
 export class OHLCV extends Mesh {
 	colors: GPUBuffer;
 	opacity: GPUBuffer;
@@ -111,14 +113,14 @@ export class OHLCV extends Mesh {
 		this.nInstances = 0;
 	}
 
-	toCandle(agg: Aggregate, period: Period): Candle {
+	static toCandle(agg: Aggregate, period: Period): Candle {
 		const bodyMin = new Vec3(
-			agg.time.getTime() * unitsPerMs,
+			(agg.time.getTime() - timeOffset) * unitsPerMs,
 			Math.min(agg.close, agg.open) * unitsPerDollar,
 			0
 		);
 		const bodyMax = new Vec3(
-			getNext(agg.time, period).getTime() * unitsPerMs,
+			(getNext(agg.time, period).getTime() - timeOffset) * unitsPerMs,
 			Math.max(agg.close, agg.open) * unitsPerDollar,
 			agg.volume / 1e3,
 		);
@@ -159,7 +161,7 @@ export class OHLCV extends Mesh {
 		for (let i = 0; i < aggs.length; i++) {
 			agg = aggs[i];
 
-			const { body, wick, color } = this.toCandle(agg, period);
+			const { body, wick, color } = OHLCV.toCandle(agg, period);
 
 			if (wick) {
 				positions.push(...toCube(wick));
@@ -180,7 +182,7 @@ export class OHLCV extends Mesh {
 
 		const { positions, colors } = this.getGeometry(lod.aggs, lod.name);
 
-		this.updatePositions(positions);
+		this.positionsRaw = new Float64Array(positions);
 		this.device.queue.writeBuffer(this.colors, 0, new Float32Array(colors));
 
 		this.nInstances = positions.length / instanceStride;

@@ -1,6 +1,6 @@
 import { depthFormat, presentationFormat, sampleCount } from './util.js';
 import { Provider } from '@jeditrader/providers';
-import { Chart } from './test-chart.js';
+import { Chart } from './chart.js';
 import { debounce } from './helpers.js';
 
 export class Renderer {
@@ -30,7 +30,7 @@ export class Renderer {
 		this.depthTexture = this.createDepthTarget();
 		this.depthTextureView = this.depthTexture.createView();
 
-		this.chart = new Chart(canvas, this.device);
+		this.chart = new Chart(canvas, this.device, provider, ticker);
 
 		const observer = new ResizeObserver(debounce(this.onResize.bind(this)));
 		observer.observe(canvas);
