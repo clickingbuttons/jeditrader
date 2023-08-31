@@ -131,8 +131,8 @@ export class Axes extends Mesh {
 		super(
 			device,
 			camera,
-			new Float64Array(nVertices * 3),
-			new Uint32Array(indices),
+			new Array(nVertices * 3).fill(0),
+			indices,
 			{
 				bindings: [
 					new ShaderBinding({
@@ -169,11 +169,10 @@ export class Axes extends Mesh {
 
 	setRange(range: Range<Vec3>) {
 		this.range = range;
-		this.positionsRaw = new Float64Array(this.getGeometry());
+		this.updatePositions(this.getGeometry());
 	}
 
 	update() {
-		super.update();
 		this.setRange(this.range);
 	}
 }

@@ -26,14 +26,17 @@ const defaultOptions = {
 	fragCode: 'return vec4f(1.0, 1.0, 0.0, 1.0);',
 } as MeshOptions;
 
+function f32Low(n: number) {
+	return n - Math.fround(n);
+}
+
 // Because indexed triangle lists are the most efficient way to drive the GPU
 // https://meshoptimizer.org/
 export class Mesh {
 	device: GPUDevice;
 
 	positions: GPUBuffer;
-	camera: Camera;
-	positionsRaw: Float64Array;
+	positionsLow: GPUBuffer;
 	indices: GPUBuffer;
 
 	bindGroups: GPUBindGroup[];
@@ -67,16 +70,13 @@ struct VertexOutput {
 // Emulated double precision subtraction ported from dssub() in DSFUN90.
 // https://www.davidhbailey.com/dhbsoftware/
 // https://en.wikipedia.org/wiki/Kahan_summation_algorithm
-fn dssub(position: vec3f, positionLow: vec3f) -> vec3f {
-	// let t1 = positionLow - camera.eyeLow;
-	// let e = t1 - positionLow;
-	// let t2 = ((-camera.eyeLow - e) + (positionLow - (t1 - e))) + position - camera.eye;
-	// let highDifference = t1 + t2;
-	// let lowDifference = t2 - (highDifference - t1);
-	// return highDifference + lowDifference;
-	let highDifference = position - camera.eye;
-	let lowDifference = positionLow - camera.eyeLow;
-
+// https://prideout.net/emulating-double-precision
+fn subCamPos64(position: vec3f, positionLow: vec3f) -> vec3f {
+	let t1 = positionLow - camera.eyeLow;
+	let e = t1 - positionLow;
+	let t2 = ((-camera.eyeLow - e) + (positionLow - (t1 - e))) + position - camera.eye;
+	let highDifference = t1 + t2;
+	let lowDifference = t2 - (highDifference - t1);
 	return highDifference + lowDifference;
 }
 
@@ -95,11 +95,13 @@ fn pos(vertex: Vertex) -> vec4f {
 	let index = vertex.instance * ${options.instanceStride} + vertIndex * ${options.vertexStride};
 
 	var pos = vec3f(0.0);
+	var posLow = vec3f(0.0);
 	for (var i: u32 = 0; i < ${options.vertexStride}; i += 1) {
 		pos[i] = positions[index + i];
+		posLow[i] = positionsLow[index + i];
 	}
 
-	return vec4f(pos, 1.0);
+	return vec4f(subCamPos64(pos, posLow), 1.0);
 }
 
 @vertex fn vertMain(arg: Vertex) -> VertexOutput {
@@ -160,16 +162,15 @@ fn pos(vertex: Vertex) -> vec4f {
 	constructor(
 		device: GPUDevice,
 		camera: Camera,
-		positions: Float64Array,
-		indices: Uint32Array,
+		positions: number[],
+		indices: number[],
 		options: Partial<MeshOptions> = defaultOptions
 	) {
 		const opts = { ...defaultOptions, ...options };
 		this.device = device;
 		this.positions = createBuffer({ device, data: new Float32Array(positions) });
-		this.positionsRaw = positions;
-		this.camera = camera;
-		this.indices = createBuffer({ device, data: indices });
+		this.positionsLow = createBuffer({ device, data: new Float32Array(positions.map(f32Low)) });
+		this.indices = createBuffer({ device, data: new Uint32Array(indices) });
 
 		const bindings = [
 			new ShaderBinding({
@@ -181,7 +182,7 @@ fn pos(vertex: Vertex) -> vec4f {
 				buffer: camera.gpu.buffer,
 			}),
 			new ShaderBinding({ name: 'positions', buffer: this.positions }),
-			new ShaderBinding({ name: 'positionsLow', buffer: this.positions }),
+			new ShaderBinding({ name: 'positionsLow', buffer: this.positionsLow }),
 			new ShaderBinding({ name: 'indices', buffer: this.indices, wgslType: 'array<u32>' })
 		];
 		const bindGroups = [bindings, opts.bindings];
@@ -211,8 +212,8 @@ fn pos(vertex: Vertex) -> vec4f {
 		return new Mesh(
 			device,
 			camera,
-			new Float64Array(positions),
-			new Uint32Array(indices),
+			positions,
+			indices,
 			options
 		);
 	}
@@ -230,12 +231,8 @@ fn pos(vertex: Vertex) -> vec4f {
 		pass.draw(this.wireframe ? nIndices * 2 : nIndices, this.nInstances);
 	}
 
-	update() {
-		const relativeToEye = this.positionsRaw.map((p, i) => {
-			if (i % 3 == 0) return p - this.camera.eye.x;
-			if (i % 3 == 1) return p - this.camera.eye.y;
-			return p - this.camera.eye.z;
-		});
-		this.device.queue.writeBuffer(this.positions, 0, new Float32Array(relativeToEye));
+	updatePositions(positions: number[]) {
+		this.device.queue.writeBuffer(this.positions, 0, new Float32Array(positions));
+		this.device.queue.writeBuffer(this.positionsLow, 0, new Float32Array(positions.map(f32Low)));
 	}
 }

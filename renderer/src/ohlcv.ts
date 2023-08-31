@@ -79,8 +79,8 @@ export class OHLCV extends Mesh {
 		super(
 			device,
 			camera,
-			new Float64Array(3 * maxCandles),
-			new Uint32Array(indices),
+			new Array(3 * maxCandles).fill(0),
+			indices,
 			{
 				instanceStride,
 				bindings: [
@@ -182,7 +182,7 @@ export class OHLCV extends Mesh {
 
 		const { positions, colors } = this.getGeometry(lod.aggs, lod.name);
 
-		this.positionsRaw = new Float64Array(positions);
+		this.updatePositions(positions);
 		this.device.queue.writeBuffer(this.colors, 0, new Float32Array(colors));
 
 		this.nInstances = positions.length / instanceStride;

@@ -183,8 +183,6 @@ export class Chart {
 		const lodChanged = this.updateLod(this.camera.eye.z);
 		this.input.update();
 		this.axes.update();
-		this.cubes.forEach(c => c.update());
-		this.ohlcv.update();
 
 		const res = this.input.focused || lodChanged || this.forceRender;
 		this.forceRender = false;
