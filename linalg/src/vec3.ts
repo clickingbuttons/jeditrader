@@ -1,3 +1,9 @@
+import { Vec2 } from './vec2.js';
+
+export function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(n, max));
+}
+
 export class Vec3 {
 	// TODO: bench best backing store
 	x: number;
@@ -84,5 +90,17 @@ export class Vec3 {
 
 	f32Low(): Float32Array {
 		return new Float32Array(this.elementsLow());
+	}
+
+	xy(): Vec2 {
+		return new Vec2(this.x, this.y);
+	}
+
+	clamp(min: Vec3, max: Vec3): Vec3 {
+		return new Vec3(
+			clamp(this.x, min.x, max.x),
+			clamp(this.y, min.y, max.y),
+			clamp(this.z, min.z, max.z),
+		);
 	}
 }

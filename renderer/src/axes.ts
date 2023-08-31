@@ -1,8 +1,7 @@
 import { Camera } from './camera.js';
 import { Mesh, ShaderBinding } from './mesh.js';
 import { Range } from '@jeditrader/providers';
-import { Vec3 } from '@jeditrader/linalg';
-import { CSG, Polygon, Vertex } from '@jeditrader/geometry';
+import { Vec3, clamp } from '@jeditrader/linalg';
 import { createBuffer } from './util.js';
 
 const wgslStruct = `struct Axes {
@@ -12,7 +11,7 @@ const wgslStruct = `struct Axes {
 }`;
 const vertCode = `
 	let p = pos(arg);
-	return VertexOutput(camera.mvp * p, p.xy);
+	return VertexOutput(camera.mvp * p, p.xy + camera.eye.xy + camera.eyeLow.xy);
 `;
 const fragCode = `
 	let uv = arg.uv;
@@ -38,21 +37,35 @@ const fragCode = `
 	return axes.backgroundColor;
 `;
 
-class BoundedPlane extends CSG {
-	constructor(min = new Vec3(0, 0, 0), max = new Vec3(1, 1, 1)) {
-		super([
-			new Polygon([
-				new Vertex(new Vec3(min.x, min.y, 0)),
-				new Vertex(new Vec3(min.x, max.y, 0)),
-				new Vertex(new Vec3(max.x, max.y, 0)),
-
-				new Vertex(new Vec3(min.x, max.y, 0)),
-				new Vertex(new Vec3(max.x, min.y, 0)),
-				new Vertex(new Vec3(min.x, min.y, 0)),
-			])
-		]);
-	}
-}
+// Unfortunately this is needed to prevent jitter when the camera is at z < 1000
+//  8┌─────────┐9
+//   │4┌─────┐5│
+//   │ │0┌─┐1│ │
+//   │ │3└─┘2│ │
+//   │7└─────┘6│
+// 11└─────────┘10
+const nVertices = 12;
+// cw vs ccw doesn't matter because we set cullMode: 'none'
+const indices = [
+	0, 1, 2,
+	2, 0, 3,
+	4, 0, 5,
+	0, 5, 1,
+	5, 1, 6,
+	2, 6, 1,
+	2, 6, 7,
+	7, 3, 2,
+	3, 7, 0,
+	0, 4, 7,
+	8, 4, 9,
+	4, 5, 9,
+	9, 5, 6,
+	9, 10, 6,
+	6, 10, 7,
+	7, 10, 11,
+	7, 11, 4,
+	11, 8, 4,
+];
 
 export class Axes extends Mesh {
 	static defaultRange = {
@@ -66,19 +79,34 @@ export class Axes extends Mesh {
 	horizontalLines: GPUBuffer;
 	verticalLines: GPUBuffer;
 
-	static getGeometry(range: Range<Vec3> = Axes.defaultRange) {
-		const min = [range.min.x, range.min.y];
-		const max = [range.max.x, range.max.y];
+	getGeometry() {
+		const range = this.range;
+		const cameraZ = this.camera.eye.z;
+		const camPos = this.camera.eye;
+		const lod0 = cameraZ / 16;
+		const lod1 = cameraZ / 2;
 
-		// Use tiling approach.
+		const clampX = (x: number) => clamp(x, range.min.x, range.max.x);
+		const clampY = (y: number) => clamp(y, range.min.y, range.max.y);
 
-		return [
-			// cw from bottom left
-			min[0], min[1],
-			min[0], max[1],
-			max[0], max[1],
-			max[0], min[1],
+		const positions: number[] = [
+			clampX(camPos.x - lod0), clampY(camPos.y + lod0), 0,
+			clampX(camPos.x + lod0), clampY(camPos.y + lod0), 0,
+			clampX(camPos.x + lod0), clampY(camPos.y - lod0), 0,
+			clampX(camPos.x - lod0), clampY(camPos.y - lod0), 0,
+
+			clampX(camPos.x - lod1), clampY(camPos.y + lod1), 0,
+			clampX(camPos.x + lod1), clampY(camPos.y + lod1), 0,
+			clampX(camPos.x + lod1), clampY(camPos.y - lod1), 0,
+			clampX(camPos.x - lod1), clampY(camPos.y - lod1), 0,
+
+			range.min.x, range.max.y, 0,
+			range.max.x, range.max.y, 0,
+			range.max.x, range.min.y, 0,
+			range.min.x, range.min.y, 0,
 		];
+
+		return positions;
 	}
 
 	constructor(device: GPUDevice, camera: Camera) {
@@ -93,23 +121,19 @@ export class Axes extends Mesh {
 		});
 		const horizontalLines = createBuffer({
 			device,
-			data: new Float32Array([0])
+			data: new Float32Array(32)
 		});
 		const verticalLines = createBuffer({
 			device,
-			data: new Float32Array([0])
+			data: new Float32Array(32)
 		});
 
 		super(
 			device,
 			camera,
-			new Float32Array(Axes.getGeometry()),
-			new Uint32Array([
-				0, 1, 2,
-				2, 3, 0,
-			]),
+			new Float64Array(nVertices * 3),
+			new Uint32Array(indices),
 			{
-				vertexStride: 2,
 				bindings: [
 					new ShaderBinding({
 						name: 'axes',
@@ -144,13 +168,11 @@ export class Axes extends Mesh {
 	}
 
 	setRange(range: Range<Vec3>) {
-		const positions = new Float32Array(Axes.getGeometry(range));
 		this.range = range;
-		this.device.queue.writeBuffer(this.positions, 0, positions);
+		this.updatePositions(this.getGeometry());
 	}
 
 	update() {
-		const positions = new Float32Array(Axes.getGeometry(this.range));
-		this.device.queue.writeBuffer(this.positions, 0, positions);
+		this.setRange(this.range);
 	}
 }

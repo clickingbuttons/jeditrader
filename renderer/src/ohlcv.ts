@@ -2,8 +2,9 @@ import { Vec3 } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
 import { Mesh, ShaderBinding } from './mesh.js';
 import { Aggregate, Period, Range } from '@jeditrader/providers';
-import { Lod, unitsPerMs, unitsPerDollar, getNext } from './chart.js';
+import { unitsPerMs, unitsPerDollar, getNext } from './chart.js';
 import { createBuffer } from './util.js';
+import { Lod } from './lod.js';
 
 const indices = [
 	//    5---6
@@ -76,7 +77,7 @@ export class OHLCV extends Mesh {
 		super(
 			device,
 			camera,
-			new Float32Array(3 * maxCandles),
+			new Float64Array(3 * maxCandles),
 			new Uint32Array(indices),
 			{
 				instanceStride,
@@ -94,6 +95,7 @@ export class OHLCV extends Mesh {
 						wgslType: 'f32'
 					}),
 				],
+				depthWriteEnabled: false,
 				vertOutputFields: ['@interpolate(flat) instance: u32'],
 				vertCode: 'return VertexOutput(camera.mvp * pos(arg), arg.instance);',
 				fragCode: `return vec4f(
@@ -178,7 +180,7 @@ export class OHLCV extends Mesh {
 
 		const { positions, colors } = this.getGeometry(lod.aggs, lod.name);
 
-		this.device.queue.writeBuffer(this.positions, 0, new Float32Array(positions));
+		this.updatePositions(positions);
 		this.device.queue.writeBuffer(this.colors, 0, new Float32Array(colors));
 
 		this.nInstances = positions.length / instanceStride;

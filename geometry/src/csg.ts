@@ -100,5 +100,37 @@ export class CSG {
 		csg.polygons.map(function(p) { p.flip(); });
 		return csg;
 	}
+
+	toIndexedTriangles(): { positions: number[], indices: number[] } {
+		const positions: number[] = [];
+		const indices: number[] = [];
+		const indicesMap: { [v: string] : number } = {};
+
+		for (var i = 0; i < this.polygons.length; i++) {
+			var poly = this.polygons[i];
+
+			// Map each unique vertex to an index.
+			var polyIndices: number[] = [];
+			for (var j = 0; j < poly.vertices.length; j++) {
+				var vert = poly.vertices[j];
+
+				var key = `${vert.pos.x} ${vert.pos.y} ${vert.pos.z}`;
+				if (!(key in indicesMap)) {
+					indicesMap[key] = positions.length / 3;
+					positions.push(vert.pos.x, vert.pos.y, vert.pos.z);
+				}
+				polyIndices.push(indicesMap[key]);
+			}
+
+			for (var j = 2; j < polyIndices.length; j++) {
+				indices.push(polyIndices[0], polyIndices[j - 1], polyIndices[j]);
+			}
+		}
+
+		return {
+			positions,
+			indices,
+		};
+	}
 }
 

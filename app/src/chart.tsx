@@ -27,7 +27,7 @@ export function Chart({ path, apiKey }: { path: string, apiKey: string }) {
 		if (!ticker) return setStatus('No ticker');
 		if (!renderer) return setStatus('No renderer');
 
-		renderer.chart.setTicker(ticker);
+		renderer.setTicker(ticker);
 	}, [ticker, renderer]);
 
 	return (

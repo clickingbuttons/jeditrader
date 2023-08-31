@@ -1,6 +1,7 @@
 import { Camera } from './camera.js';
 import { presentationFormat, sampleCount, depthFormat, createBuffer } from './util.js';
 import { ShaderBinding } from './shader-binding.js';
+import { CSG } from '@jeditrader/geometry';
 
 export { ShaderBinding };
 
@@ -21,19 +22,9 @@ const defaultOptions = {
 	depthWriteEnabled: true,
 	cullMode: 'back',
 	vertOutputFields: [],
-	vertCode: 'return VertexOutput(camera.mvp * pos(vertex));',
+	vertCode: 'return VertexOutput(camera.mvp * pos(arg));',
 	fragCode: 'return vec4f(1.0, 1.0, 0.0, 1.0);',
 } as MeshOptions;
-
-// https://prideout.net/emulating-double-precision
-// fn dsFun90(position: vec3f, positionLow: vec3f) -> vec3f {
-// 	let t1 = positionLow - camera.eyeLow;
-// 	let e = t1 - positionLow;
-// 	let t2 = ((-camera.eyeLow - e) + (positionLow - (t1 - e))) + position - camera.eye;
-// 	let high_delta = t1 + t2;
-// 	let low_delta = t2 - (high_delta - t1);
-// 	return high_delta + low_delta;
-// }
 
 // Because indexed triangle lists are the most efficient way to drive the GPU
 // https://meshoptimizer.org/
@@ -41,6 +32,7 @@ export class Mesh {
 	device: GPUDevice;
 
 	positions: GPUBuffer;
+	positionsLow: GPUBuffer;
 	indices: GPUBuffer;
 
 	bindGroups: GPUBindGroup[];
@@ -71,6 +63,16 @@ struct VertexOutput {
 	${options.vertOutputFields.map((s, i) => `@location(${i}) ${s},`).join('\n	')}
 }
 
+// https://prideout.net/emulating-double-precision
+fn dsFun90(position: vec3f, positionLow: vec3f) -> vec3f {
+	let t1 = positionLow - camera.eyeLow;
+	let e = t1 - positionLow;
+	let t2 = ((-camera.eyeLow - e) + (positionLow - (t1 - e))) + position - camera.eye;
+	let high_delta = t1 + t2;
+	let low_delta = t2 - (high_delta - t1);
+	return high_delta + low_delta;
+}
+
 fn pos(vertex: Vertex) -> vec4f {
 	var vertIndex = indices[vertex.vertex];
 	${wireframe ? `
@@ -85,12 +87,14 @@ fn pos(vertex: Vertex) -> vec4f {
 
 	let index = vertex.instance * ${options.instanceStride} + vertIndex * ${options.vertexStride};
 
-	var res = vec4f(-camera.eye - camera.eyeLow, 1.0);
+	var pos = vec3f(0.0);
+	var posLow = vec3f(0.0);
 	for (var i: u32 = 0; i < ${options.vertexStride}; i += 1) {
-		res[i] += positions[index + i];
+		pos[i] = positions[index + i];
+		posLow[i] = positions[index + i];
 	}
 
-	return res;
+	return vec4f(dsFun90(pos, posLow), 1.0);
 }
 
 @vertex fn vertMain(arg: Vertex) -> VertexOutput {
@@ -137,7 +141,7 @@ fn pos(vertex: Vertex) -> vec4f {
 			},
 			depthStencil: {
 				format: depthFormat,
-				depthCompare: 'less',
+				depthCompare: options.depthWriteEnabled ? 'always' : 'less',
 				depthWriteEnabled: options.depthWriteEnabled,
 			},
 			primitive: {
@@ -151,13 +155,17 @@ fn pos(vertex: Vertex) -> vec4f {
 	constructor(
 		device: GPUDevice,
 		camera: Camera,
-		positions: Float32Array,
+		positions: Float64Array,
 		indices: Uint32Array,
 		options: Partial<MeshOptions> = defaultOptions
 	) {
 		const opts = { ...defaultOptions, ...options };
 		this.device = device;
-		this.positions = createBuffer({ device, data: positions });
+		this.positions = createBuffer({ device, data: new Float32Array(positions) });
+		this.positionsLow = createBuffer({
+			device,
+			data: new Float32Array(positions.map(p => p - Math.fround(p)))
+		});
 		this.indices = createBuffer({ device, data: indices });
 
 		const bindings = [
@@ -169,6 +177,7 @@ fn pos(vertex: Vertex) -> vec4f {
 				buffer: camera.gpu.buffer,
 			}),
 			new ShaderBinding({ name: 'positions', buffer: this.positions }),
+			new ShaderBinding({ name: 'positionsLow', buffer: this.positions }),
 			new ShaderBinding({ name: 'indices', buffer: this.indices, wgslType: 'array<u32>' })
 		];
 		const bindGroups = [bindings, opts.bindings];
@@ -188,6 +197,23 @@ fn pos(vertex: Vertex) -> vec4f {
 		 );
 	}
 
+	static fromCSG(
+		device: GPUDevice,
+		camera: Camera,
+		csg: CSG,
+		options: Partial<MeshOptions> = defaultOptions
+	): Mesh {
+		const { positions, indices } = csg.toIndexedTriangles();
+
+		return new Mesh(
+			device,
+			camera,
+			new Float64Array(positions),
+			new Uint32Array(indices),
+			options
+		);
+	}
+
 	toggleWireframe() {
 		this.wireframe = !this.wireframe;
 	}
@@ -199,5 +225,14 @@ fn pos(vertex: Vertex) -> vec4f {
 
 		const nIndices = this.indices.size / 4;
 		pass.draw(this.wireframe ? nIndices * 2 : nIndices, this.nInstances);
+	}
+
+	updatePositions(positions: number[]) {
+		this.device.queue.writeBuffer(this.positions, 0, new Float32Array(positions));
+		this.device.queue.writeBuffer(
+			this.positionsLow,
+			0,
+			new Float32Array(positions.map(p => p - Math.fround(p)))
+		);
 	}
 }

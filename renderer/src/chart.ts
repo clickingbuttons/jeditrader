@@ -5,15 +5,8 @@ import { OHLCV } from './ohlcv.js';
 import { Input } from './input.js';
 import { Aggregate, AggRange, Period, Range, Provider } from '@jeditrader/providers';
 import { toymd } from './helpers.js';
+import { Lod, lods, minCellSize } from './lod.js';
 
-export interface Lod {
-	name: Period;
-	cameraZ: number;
-	aggs?: Aggregate[];
-	range?: AggRange;
-}
-
-const minCellSize = 0.001;
 export const unitsPerMs = minCellSize;
 export const unitsPerDollar = minCellSize * 2e9;
 
@@ -71,32 +64,7 @@ export class Chart {
 	provider: Provider;
 	forceRender = false;
 
-	lods: Lod[] = [
-		{
-			name: 'year',
-			cameraZ: Number.MAX_VALUE,
-		},
-		{
-			name: 'month',
-			cameraZ: 1e9,
-		},
-		{
-			name: 'week',
-			cameraZ: 40e6,
-		},
-		{
-			name: 'day',
-			cameraZ: 10e6,
-		},
-		{
-			name: 'hour',
-			cameraZ: 2e6,
-		},
-		{
-			name: 'minute',
-			cameraZ: 250e3,
-		},
-	];
+	lods: Lod[] = [ ...lods ];
 	lod = -1;
 	lockLod = false;
 
@@ -158,8 +126,8 @@ export class Chart {
 			console.log('high lod', this.lod, lod);
 
 			const horizonDistance = this.camera.eye.z * 4;
-			const from = toymd(new Date((this.camera.eye.x * 2 - horizonDistance) / unitsPerMs));
-			const to = toymd(new Date((this.camera.eye.x * 2 + horizonDistance) / unitsPerMs));
+			const from = toymd(new Date((this.camera.eye.x - horizonDistance) / unitsPerMs));
+			const to = toymd(new Date((this.camera.eye.x + horizonDistance) / unitsPerMs));
 			console.log(from, to)
 			this.provider[lod.name](this.ticker, from, to).then(({ aggs, range }) => {
 				this.onData(aggs, lod.name, range);
