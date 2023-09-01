@@ -59,7 +59,6 @@ export class Chart {
 	input: Input;
 	camera: Camera;
 	ohlcv: OHLCV;
-	cubes: Mesh[];
 	axes: Axes;
 	provider: Provider;
 	forceRender = false;
@@ -80,26 +79,6 @@ export class Chart {
 		this.axes = new Axes(device, this.camera);
 		this.provider = provider;
 		this.ticker = ticker;
-
-		const origin = new Date(0);
-		const millseconds: number[] = lods
-			.map(({ name }) => getNext(origin, name).getTime())
-			.concat(1e3, 1);
-		this.cubes = [];
-		millseconds.forEach(ms => {
-			const radius = ms * unitsPerMs / 2;
-			const rad3 = new Vec3(radius, radius, radius);
-
-			const cube0 = new Cube(new Vec3(0, 0, 0), rad3);
-			const cube1 = new Cube(new Vec3(new Date(2010, 1, 1).getTime() * unitsPerMs, 4e4, 0), rad3);
-			let options: Partial<MeshOptions> = {};
-			if (ms <= 1e3) options.fragCode = `return vec4f(camera.eyeLow, 1.0);`;
-
-			const mesh0 = Mesh.fromCSG(device, this.camera, cube0, options);
-			const mesh1 = Mesh.fromCSG(device, this.camera, cube1, options);
-			this.cubes.push(mesh0);
-			this.cubes.push(mesh1);
-		});
 
 		this.updateAggData(this.lods[0], false);
 	}
@@ -193,13 +172,11 @@ export class Chart {
 	render(pass: GPURenderPassEncoder) {
 		this.axes.render(pass);
 		this.ohlcv.render(pass);
-		this.cubes.forEach(c => c.render(pass));
 	}
 
 	toggleWireframe() {
 		this.axes.toggleWireframe();
 		this.ohlcv.toggleWireframe();
-		this.cubes.forEach(c => c.toggleWireframe());
 		this.forceRender = true;
 	}
 };
