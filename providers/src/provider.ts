@@ -1,3 +1,5 @@
+import { isEqual } from 'date-fns';
+
 export type Aggregate = {
 	time: Date;
 	open: number;
@@ -27,5 +29,31 @@ export interface Provider {
 	day(ticker: string, from: string, to: string): Promise<AggResponse>;
 	hour(ticker: string, from: string, to: string): Promise<AggResponse>;
 	minute(ticker: string, from: string, to: string): Promise<AggResponse>;
+}
+
+/// Assumes `aggs` are ordered by time asc.
+export function rollup(aggs: Aggregate[], toStartOfPeriod: (d: Date) => Date): Aggregate[] {
+	const res = [] as Aggregate[];
+	var liquidity = 0;
+	for (var i = 0; i < aggs.length; i++) {
+		const agg = aggs[i];
+		const period = toStartOfPeriod(agg.time);
+		const lastAgg = res[res.length - 1];
+		const lastPeriod = lastAgg?.time;
+
+		if (!isEqual(period, lastPeriod)) {
+			res.push({ ...agg, time: period });
+			liquidity = 0;
+		} else {
+			lastAgg.high = Math.max(lastAgg.high, agg.high);
+			lastAgg.low = Math.min(lastAgg.low, agg.low);
+			lastAgg.close = agg.close;
+			lastAgg.volume += agg.volume;
+			liquidity += lastAgg.vwap * lastAgg.volume;
+			lastAgg.vwap = liquidity / lastAgg.volume;
+		}
+	}
+
+	return res;
 }
 

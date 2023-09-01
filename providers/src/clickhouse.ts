@@ -1,5 +1,4 @@
-import { isEqual, startOfYear } from 'date-fns';
-import { Aggregate, AggResponse, AggRange, Period } from './provider.js';
+import { Aggregate, AggResponse, AggRange } from './provider.js';
 
 // https://stackoverflow.com/questions/11526504/minimum-and-maximum-date
 const maxDate = new Date(8640000000000000);
@@ -12,32 +11,6 @@ const periodMap = {
 	'month': 'agg1mo',
 	'year': 'agg1y',
 };
-
-/// Assumes `aggs` are ordered.
-function rollup(aggs: Aggregate[], rollupFn: (d: Date) => Date): Aggregate[] {
-	const res = [] as Aggregate[];
-	var liquidity = 0;
-	for (var i = 0; i < aggs.length; i++) {
-		const agg = aggs[i];
-		const period = rollupFn(agg.time);
-		const lastAgg = res[res.length - 1];
-		const lastPeriod = lastAgg?.time;
-
-		if (!isEqual(period, lastPeriod)) {
-			res.push({ ...agg, time: period });
-			liquidity = 0;
-		} else {
-			lastAgg.high = Math.max(lastAgg.high, agg.high);
-			lastAgg.low = Math.min(lastAgg.low, agg.low);
-			lastAgg.close = agg.close;
-			lastAgg.volume += agg.volume;
-			liquidity += lastAgg.vwap * lastAgg.volume;
-			lastAgg.vwap = liquidity / lastAgg.volume;
-		}
-	}
-
-	return res;
-}
 
 export type ClickhouseAggregate = {
 	time: number;

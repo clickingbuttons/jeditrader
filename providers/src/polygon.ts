@@ -16,14 +16,14 @@ interface PolygonAgg {
 }
 
 interface PolygonAggsResult {
-	ticker: string;
-	queryCount: number;
-	resultsCount: number;
-	adjusted: boolean;
-	results: PolygonAgg[];
 	status: string;
 	request_id: string;
-	count: number;
+	ticker?: string;
+	queryCount?: number;
+	resultsCount?: number;
+	adjusted?: boolean;
+	results?: PolygonAgg[];
+	count?: number;
 	next_url?: string;
 }
 
@@ -50,7 +50,7 @@ export class Polygon {
 			url = await fetch(url + `&apiKey=${this.apiKey}&limit=10000`)
 				.then(res => res.json() as Promise<PolygonAggsResult>)
 				.then(res => {
-					allResults.push(...res.results);
+					if (res.results) allResults.push(...res.results);
 					return res.next_url;
 				});
 		}
