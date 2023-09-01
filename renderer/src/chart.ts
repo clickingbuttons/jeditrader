@@ -1,7 +1,7 @@
 import { Vec3 } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
 import { Axes } from './axes.js';
-import { OHLCV, timeOffset } from './ohlcv.js';
+import { OHLCV } from './ohlcv.js';
 import { Input } from './input.js';
 import { Aggregate, AggRange, Period, Range, Provider } from '@jeditrader/providers';
 import { toymd } from './helpers.js';
@@ -41,12 +41,12 @@ export function getNext(d: Date, p: Period): Date {
 
 function toBounds(agg: AggRange, period: Period): Range<Vec3> {
 	const min = new Vec3(
-		(agg.time.min.getTime() - timeOffset) * unitsPerMs,
+		agg.time.min.getTime() * unitsPerMs,
 		agg.low.min * unitsPerDollar,
 		0
 	);
 	const max = new Vec3(
-		(getNext(agg.time.max, period).getTime() - timeOffset) * unitsPerMs,
+		getNext(agg.time.max, period).getTime() * unitsPerMs,
 		agg.high.max * unitsPerDollar,
 		Math.sqrt(agg.volume.max)
 	);
@@ -91,7 +91,7 @@ export class Chart {
 			const rad3 = new Vec3(radius, radius, radius);
 
 			const cube0 = new Cube(new Vec3(0, 0, 0), rad3);
-			const cube1 = new Cube(new Vec3((timeOffset - 1e12) * unitsPerMs, 4e4, 0), rad3);
+			const cube1 = new Cube(new Vec3(new Date(2010, 1, 1).getTime() * unitsPerMs, 4e4, 0), rad3);
 			let options: Partial<MeshOptions> = {};
 			if (ms <= 1e3) options.fragCode = `return vec4f(camera.eyeLow, 1.0);`;
 
@@ -118,11 +118,12 @@ export class Chart {
 		if (this.ticker === ticker) return;
 
 		this.ticker = ticker;
-		this.lods.forEach(lod => {
-			lod.aggs = undefined;
-			lod.range = undefined;
+		this.lods.forEach(l => {
+			l.aggs = undefined;
+			l.range = undefined;
 		});
 
+		this.updateAggData(this.lods[0], false);
 		this.updateAggData(this.lods[this.lod]);
 	}
 
@@ -146,8 +147,8 @@ export class Chart {
 			console.log('high lod', this.lod, lod);
 
 			const horizonDistance = this.camera.eye.z * 4;
-			const from = toymd(new Date((this.camera.eye.x - horizonDistance) / unitsPerMs + timeOffset));
-			const to = toymd(new Date((this.camera.eye.x + horizonDistance) / unitsPerMs + timeOffset));
+			const from = toymd(new Date((this.camera.eye.x - horizonDistance) / unitsPerMs));
+			const to = toymd(new Date((this.camera.eye.x + horizonDistance) / unitsPerMs));
 			console.log(from, to)
 			this.provider[lod.name](this.ticker, from, to).then(({ aggs, range }) => {
 				this.onData(aggs, lod.name, range);

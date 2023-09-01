@@ -59,8 +59,6 @@ function toCube(range: Range<Vec3>): number[] {
 	];
 }
 
-export const timeOffset = new Date(2010, 1, 1).getTime();
-
 export class OHLCV extends Mesh {
 	colors: GPUBuffer;
 	opacity: GPUBuffer;
@@ -115,12 +113,12 @@ export class OHLCV extends Mesh {
 
 	static toCandle(agg: Aggregate, period: Period): Candle {
 		const bodyMin = new Vec3(
-			(agg.time.getTime() - timeOffset) * unitsPerMs,
+			agg.time.getTime() * unitsPerMs,
 			Math.min(agg.close, agg.open) * unitsPerDollar,
 			0
 		);
 		const bodyMax = new Vec3(
-			(getNext(agg.time, period).getTime() - timeOffset) * unitsPerMs,
+			getNext(agg.time, period).getTime() * unitsPerMs,
 			Math.max(agg.close, agg.open) * unitsPerDollar,
 			agg.volume / 1e3,
 		);
