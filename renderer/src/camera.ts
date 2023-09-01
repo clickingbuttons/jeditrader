@@ -22,9 +22,9 @@ export class Camera {
 	static wgslStruct = wgslStruct;
 
 	eye = new Vec3(
-		45974657.13889356,
-		-29830548.69832751,
-		285136081.7004482,
+		1357504146,
+		-34199906,
+		265554258,
 	);
 	up = new Vec3(0, 0, 1);
 	pitch = -1.47;
