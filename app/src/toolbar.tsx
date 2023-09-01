@@ -7,19 +7,18 @@ import './toolbar.css';
 export function Toolbar({
 	ticker,
 	setTicker,
-	renderer
+	renderer,
 }: {
-	ticker: string;
-	setTicker(ticker: string): void;
-	renderer: Renderer | null;
+	ticker: string,
+	setTicker(ticker: string): void,
+	renderer: Renderer | null,
 }) {
-	const [percent, setPercent] = useState(false);
 	const [dark, setDark] = useState(document.body.classList.contains('dark'));
 
 	useEffect(() => {
 		if (dark) document.body.classList.replace('light', 'dark');
 		else document.body.classList.replace('dark', 'light');
-	}, [percent, dark]);
+	}, [dark]);
 
 	return (
 		<div class="toolbar">
@@ -31,9 +30,6 @@ export function Toolbar({
 			<div class="toolbar-spacer" />
 
 			<div class="toolbar-buttons" >
-				<button title="Use % for price" onClick={() => setPercent(!percent)}>
-					{percent ? <b>%</b> : '%'}
-				</button>
 				<button title={`Activate ${dark ? 'light' : 'dark'} mode`} onClick={() => setDark(!dark)}>
 					{dark ? <LightMode /> : <DarkMode />}
 				</button>

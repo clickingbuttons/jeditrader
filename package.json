@@ -7,7 +7,7 @@
 	"author": "clickingbuttons",
 	"type": "module",
 	"scripts": {
-		"start": "npm run watch & npm start --workspace=app",
+		"start": "npm run build && (npm run watch & npm start --workspace=app)",
 		"build": "tsc --build && npm run build --workspace=app",
 		"watch": "tsc --build --watch",
 		"clean": "tsc --build --clean && npm run clean --workspace=app"

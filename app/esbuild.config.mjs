@@ -2,7 +2,7 @@ import htmlPlugin from 'esbuild-plugin-template'
 import copyPlugin from 'esbuild-copy-static-files'
 
 const outdir = 'dist';
-const routes = ['index', 'chart', 'signin'];
+const routes = ['index'];
 
 function htmlConfig() {
 	return routes.map(r => ({

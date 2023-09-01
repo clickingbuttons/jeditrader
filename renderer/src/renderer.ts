@@ -145,5 +145,9 @@ export class Renderer {
 	setTicker(ticker: string) {
 		this.chart.setTicker(ticker);
 	}
+
+	setProvider(provider: Provider) {
+		this.chart.provider = provider;
+	}
 };
 

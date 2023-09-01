@@ -38,6 +38,7 @@ html, body, div[id='root'] {
 div[id='root'] {
 	display: flex;
 	flex-direction: column;
+	justify-content: center;
 }
 
 a, a:visited, a:hover, a:active {

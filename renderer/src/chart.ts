@@ -134,7 +134,7 @@ export class Chart {
 			if (lod.aggs && updateGeometry) {
 				this.ohlcv.updateGeometry(this.lods[this.lod]);
 			} else {
-				const from = '1800-01-01';
+				const from = '1970-01-01';
 				const to = toymd(new Date());
 				this.provider[lod.name](this.ticker, from, to).then(({ aggs, range }) => {
 					this.onData(aggs, lod.name, range);

@@ -52,7 +52,7 @@ export type ClickhouseAggregate = {
 export class Clickhouse {
 	url: string;
 
-	constructor(url: string = 'http://localhost:8123') {
+	constructor(url: string) {
 		this.url = url;
 	}
 
