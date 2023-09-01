@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'preact/hooks';
 import { Toolbar } from './toolbar.js';
 import { Renderer } from '@jeditrader/renderer';
-import { getCookie } from './cookies.js';
+import { getCookie, setCookie } from './cookies.js';
 import { Provider, Clickhouse, Polygon } from '@jeditrader/providers';
 import './chart.css';
 
@@ -52,7 +52,10 @@ export function Chart() {
 						<label>API key</label>
 						<input
 							value={providers.polygon.apiKey}
-							onChange={(ev: any) => providers.polygon.apiKey = ev.target.value}
+							onChange={(ev: any) => {
+								providers.polygon.apiKey = ev.target.value;
+								setCookie('POLY_API_KEY', ev.target.value);
+							}}
 						/>
 					</div>
 				}

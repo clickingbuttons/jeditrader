@@ -47,7 +47,6 @@ export class Polygon {
 
 		let url: string | undefined = `${Polygon.aggsUrl}/${ticker}/range/1/${period}/${from}/${to}?`;
 		while (url) {
-			console.log('url', url);
 			url = await fetch(url + `&apiKey=${this.apiKey}&limit=10000`)
 				.then(res => res.json() as Promise<PolygonAggsResult>)
 				.then(res => {
