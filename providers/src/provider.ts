@@ -9,27 +9,15 @@ export type Aggregate = {
 	volume: number;
 	vwap: number;
 }
-export type Range<T> = {
-	min: T;
-	max: T;
-}
-export type AggRange = {
-	[Property in keyof Aggregate]: Range<Aggregate[Property]>;
-}
-export interface AggResponse {
-	aggs: Aggregate[],
-	range: AggRange,
-}
-export type Period = 'year' | 'month' | 'week' | 'day' | 'hour' | 'minute';
 
-export interface Provider {
-	year(ticker: string, from: string, to: string): Promise<AggResponse>;
-	month(ticker: string, from: string, to: string): Promise<AggResponse>;
-	week(ticker: string, from: string, to: string): Promise<AggResponse>;
-	day(ticker: string, from: string, to: string): Promise<AggResponse>;
-	hour(ticker: string, from: string, to: string): Promise<AggResponse>;
-	minute(ticker: string, from: string, to: string): Promise<AggResponse>;
+export type Period = 'year' | 'month' | 'week' | 'day' | 'hour' | 'minute';
+export type Provider = {
+	[p in Period]: (ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) => void;
 }
+
+// https://stackoverflow.com/questions/11526504/minimum-and-maximum-date
+export const maxDate = new Date(8640000000000000);
+export const minDate = new Date(-8640000000000000);
 
 /// Assumes `aggs` are ordered by time asc.
 export function rollup(aggs: Aggregate[], toStartOfPeriod: (d: Date) => Date): Aggregate[] {

@@ -1,8 +1,8 @@
 import { Camera } from './camera.js';
 import { Mesh, ShaderBinding } from './mesh.js';
-import { Range } from '@jeditrader/providers';
 import { Vec3, clamp } from '@jeditrader/linalg';
 import { createBuffer } from './util.js';
+import { Range } from './lod.js';
 
 const wgslStruct = `struct Axes {
 	backgroundColor: vec4f,

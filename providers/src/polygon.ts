@@ -1,8 +1,6 @@
-import { Aggregate, AggResponse, AggRange, Period } from './provider.js';
+import { Aggregate, Period, Provider } from './provider.js';
 
-// https://stackoverflow.com/questions/11526504/minimum-and-maximum-date
-const maxDate = new Date(8640000000000000);
-const minDate = new Date(-8640000000000000);
+const polygonMinDate = new Date(0);
 
 interface PolygonAgg {
 	t: number;
@@ -27,7 +25,7 @@ interface PolygonAggsResult {
 	next_url?: string;
 }
 
-export class Polygon {
+export class Polygon implements Provider {
 	static baseUrl = 'https://api.polygon.io';
 	static aggsUrl = `${Polygon.baseUrl}/v2/aggs/ticker`;
 
@@ -37,79 +35,69 @@ export class Polygon {
 		this.apiKey = apiKey;
 	}
 
-	private async agg(
+	private agg(
 		ticker: string,
 		period: Period,
-		from: string,
-		to: string
-	): Promise<AggResponse> {
-		const allResults: PolygonAgg[] = [];
+		from: Date,
+		to: Date,
+		onData: (aggs: Aggregate[]) => void
+	) {
+		if (from < polygonMinDate) from = polygonMinDate;
 
-		let url: string | undefined = `${Polygon.aggsUrl}/${ticker}/range/1/${period}/${from}/${to}?`;
-		while (url) {
-			url = await fetch(url + `&apiKey=${this.apiKey}&limit=10000`)
-				.then(res => res.json() as Promise<PolygonAggsResult>)
-				.then(res => {
-					if (res.results) allResults.push(...res.results);
-					return res.next_url;
-				});
+		const apiKey = this.apiKey;
+		function handleResp(res: PolygonAggsResult) {
+			if (res.results) {
+				var aggs: Aggregate[] = [];
+				var newAgg: Aggregate;
+				for (var i = 0; i < res.results.length; i++) {
+					var agg = res.results[i];
+					newAgg = {
+						time: new Date(agg.t),
+						open: agg.o,
+						high: agg.h,
+						low: agg.l,
+						close: agg.c,
+						volume: agg.v,
+						vwap: agg.vw,
+					} as Aggregate;
+					aggs.push(newAgg);
+				}
+				onData(aggs);
+			}
+			if (res.next_url) {
+				fetch(res.next_url + `&apiKey=${apiKey}&limit=10000`)
+					.then(res => res.json() as Promise<PolygonAggsResult>)
+					.then(handleResp);
+			}
 		}
 
-		var aggs: Aggregate[] = [];
-		var newAgg: Aggregate;
-		var range = {
-			time: { min: maxDate, max: minDate },
-			open: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
-			high: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
-			low: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
-			close: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
-			volume: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
-			vwap: { min: Number.MAX_VALUE, max: Number.MIN_VALUE },
-		} as AggRange;
-		const keys = Object.keys(range) as (keyof typeof range)[];
-		function updateRange(prop: keyof typeof range) {
-			if (newAgg[prop] < range[prop].min) range[prop].min = newAgg[prop];
-			if (newAgg[prop] > range[prop].max) range[prop].max = newAgg[prop];
-		}
-		for (var i = 0; i < allResults.length; i++) {
-			var agg = allResults[i];
-			newAgg = {
-				time: new Date(agg.t),
-				open: agg.o,
-				high: agg.h,
-				low: agg.l,
-				close: agg.c,
-				volume: agg.v,
-				vwap: agg.vw,
-			} as Aggregate;
-			aggs.push(newAgg);
-			for (var j = 0; j < keys.length; j++) updateRange(keys[j]);
-		}
-
-		return { aggs, range };
+		let url: string | undefined = `${Polygon.aggsUrl}/${ticker}/range/1/${period}/${from.getTime()}/${to.getTime()}?`;
+		fetch(url + `&apiKey=${this.apiKey}&limit=10000`)
+				.then(res => res.json())
+				.then(handleResp);
 	}
 
-	async year(ticker: string, from: string, to: string): Promise<AggResponse> {
-		return this.agg(ticker, 'year', from, to);
+	year(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
+		return this.agg(ticker, 'year', from, to, onData);
 	}
 
-	async month(ticker: string, from: string, to: string): Promise<AggResponse> {
-		return this.agg(ticker, 'month', from, to);
+	month(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
+		return this.agg(ticker, 'month', from, to, onData);
 	}
 
-	async week(ticker: string, from: string, to: string): Promise<AggResponse> {
-		return this.agg(ticker, 'week', from, to);
+	week(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
+		return this.agg(ticker, 'week', from, to, onData);
 	}
 
-	async day(ticker: string, from: string, to: string): Promise<AggResponse> {
-		return this.agg(ticker, 'day', from, to);
+	day(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
+		return this.agg(ticker, 'day', from, to, onData);
 	}
 
-	async hour(ticker: string, from: string, to: string): Promise<AggResponse> {
-		return this.agg(ticker, 'hour', from, to);
+	hour(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
+		return this.agg(ticker, 'hour', from, to, onData);
 	}
 
-	async minute(ticker: string, from: string, to: string): Promise<AggResponse> {
-		return this.agg(ticker, 'minute', from, to);
+	minute(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
+		return this.agg(ticker, 'minute', from, to, onData);
 	}
 }

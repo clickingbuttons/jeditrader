@@ -1,10 +1,15 @@
-import { Aggregate, AggRange, Period } from '@jeditrader/providers';
+import { Period } from '@jeditrader/providers';
+import { OHLCV } from './ohlcv.js';
+
+export type Range<T> = {
+	min: T;
+	max: T;
+}
 
 export interface Lod {
 	name: Period;
 	cameraZ: number;
-	aggs?: Aggregate[];
-	range?: AggRange;
+	ohlcv?: OHLCV;
 }
 
 export const minCellSize = 0.001;

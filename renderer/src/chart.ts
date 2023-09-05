@@ -3,11 +3,8 @@ import { Camera } from './camera.js';
 import { Axes } from './axes.js';
 import { OHLCV } from './ohlcv.js';
 import { Input } from './input.js';
-import { Aggregate, AggRange, Period, Range, Provider } from '@jeditrader/providers';
-import { toymd } from './helpers.js';
-import { Lod, lods, minCellSize } from './lod.js';
-import { Mesh, MeshOptions  } from './mesh.js';
-import { Cube } from '@jeditrader/geometry';
+import { Aggregate, Period, Provider, minDate, maxDate } from '@jeditrader/providers';
+import { Lod, lods, minCellSize, Range } from './lod.js';
 
 export const unitsPerMs = minCellSize;
 export const unitsPerDollar = minCellSize * 2e9;
@@ -39,31 +36,48 @@ export function getNext(d: Date, p: Period): Date {
 	return res;
 }
 
-function toBounds(agg: AggRange, period: Period): Range<Vec3> {
+function toBounds(aggs: Aggregate[], period: Period): Range<Vec3> {
+	let minTime = maxDate;
+	let maxTime = minDate;
+	let minPrice = Number.MAX_VALUE;
+	let maxPrice = Number.MIN_VALUE;
+	let maxVolume = Number.MIN_VALUE;
+
+	for (var i = 0; i < aggs.length; i++) {
+		var agg = aggs[i];
+		if (agg.time < minTime) minTime = agg.time;
+		if (agg.time > maxTime) maxTime = agg.time;
+
+		if (agg.low < minPrice) minPrice = agg.low;
+		if (agg.high > maxPrice) maxPrice = agg.high;
+
+		if (agg.volume > maxVolume) maxVolume = agg.volume;
+	}
+
 	const min = new Vec3(
-		agg.time.min.getTime() * unitsPerMs,
-		agg.low.min * unitsPerDollar,
+		minTime.getTime() * unitsPerMs,
+		minPrice * unitsPerDollar,
 		0
 	);
 	const max = new Vec3(
-		getNext(agg.time.max, period).getTime() * unitsPerMs,
-		agg.high.max * unitsPerDollar,
-		Math.sqrt(agg.volume.max)
+		getNext(maxTime, period).getTime() * unitsPerMs,
+		maxPrice * unitsPerDollar,
+		Math.sqrt(maxVolume)
 	);
 
 	return { min, max };
 }
 
 export class Chart {
+	device: GPUDevice;
 	ticker: string;
 	input: Input;
 	camera: Camera;
-	ohlcv: OHLCV;
 	axes: Axes;
 	provider: Provider;
 	forceRender = false;
 
-	lods: Lod[] = [ ...lods ];
+	lods: Lod[] = lods.map(l => ({ ...l }));
 	lod = -1;
 	lockLod = false;
 
@@ -73,67 +87,52 @@ export class Chart {
 		provider: Provider,
 		ticker: string,
 	) {
+		this.device = device;
 		this.input = new Input(canvas);
 		this.camera = new Camera(canvas, device);
-		this.ohlcv = new OHLCV(device, this.camera);
 		this.axes = new Axes(device, this.camera);
 		this.provider = provider;
-		this.ticker = ticker;
-
-		this.updateAggData(this.lods[0], false);
+		this.ticker = '';
+		this.setTicker(ticker);
 	}
 
-	onData(aggs: Aggregate[], period: Period, range: AggRange) {
-		const lodIndex = this.lods.findIndex(l => l.name === period);
-		const lod = this.lods[lodIndex];
-		if (!lod) throw new Error('unknown lod ' + period);
-
-		lod.aggs = aggs;
-		lod.range = range;
+	onData(lod: number, aggs: Aggregate[]) {
+		const name = this.lods[lod].name;
+		console.log('onData', name, aggs.length)
 		this.forceRender = true;
+		if (name === 'year') this.axes.setRange(toBounds(aggs, name));
+		const ohlcv = this.lods[lod].ohlcv || new OHLCV(this.device, this.camera);
+		ohlcv.updateGeometry(aggs, name);
+		this.lods[lod].ohlcv = ohlcv;
 	}
 
 	setTicker(ticker: string) {
 		if (this.ticker === ticker) return;
-
 		this.ticker = ticker;
+
 		this.lods.forEach(l => {
-			l.aggs = undefined;
-			l.range = undefined;
+			l.ohlcv?.destroy();
+			l.ohlcv = undefined;
 		});
-
-		this.updateAggData(this.lods[0], false);
-		this.updateAggData(this.lods[this.lod]);
-	}
-
-	updateAggData(lod: Lod, updateGeometry: boolean = true) {
 		// Even 100 years of daily aggs are only ~1MB.
 		// Because of this, just cache everything that's daily or above.
-		if (this.lod <= 3) {
-			console.log('lod', this.lod, lod);
-			if (lod.aggs && updateGeometry) {
-				this.ohlcv.updateGeometry(this.lods[this.lod]);
-			} else {
-				const from = '1970-01-01';
-				const to = toymd(new Date());
-				this.provider[lod.name](this.ticker, from, to).then(({ aggs, range }) => {
-					this.onData(aggs, lod.name, range);
-					if (lod.name === 'year') this.axes.setRange(toBounds(range, lod.name));
-					if (updateGeometry) this.ohlcv.updateGeometry(lod);
-				});
-			}
-		} else {
-			console.log('high lod', this.lod, lod);
+		[0, 1, 2, 3].forEach(lod => {
+			const name = this.lods[lod].name;
+			this.provider[name](this.ticker, minDate, new Date(), aggs => this.onData(lod, aggs));
+		});
+	}
 
-			const horizonDistance = this.camera.eye.z * 4;
-			const from = toymd(new Date((this.camera.eye.x - horizonDistance) / unitsPerMs));
-			const to = toymd(new Date((this.camera.eye.x + horizonDistance) / unitsPerMs));
-			console.log(from, to)
-			this.provider[lod.name](this.ticker, from, to).then(({ aggs, range }) => {
-				this.onData(aggs, lod.name, range);
-				if (updateGeometry) this.ohlcv.updateGeometry(lod);
-			});
-		}
+	fetchPage() {
+		const horizonDistance = Math.sqrt(this.camera.eye.z) << 12;
+		console.log('horizonDistance', horizonDistance)
+		const from = new Date((this.camera.eye.x - horizonDistance) / unitsPerMs);
+		const to = new Date((this.camera.eye.x + horizonDistance) / unitsPerMs);
+
+		// temporarily until panning is implemented
+		this.lods[this.lod].ohlcv?.destroy();
+		this.lods[this.lod].ohlcv = undefined;
+		const name = this.lods[this.lod].name;
+		this.provider[name](this.ticker, from, to, aggs => this.onData(this.lod, aggs));
 	}
 
 	updateLod(cameraZ: number): boolean {
@@ -145,11 +144,9 @@ export class Chart {
 				const newLod = i;
 				if (newLod !== lastLod) {
 					this.lod = newLod;
-					this.updateAggData(this.lods[newLod]);
-
+					if (newLod > 3) this.fetchPage();
 					return true;
 				} else {
-					// if (this.lod > 3) console.log('maybe update data');
 					return false;
 				}
 			}
@@ -161,6 +158,7 @@ export class Chart {
 	update(dt: DOMHighResTimeStamp): boolean {
 		this.camera.update(dt, this.input);
 		const lodChanged = this.updateLod(this.camera.eye.z);
+		// if (this.lod > 3) this.fetchPage();
 		this.input.update();
 		this.axes.update();
 
@@ -171,12 +169,12 @@ export class Chart {
 
 	render(pass: GPURenderPassEncoder) {
 		this.axes.render(pass);
-		this.ohlcv.render(pass);
+		this.lods[this.lod].ohlcv?.render(pass);
 	}
 
 	toggleWireframe() {
 		this.axes.toggleWireframe();
-		this.ohlcv.toggleWireframe();
+		this.lods.forEach(l => l.ohlcv?.toggleWireframe());
 		this.forceRender = true;
 	}
 };

@@ -1,10 +1,10 @@
 import { Vec3 } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
 import { Mesh, ShaderBinding } from './mesh.js';
-import { Aggregate, Period, Range } from '@jeditrader/providers';
+import { Aggregate, Period } from '@jeditrader/providers';
 import { unitsPerMs, unitsPerDollar, getNext } from './chart.js';
 import { createBuffer } from './util.js';
-import { Lod } from './lod.js';
+import { Range } from './lod.js';
 
 const indices = [
 	//    5---6
@@ -64,6 +64,7 @@ export class OHLCV extends Mesh {
 	opacity: GPUBuffer;
 
 	constructor(device: GPUDevice, camera: Camera) {
+		// TODO: verify maxCandles
 		const maxCandles = 1e6;
 		const colors = createBuffer({
 			device,
@@ -151,7 +152,7 @@ export class OHLCV extends Mesh {
 		};
 	}
 
-	getGeometry(aggs: Aggregate[], period: Period) {
+	static getGeometry(aggs: Aggregate[], period: Period) {
 		const positions = [];
 		const colors = [];
 
@@ -175,14 +176,20 @@ export class OHLCV extends Mesh {
 		};
 	}
 
-	updateGeometry(lod: Lod) {
-		if (!lod.aggs) return;
+	updateGeometry(aggs: Aggregate[], period: Period) {
+		const { positions, colors } = OHLCV.getGeometry(aggs, period);
 
-		const { positions, colors } = this.getGeometry(lod.aggs, lod.name);
+		// TODO: check for unique agg time
+		const offset3 = this.nInstances * Float32Array.BYTES_PER_ELEMENT;
+		this.updatePositions(positions, offset3 * instanceStride);
+		this.device.queue.writeBuffer(this.colors, offset3 * 3, new Float32Array(colors));
 
-		this.updatePositions(positions);
-		this.device.queue.writeBuffer(this.colors, 0, new Float32Array(colors));
+		this.nInstances += positions.length / instanceStride;
+	}
 
-		this.nInstances = positions.length / instanceStride;
+	destroy() {
+		super.destroy();
+		this.colors.destroy();
+		this.opacity.destroy();
 	}
 }

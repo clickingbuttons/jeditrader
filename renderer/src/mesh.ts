@@ -231,8 +231,14 @@ fn pos(vertex: Vertex) -> vec4f {
 		pass.draw(this.wireframe ? nIndices * 2 : nIndices, this.nInstances);
 	}
 
-	updatePositions(positions: number[]) {
-		this.device.queue.writeBuffer(this.positions, 0, new Float32Array(positions));
-		this.device.queue.writeBuffer(this.positionsLow, 0, new Float32Array(positions.map(f32Low)));
+	updatePositions(positions: number[], offset: number = 0) {
+		this.device.queue.writeBuffer(this.positions, offset, new Float32Array(positions));
+		this.device.queue.writeBuffer(this.positionsLow, offset, new Float32Array(positions.map(f32Low)));
+	}
+
+	destroy() {
+		this.positions.destroy();
+		this.positionsLow.destroy();
+		this.indices.destroy();
 	}
 }
