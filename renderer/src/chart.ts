@@ -24,8 +24,14 @@ export function getNext(d: Date, p: Period): Date {
 	case 'day':
 		res.setDate(d.getDate() + 1);
 		break;
+	case 'hour4':
+		res.setHours(d.getHours() + 4);
+		break;
 	case 'hour':
 		res.setHours(d.getHours() + 1);
+		break;
+	case 'minute5':
+		res.setMinutes(d.getMinutes() + 5);
 		break;
 	case 'minute':
 		res.setMinutes(d.getMinutes() + 1);

@@ -10,7 +10,7 @@ export type Aggregate = {
 	vwap: number;
 }
 
-export type Period = 'year' | 'month' | 'week' | 'day' | 'hour' | 'minute';
+export type Period = 'year' | 'month' | 'week' | 'day' | 'hour4' | 'hour' | 'minute5' | 'minute';
 export type Provider = {
 	[p in Period]: (ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) => void;
 }

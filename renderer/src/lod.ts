@@ -32,11 +32,19 @@ export const lods: Lod[] = [
 		cameraZ: 10e6,
 	},
 	{
+		name: 'hour4',
+		cameraZ: 4e6,
+	},
+	{
 		name: 'hour',
 		cameraZ: 2e6,
 	},
 	{
-		name: 'minute',
+		name: 'minute5',
 		cameraZ: 250e3,
+	},
+	{
+		name: 'minute',
+		cameraZ: 50e3,
 	},
 ];

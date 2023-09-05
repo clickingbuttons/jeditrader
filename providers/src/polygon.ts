@@ -37,6 +37,7 @@ export class Polygon implements Provider {
 
 	private agg(
 		ticker: string,
+		multiplier: number,
 		period: Period,
 		from: Date,
 		to: Date,
@@ -71,33 +72,41 @@ export class Polygon implements Provider {
 			}
 		}
 
-		let url: string | undefined = `${Polygon.aggsUrl}/${ticker}/range/1/${period}/${from.getTime()}/${to.getTime()}?`;
+		let url = `${Polygon.aggsUrl}/${ticker}/range/${multiplier}/${period}/${from.getTime()}/${to.getTime()}?`;
 		fetch(url + `&apiKey=${this.apiKey}&limit=10000`)
 				.then(res => res.json())
 				.then(handleResp);
 	}
 
 	year(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'year', from, to, onData);
+		return this.agg(ticker, 1, 'year', from, to, onData);
 	}
 
 	month(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'month', from, to, onData);
+		return this.agg(ticker, 1, 'month', from, to, onData);
 	}
 
 	week(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'week', from, to, onData);
+		return this.agg(ticker, 1, 'week', from, to, onData);
 	}
 
 	day(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'day', from, to, onData);
+		return this.agg(ticker, 1, 'day', from, to, onData);
+	}
+
+	hour4(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
+		return this.agg(ticker, 4, 'hour', from, to, onData);
 	}
 
 	hour(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'hour', from, to, onData);
+		return this.agg(ticker, 1, 'hour', from, to, onData);
+	}
+
+	minute5(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
+		return this.agg(ticker, 5, 'minute', from, to, onData);
 	}
 
 	minute(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'minute', from, to, onData);
+		return this.agg(ticker, 1, 'minute', from, to, onData);
 	}
 }

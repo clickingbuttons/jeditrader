@@ -2,7 +2,9 @@ import { Aggregate, Period, Provider } from './provider.js';
 
 const periodMap = {
 	'minute': 'agg1m',
+	'minute5': 'agg5m',
 	'hour': 'agg1h',
+	'hour4': 'agg4h',
 	'day': 'agg1d',
 	'week': 'agg1w',
 	'month': 'agg1mo',
@@ -82,8 +84,16 @@ export class Clickhouse implements Provider {
 		return this.agg(ticker, 'day', from, to, onData);
 	}
 
+	hour4(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
+		return this.agg(ticker, 'hour4', from, to, onData);
+	}
+
 	hour(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
 		return this.agg(ticker, 'hour', from, to, onData);
+	}
+
+	minute5(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
+		return this.agg(ticker, 'minute5', from, to, onData);
 	}
 
 	minute(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
