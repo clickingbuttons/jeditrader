@@ -1,4 +1,4 @@
-import { Aggregate, Period, Provider } from './provider.js';
+import { Aggregate, Period, Provider, Trade } from './provider.js';
 
 const periodMap = {
 	'minute': 'agg1m',
@@ -20,6 +20,13 @@ type ClickhouseAggregate = {
 	close: number;
 	volume: number;
 	vwap: number;
+}
+
+type ClickhouseTrade = {
+	epochNS: string;
+	price: number;
+	size: number;
+	conditions: number[];
 }
 
 export class Clickhouse implements Provider {
@@ -98,5 +105,35 @@ export class Clickhouse implements Provider {
 
 	minute(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
 		return this.agg(ticker, 'minute', from, to, onData);
+	}
+
+	trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void) {
+		if (from < clickhouseMinDate) from = clickhouseMinDate;
+		const query = `SELECT toUnixTimestamp64Nano(ts) as epochNS,
+				price,
+				size,
+				conditions
+			 FROM us_equities.trades
+			 WHERE ticker='${ticker}' AND ts BETWEEN toDateTime(${from.getTime() / 1e3}) AND toDateTime(${to.getTime() / 1e3})
+			 ORDER BY ts
+			 FORMAT JSON
+		`;
+
+		fetch(`${this.url}/?query=${query}&add_http_cors_header=1`)
+			.then(res => res.json())
+			.then(res => res.data as ClickhouseTrade[])
+			.then(res => {
+				var trades: Trade[] = [];
+				var newTrade: Trade;
+				for (var i = 0; i < res.length; i++) {
+					var trade = res[i];
+					newTrade = {
+						...trade,
+						epochNS: +trade.epochNS,
+					} as Trade;
+					trades.push(newTrade);
+				}
+				onData(trades);
+			});
 	}
 }

@@ -1,5 +1,6 @@
 import { Period } from '@jeditrader/providers';
 import { OHLCV } from './ohlcv.js';
+import { Trades } from './trades.js';
 
 export type Range<T> = {
 	min: T;
@@ -7,44 +8,49 @@ export type Range<T> = {
 }
 
 export interface Lod {
-	name: Period;
 	cameraZ: number;
-	ohlcv?: OHLCV;
+	data?: OHLCV | Trades;
 }
 
 export const minCellSize = 0.001;
 
-export const lods: Lod[] = [
-	{
-		name: 'year',
+export const lods = {
+	'year': {
 		cameraZ: Number.MAX_VALUE,
 	},
-	{
-		name: 'month',
+	'month': {
 		cameraZ: 1e9,
 	},
-	{
-		name: 'week',
+	'week': {
 		cameraZ: 40e6,
 	},
-	{
-		name: 'day',
+	'day': {
 		cameraZ: 10e6,
 	},
-	{
-		name: 'hour4',
+	'hour4': {
 		cameraZ: 4e6,
 	},
-	{
-		name: 'hour',
+	'hour': {
 		cameraZ: 2e6,
 	},
-	{
-		name: 'minute5',
+	'minute5': {
 		cameraZ: 250e3,
 	},
-	{
-		name: 'minute',
+	'minute': {
 		cameraZ: 50e3,
 	},
-];
+	'trade': {
+		cameraZ: 10e3,
+	}
+} as { [p in Period]: Lod };
+export const lodKeys = [
+	'year',
+	'month',
+	'week',
+	'day',
+	'hour4',
+	'hour',
+	'minute5',
+	'minute',
+	'trade',
+] as Period[];

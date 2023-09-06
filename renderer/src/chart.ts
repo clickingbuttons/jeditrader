@@ -2,14 +2,15 @@ import { Vec3 } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
 import { Axes } from './axes.js';
 import { OHLCV } from './ohlcv.js';
+import { Trades } from './trades.js';
 import { Input } from './input.js';
-import { Aggregate, Period, Provider, minDate, maxDate } from '@jeditrader/providers';
-import { Lod, lods, minCellSize, Range } from './lod.js';
+import { Aggregate, Period, Provider, minDate, maxDate, Trade } from '@jeditrader/providers';
+import { lods, lodKeys, minCellSize, Range } from './lod.js';
 
 export const unitsPerMs = minCellSize;
 export const unitsPerDollar = minCellSize * 2e9;
 
-export function getNext(d: Date, p: Period): Date {
+export function getNext(d: Date, p: Period | 'trade'): Date {
 	const res = new Date(d);
 	switch (p) {
 	case 'year':
@@ -35,6 +36,9 @@ export function getNext(d: Date, p: Period): Date {
 		break;
 	case 'minute':
 		res.setMinutes(d.getMinutes() + 1);
+		break;
+	case 'trade':
+		res.setTime(d.getTime() + 1);
 		break;
 	default:
 		throw new Error('unknown period ' + p);
@@ -83,8 +87,8 @@ export class Chart {
 	provider: Provider;
 	forceRender = false;
 
-	lods: Lod[] = lods.map(l => ({ ...l }));
-	lod = -1;
+	lods = lods;
+	lod: Period = 'year';
 	lockLod = false;
 
 	constructor(
@@ -102,55 +106,61 @@ export class Chart {
 		this.setTicker(ticker);
 	}
 
-	onData(lod: number, aggs: Aggregate[]) {
-		const name = this.lods[lod].name;
-		console.log('onData', name, aggs.length)
+	onData(lod: Period, data: Aggregate[] | Trade[]) {
+		if (data.length == 0) return;
 		this.forceRender = true;
-		if (name === 'year') this.axes.setRange(toBounds(aggs, name));
-		const ohlcv = this.lods[lod].ohlcv || new OHLCV(this.device, this.camera);
-		ohlcv.updateGeometry(aggs, name);
-		this.lods[lod].ohlcv = ohlcv;
+		console.log('onData', lod, data.length)
+		if ((data[0] as Aggregate).open !== undefined) {
+			data = data as Aggregate[];
+			if (lod === 'year') this.axes.setRange(toBounds(data, lod));
+			const ohlcv = (this.lods[lod].data as OHLCV) || new OHLCV(this.device, this.camera);
+			ohlcv.updateGeometry(data, lod);
+			this.lods[lod].data = ohlcv;
+		} else {
+			const trades = (this.lods[lod].data as Trades) || new Trades(this.device, this.camera);
+			trades.updateGeometry(data as Trade[]);
+			this.lods[lod].data = trades;
+		}
 	}
 
 	setTicker(ticker: string) {
 		if (this.ticker === ticker) return;
 		this.ticker = ticker;
 
-		this.lods.forEach(l => {
-			l.ohlcv?.destroy();
-			l.ohlcv = undefined;
+		Object.values(this.lods).forEach(l => {
+			l.data?.destroy();
+			l.data = undefined;
 		});
 		// Even 100 years of daily aggs are only ~1MB.
 		// Because of this, just cache everything that's daily or above.
-		[0, 1, 2, 3].forEach(lod => {
-			const name = this.lods[lod].name;
-			this.provider[name](this.ticker, minDate, new Date(), aggs => this.onData(lod, aggs));
+		(['year', 'month', 'week', 'day'] as Period[]).forEach(lod => {
+			this.provider[lod](this.ticker, minDate, new Date(), aggs => this.onData(lod, aggs));
 		});
 	}
 
 	fetchPage() {
-		const horizonDistance = Math.sqrt(this.camera.eye.z) << 12;
+		const horizonDistance = this.camera.eye.z * 2;
 		console.log('horizonDistance', horizonDistance)
 		const from = new Date((this.camera.eye.x - horizonDistance) / unitsPerMs);
 		const to = new Date((this.camera.eye.x + horizonDistance) / unitsPerMs);
 
 		// temporarily until panning is implemented
-		this.lods[this.lod].ohlcv?.destroy();
-		this.lods[this.lod].ohlcv = undefined;
-		const name = this.lods[this.lod].name;
-		this.provider[name](this.ticker, from, to, aggs => this.onData(this.lod, aggs));
+		this.lods[this.lod].data?.destroy();
+		this.lods[this.lod].data = undefined;
+		this.provider[this.lod](this.ticker, from, to, aggs => this.onData(this.lod, aggs));
 	}
 
 	updateLod(cameraZ: number): boolean {
 		if (this.lockLod) return false;
 
 		const lastLod = this.lod;
-		for (var i = this.lods.length - 1; i >= 0; i--) {
-			if (cameraZ < this.lods[i].cameraZ) {
-				const newLod = i;
+		for (var i = lodKeys.length - 1; i >= 0; i--) {
+			const period = lodKeys[i];
+			if (cameraZ < this.lods[period].cameraZ) {
+				const newLod = lodKeys[i];
 				if (newLod !== lastLod) {
 					this.lod = newLod;
-					if (newLod > 3) this.fetchPage();
+					if (lodKeys.indexOf(newLod) >= lodKeys.indexOf('hour4')) this.fetchPage();
 					return true;
 				} else {
 					return false;
@@ -175,12 +185,12 @@ export class Chart {
 
 	render(pass: GPURenderPassEncoder) {
 		this.axes.render(pass);
-		this.lods[this.lod].ohlcv?.render(pass);
+		this.lods[this.lod].data?.render(pass);
 	}
 
 	toggleWireframe() {
 		this.axes.toggleWireframe();
-		this.lods.forEach(l => l.ohlcv?.toggleWireframe());
+		Object.values(this.lods).forEach(l => l.data?.toggleWireframe());
 		this.forceRender = true;
 	}
 };

@@ -9,10 +9,24 @@ export type Aggregate = {
 	volume: number;
 	vwap: number;
 }
+export type Trade = {
+	epochNS: number;
+	price: number;
+	size: number;
+	conditions: number[];
+}
 
-export type Period = 'year' | 'month' | 'week' | 'day' | 'hour4' | 'hour' | 'minute5' | 'minute';
-export type Provider = {
-	[p in Period]: (ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) => void;
+export type Period = 'year' | 'month' | 'week' | 'day' | 'hour4' | 'hour' | 'minute5' | 'minute' | 'trade';
+export interface Provider {
+	year(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
+	month(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
+	week(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
+	day(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
+	hour4(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
+	hour(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
+	minute5(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
+	minute(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
+	trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void): void;
 }
 
 // https://stackoverflow.com/questions/11526504/minimum-and-maximum-date

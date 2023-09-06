@@ -1,4 +1,4 @@
-import { Aggregate, Period, Provider } from './provider.js';
+import { Aggregate, Period, Provider, Trade } from './provider.js';
 
 const polygonMinDate = new Date(0);
 
@@ -22,6 +22,20 @@ interface PolygonAggsResult {
 	adjusted?: boolean;
 	results?: PolygonAgg[];
 	count?: number;
+	next_url?: string;
+}
+
+interface PolygonTrade {
+	sip_timestamp: number;
+	size?: number;
+	price?: number;
+	conditions?: number[];
+}
+
+interface PolygonTradesResult {
+	status: string;
+	request_id: string;
+	results?: PolygonTrade[];
 	next_url?: string;
 }
 
@@ -108,5 +122,38 @@ export class Polygon implements Provider {
 
 	minute(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
 		return this.agg(ticker, 1, 'minute', from, to, onData);
+	}
+
+	trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void) {
+		if (from < polygonMinDate) from = polygonMinDate;
+
+		const apiKey = this.apiKey;
+		function handleResp(res: PolygonTradesResult) {
+			if (res.results) {
+				var trades: Trade[] = [];
+				var newTrade: Trade;
+				for (var i = 0; i < res.results.length; i++) {
+					var agg = res.results[i];
+					newTrade = {
+						epochNS: agg.sip_timestamp,
+						price: agg.price || 0,
+						size: agg.size || 0,
+						conditions: agg.conditions || [],
+					} as Trade;
+					trades.push(newTrade);
+				}
+				onData(trades);
+			}
+			if (res.next_url) {
+				fetch(res.next_url + `&apiKey=${apiKey}&limit=10000`)
+					.then(res => res.json() as Promise<PolygonTradesResult>)
+					.then(handleResp);
+			}
+		}
+
+		let url = `${Polygon.baseUrl}/v3/trades/${ticker}?timestamp.gte=${from.getTime() * 1e6}&timestamp.lte=${to.getTime() * 1e6}`;
+		fetch(url + `&apiKey=${this.apiKey}&limit=50000`)
+				.then(res => res.json())
+				.then(handleResp);
 	}
 }

@@ -1,13 +1,10 @@
-- streaming provider API
-- add 4h, 5m, and trade LODs
-- determine polygon pages for <1h and parallelize
-- polygon can't query before 1970-01-01
-- axes labels
-- fix panning at high LOD
-- hours -> disappearing minute bars near start/EOD?
 - settings menu
 - tweak y+z axes unitsPerValue
 - best volume scale
+- LOD selector
+- fix panning at high LOD
+- axes labels
+- hours -> disappearing minute bars near start/EOD?
 - ticker select
 - light/dark mode for chart
 - object picking
