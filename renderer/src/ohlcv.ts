@@ -98,13 +98,13 @@ export class OHLCV extends Mesh {
 				],
 				depthWriteEnabled: false,
 				vertOutputFields: ['@interpolate(flat) instance: u32'],
-				vertCode: 'return VertexOutput(camera.mvp * pos(arg), arg.instance);',
+				vertCode: 'return VertexOutput(camera.mvp * posChart(arg), arg.instance);',
 				fragCode: `return vec4f(
-					colors[arg.instance * 3 + 0],
-					colors[arg.instance * 3 + 1],
-					colors[arg.instance * 3 + 2],
-					opacity
-				);`,
+	colors[arg.instance * 3 + 0],
+	colors[arg.instance * 3 + 1],
+	colors[arg.instance * 3 + 2],
+	opacity
+);`,
 			}
 		);
 		this.colors = colors;

@@ -8,7 +8,7 @@ import { Aggregate, Period, Provider, minDate, maxDate, Trade } from '@jeditrade
 import { lods, lodKeys, minCellSize, Range } from './lod.js';
 
 export const unitsPerMs = minCellSize;
-export const unitsPerDollar = minCellSize * 2e9;
+export const unitsPerDollar = minCellSize * 1e9;
 
 export function getNext(d: Date, p: Period | 'trade'): Date {
 	const res = new Date(d);
@@ -178,9 +178,9 @@ export class Chart {
 		this.input.update();
 		this.axes.update();
 
-		const res = this.input.focused || lodChanged || this.forceRender;
+		const needsRerender = this.input.focused || lodChanged || this.forceRender;
 		this.forceRender = false;
-		return res;
+		return needsRerender;
 	}
 
 	render(pass: GPURenderPassEncoder) {

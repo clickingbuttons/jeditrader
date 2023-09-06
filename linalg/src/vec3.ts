@@ -28,7 +28,7 @@ export class Vec3 {
 		return new Vec3(this.x - v.x, this.y - v.y, this.z - v.z);
 	}
 
-	mult(v: Vec3): Vec3 {
+	mul(v: Vec3): Vec3 {
 		return new Vec3(this.x * v.x, this.y * v.y, this.z * v.z);
 	}
 

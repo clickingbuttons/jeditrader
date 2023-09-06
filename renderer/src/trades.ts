@@ -1,57 +1,10 @@
-import { Vec3 } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
 import { Mesh, ShaderBinding } from './mesh.js';
 import { Trade } from '@jeditrader/providers';
 import { unitsPerMs, unitsPerDollar } from './chart.js';
 import { createBuffer } from './util.js';
-import { Range } from './lod.js';
 
-const indices = [
-	//    5---6
-	//   /   /
-	//  4---7
-	//    1---2
-	//   /   /
-	//  0---3
-	// bottom face
-	0, 3, 2,
-	2, 1, 0,
-
-	// top face
-	4, 7, 6,
-	6, 5, 4,
-
-	// left face
-	0, 4, 5,
-	5, 1, 0,
-
-	// right face
-	2, 6, 7,
-	7, 3, 2,
-
-	// front face
-	0, 3, 7,
-	7, 4, 0,
-
-	// back face
-	1, 5, 2,
-	2, 5, 6,
-];
-
-const instanceStride = 24;
-function toCube(range: Range<Vec3>): number[] {
-	return [
-		range.min.x, range.min.y, range.min.z,
-		range.min.x, range.max.y, range.min.z,
-		range.max.x, range.max.y, range.min.z,
-		range.max.x, range.min.y, range.min.z,
-
-		range.min.x, range.min.y, range.max.z,
-		range.min.x, range.max.y, range.max.z,
-		range.max.x, range.max.y, range.max.z,
-		range.max.x, range.min.y, range.max.z,
-	];
-}
+const instanceStride = 3;
 
 export class Trades extends Mesh {
 	colors: GPUBuffer;
@@ -69,11 +22,12 @@ export class Trades extends Mesh {
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 			data: new Float32Array([1])
 		});
+
 		super(
 			device,
 			camera,
 			new Array(3 * maxTrades).fill(0),
-			indices,
+			[0],
 			{
 				instanceStride,
 				bindings: [
@@ -92,45 +46,19 @@ export class Trades extends Mesh {
 				],
 				depthWriteEnabled: false,
 				vertOutputFields: ['@interpolate(flat) instance: u32'],
-				vertCode: 'return VertexOutput(camera.mvp * pos(arg), arg.instance);',
+				vertCode: 'return VertexOutput(camera.mvp * posChart(arg), arg.instance);',
 				fragCode: `return vec4f(
 					colors[arg.instance * 3 + 0],
 					colors[arg.instance * 3 + 1],
 					colors[arg.instance * 3 + 2],
 					opacity
 				);`,
+				topology: 'point-list',
 			}
 		);
 		this.colors = colors;
 		this.opacity = opacity;
 		this.nInstances = 0;
-	}
-
-	static toBox(trade: Trade, lastPrice: number) {
-		// TODO: adjustable minTick
-		const minTick = 0.01;
-		const bodyMin = new Vec3(
-			trade.epochNS / 1e6 * unitsPerMs,
-			trade.price * unitsPerDollar,
-			0
-		);
-		const bodyMax = new Vec3(
-			(trade.epochNS / 1e6 + 1) * unitsPerMs,
-			(trade.price + minTick) * unitsPerDollar,
-			Math.log(trade.size),
-		);
-
-		let color = new Vec3(1, 1, 1);
-		if (trade.price > lastPrice) color = new Vec3(0, 1, 0);
-		else if (trade.price < lastPrice) color = new Vec3(1, 0, 0);
-
-		return {
-			body: {
-				min: bodyMin,
-				max: bodyMax,
-			},
-			color: color,
-		};
 	}
 
 	static getGeometry(trades: Trade[]) {
@@ -142,10 +70,16 @@ export class Trades extends Mesh {
 		for (let i = 0; i < trades.length; i++) {
 			trade = trades[i];
 
-			const { body, color } = Trades.toBox(trade, lastPrice);
+			positions.push(
+				trade.epochNS / 1e6 * unitsPerMs,
+				trade.price * unitsPerDollar,
+				Math.log(trade.size),
+			);
 
-			positions.push(...toCube(body));
-			colors.push(...color.elements());
+			if (trade.price > lastPrice) colors.push(0, 1, 0);
+			else if (trade.price < lastPrice) colors.push(1, 0, 0);
+			else colors.push(1, 1, 1);
+
 			lastPrice = trade.price;
 		}
 
@@ -169,5 +103,13 @@ export class Trades extends Mesh {
 		super.destroy();
 		this.colors.destroy();
 		this.opacity.destroy();
+	}
+
+	render(pass: GPURenderPassEncoder): void {
+		if (this.nInstances <= 0) return;
+
+		pass.setPipeline(this.pipeline);
+		this.bindGroups.forEach((b, i) => pass.setBindGroup(i, b));
+		pass.draw(1, this.nInstances);
 	}
 }

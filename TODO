@@ -5,9 +5,10 @@
 - fix panning at high LOD
 - axes labels
 - hours -> disappearing minute bars near start/EOD?
+- LOD transitions
+- object picking
 - ticker select
 - light/dark mode for chart
-- object picking
 
 - line plot
 - plot API
