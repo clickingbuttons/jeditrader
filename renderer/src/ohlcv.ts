@@ -2,9 +2,9 @@ import { Vec3 } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
 import { Mesh, ShaderBinding } from './mesh.js';
 import { Aggregate, Period } from '@jeditrader/providers';
-import { unitsPerMs, unitsPerDollar, getNext } from './chart.js';
+import { unitsPerMs, unitsPerDollar } from './chart.js';
 import { createBuffer } from './util.js';
-import { Range } from './lod.js';
+import { Range, getNext } from './lod.js';
 
 const indices = [
 	//    5---6
@@ -98,7 +98,7 @@ export class OHLCV extends Mesh {
 				],
 				depthWriteEnabled: false,
 				vertOutputFields: ['@interpolate(flat) instance: u32'],
-				vertCode: 'return VertexOutput(camera.mvp * posChart(arg), arg.instance);',
+				vertCode: 'return VertexOutput(camera.mvp * pos(arg), arg.instance);',
 				fragCode: `return vec4f(
 	colors[arg.instance * 3 + 0],
 	colors[arg.instance * 3 + 1],
@@ -113,31 +113,31 @@ export class OHLCV extends Mesh {
 	}
 
 	static toCandle(agg: Aggregate, period: Period): Candle {
-		const bodyMin = new Vec3(
+		const bodyMin = new Vec3([
 			agg.time.getTime() * unitsPerMs,
 			Math.min(agg.close, agg.open) * unitsPerDollar,
 			0
-		);
-		const bodyMax = new Vec3(
+		]);
+		const bodyMax = new Vec3([
 			getNext(agg.time, period).getTime() * unitsPerMs,
 			Math.max(agg.close, agg.open) * unitsPerDollar,
 			agg.volume / 1e3,
-		);
+		]);
 
-		const wickMin = new Vec3(
+		const wickMin = new Vec3([
 			bodyMin.x + (bodyMax.x - bodyMin.x) / 4,
 			agg.low * unitsPerDollar,
 			bodyMin.z + (bodyMax.z - bodyMin.z) / 2.5,
-		);
-		const wickMax = new Vec3(
+		]);
+		const wickMax = new Vec3([
 			bodyMax.x - (bodyMax.x - bodyMin.x) / 4,
 			agg.high * unitsPerDollar,
 			bodyMax.z - (bodyMax.z - bodyMin.z) / 2.5,
-		);
+		]);
 
-		let color = new Vec3(1, 1, 1);
-		if (agg.close > agg.open) color = new Vec3(0, 1, 0);
-		else if (agg.close < agg.open) color = new Vec3(1, 0, 0);
+		let color = new Vec3([1, 1, 1]);
+		if (agg.close > agg.open) color = new Vec3([0, 1, 0]);
+		else if (agg.close < agg.open) color = new Vec3([1, 0, 0]);
 
 		return {
 			body: {
@@ -167,7 +167,7 @@ export class OHLCV extends Mesh {
 				colors.push(179 / 255, 153 / 255, 132 / 255);
 			}
 			positions.push(...toCube(body));
-			colors.push(...color.elements());
+			colors.push(...color);
 		}
 
 		return {

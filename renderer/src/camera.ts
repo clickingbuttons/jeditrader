@@ -21,17 +21,17 @@ declare let window: {
 export class Camera {
 	static wgslStruct = wgslStruct;
 
-	eye = new Vec3(
-		1357504146,
-		-34199906,
-		265554258,
-	);
-	up = new Vec3(0, 0, 1);
+	eye = new Vec3([
+		 1357504146,
+		 -34199906,
+		 265554258,
+	]);
+	up = new Vec3([0, 0, 1]);
 	pitch = -1.47;
 	yaw = -0.002;
 	canvas: HTMLCanvasElement; // For aspect ratio
 	gpu: CameraGPU;
-	direction = new Vec3(0, 0, 0); // Computed
+	direction = new Vec3([0, 0, 0]); // Computed
 
 	constructor(canvas: HTMLCanvasElement, device: GPUDevice) {
 		this.canvas = canvas;
@@ -84,16 +84,16 @@ export class Camera {
 			this.eye = this.eye.add(this.up.mulScalar(cameraSpeed));
 		}
 
-		this.direction = new Vec3(
+		this.direction = new Vec3([
 			Math.sin(this.yaw) * Math.cos(this.pitch),
 			Math.cos(this.yaw) * Math.cos(this.pitch),
 			Math.sin(this.pitch)
-		).normalize();
+		]).normalize();
 		const target = this.eye.add(this.direction);
 		const view = Mat4.lookAt(this.eye, target, this.up);
-		view.elements[12] = 0;
-		view.elements[13] = 0;
-		view.elements[14] = 0;
+		view[12] = 0;
+		view[13] = 0;
+		view[14] = 0;
 		const zNear = window.zNear || absZ / 32;
 		const zFar = window.zFar || absZ * 1e3;
 		if (input.buttons.mouse1) console.log('z', zNear, zFar);
@@ -104,7 +104,7 @@ export class Camera {
 			zFar,
 		);
 		const cameraBuffer = new Float32Array(this.gpu.buffer.size / Float32Array.BYTES_PER_ELEMENT);
-		cameraBuffer.set(proj.multiply(view).f32());
+		cameraBuffer.set(proj.mul(view).f32());
 		cameraBuffer.set(this.eye.f32(), 16);
 		cameraBuffer.set(this.eye.f32Low(), 20);
 

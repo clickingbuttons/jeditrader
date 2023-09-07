@@ -7,11 +7,11 @@ import { CSG } from './csg.js';
 export function sphereDirection(theta: number, phi: number): Vec3 {
 	theta *= Math.PI * 2;
 	phi *= Math.PI;
-	return new Vec3(
+	return new Vec3([
 		Math.cos(theta) * Math.sin(phi),
 		Math.cos(phi),
 		Math.sin(theta) * Math.sin(phi)
-	);
+	]);
 }
 
 export function sphereVertex(
@@ -26,7 +26,7 @@ export function sphereVertex(
 
 export class Sphere extends CSG {
 	constructor(
-		center = new Vec3(0, 0, 0),
+		center = new Vec3([0, 0, 0]),
 		radius = 1,
 		slices = 16,
 		stacks = 8

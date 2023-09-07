@@ -14,7 +14,6 @@ export interface MeshOptions {
 	vertOutputFields: string[];
 	vertCode: string;
 	fragCode: string;
-	topology: GPUPrimitiveTopology;
 }
 const defaultOptions = {
 	vertexStride: 3,
@@ -23,43 +22,26 @@ const defaultOptions = {
 	depthWriteEnabled: true,
 	cullMode: 'back',
 	vertOutputFields: [],
-	vertCode: 'return VertexOutput(camera.mvp * posChart(arg));',
+	vertCode: 'return VertexOutput(camera.mvp * pos(arg));',
 	fragCode: 'return vec4f(1.0, 1.0, 0.0, 1.0);',
-	topology: 'triangle-list',
 } as MeshOptions;
 
 function f32Low(n: number) {
 	return n - Math.fround(n);
 }
 
-export const subCamPos64Wgsl = `
-// Emulated double precision subtraction ported from dssub() in DSFUN90.
-// https://www.davidhbailey.com/dhbsoftware/
-// https://en.wikipedia.org/wiki/Kahan_summation_algorithm
-// https://prideout.net/emulating-double-precision
-fn subCamPos64(position: vec3f, positionLow: vec3f) -> vec3f {
-	let t1 = positionLow - camera.eyeLow;
-	let e = t1 - positionLow;
-	let t2 = ((-camera.eyeLow - e) + (positionLow - (t1 - e))) + position - camera.eye;
-	let highDifference = t1 + t2;
-	let lowDifference = t2 - (highDifference - t1);
-	return highDifference + lowDifference;
-}
-`;
-
 // Because indexed triangle lists are the most efficient way to drive the GPU
 // https://meshoptimizer.org/
 export class Mesh {
 	device: GPUDevice;
 
-	axesScale: GPUBuffer;
 	positions: GPUBuffer;
 	positionsLow: GPUBuffer;
 	indices: GPUBuffer;
 
 	bindGroups: GPUBindGroup[];
 	pipeline: GPURenderPipeline;
-	pipelineWireframe?: GPURenderPipeline;
+	pipelineWireframe: GPURenderPipeline;
 
 	wireframe = false;
 	nInstances = 1;
@@ -85,7 +67,18 @@ struct VertexOutput {
 	${options.vertOutputFields.map((s, i) => `@location(${i}) ${s},`).join('\n	')}
 }
 
-${subCamPos64Wgsl}
+// Emulated double precision subtraction ported from dssub() in DSFUN90.
+// https://www.davidhbailey.com/dhbsoftware/
+// https://en.wikipedia.org/wiki/Kahan_summation_algorithm
+// https://prideout.net/emulating-double-precision
+fn subCamPos64(position: vec3f, positionLow: vec3f) -> vec3f {
+	let t1 = positionLow - camera.eyeLow;
+	let e = t1 - positionLow;
+	let t2 = ((-camera.eyeLow - e) + (positionLow - (t1 - e))) + position - camera.eye;
+	let highDifference = t1 + t2;
+	let lowDifference = t2 - (highDifference - t1);
+	return highDifference + lowDifference;
+}
 
 fn pos(vertex: Vertex) -> vec4f {
 	var vertIndex = indices[vertex.vertex];
@@ -109,10 +102,6 @@ fn pos(vertex: Vertex) -> vec4f {
 	}
 
 	return vec4f(subCamPos64(pos, posLow), 1.0);
-}
-
-fn posChart(vertex: Vertex) -> vec4f {
-	return pos(vertex) * vec4f(axesScale, 1.0);
 }
 
 @vertex fn vertMain(arg: Vertex) -> VertexOutput {
@@ -159,12 +148,12 @@ fn posChart(vertex: Vertex) -> vec4f {
 			},
 			depthStencil: {
 				format: depthFormat,
-				depthCompare: options.depthWriteEnabled ? 'always' : 'less',
+				depthCompare: options.depthWriteEnabled ? 'less' : 'always',
 				depthWriteEnabled: options.depthWriteEnabled,
 			},
 			primitive: {
-				topology: options.topology,
-				cullMode: options.cullMode
+				topology: wireframe ? 'line-list' : 'triangle-list',
+				cullMode: options.cullMode,
 			},
 			multisample: { count: sampleCount },
 		});
@@ -179,7 +168,6 @@ fn posChart(vertex: Vertex) -> vec4f {
 	) {
 		const opts = { ...defaultOptions, ...options };
 		this.device = device;
-		this.axesScale = createBuffer({ device, data: new Float32Array(positions) });
 		this.positions = createBuffer({ device, data: new Float32Array(positions) });
 		this.positionsLow = createBuffer({ device, data: new Float32Array(positions.map(f32Low)) });
 		this.indices = createBuffer({ device, data: new Uint32Array(indices) });
@@ -193,17 +181,6 @@ fn posChart(vertex: Vertex) -> vec4f {
 				wgslType: 'Camera',
 				buffer: camera.gpu.buffer,
 			}),
-			new ShaderBinding({
-				name: 'axesScale',
-				type: 'uniform',
-				visibility: GPUShaderStage.VERTEX,
-				wgslType: 'vec3f',
-				buffer: createBuffer({
-					device,
-					usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-					data: new Float32Array([1.0, 1.0, 1.0])
-				}),
-			}),
 			new ShaderBinding({ name: 'positions', buffer: this.positions }),
 			new ShaderBinding({ name: 'positionsLow', buffer: this.positionsLow }),
 			new ShaderBinding({ name: 'indices', buffer: this.indices, wgslType: 'array<u32>' })
@@ -215,9 +192,7 @@ fn posChart(vertex: Vertex) -> vec4f {
 			),
 		});
 		this.pipeline = Mesh.createPipeline(device, layout, bindings, opts, false);
-		if (options.topology === 'triangle-list') {
-			this.pipelineWireframe = Mesh.createPipeline(device, layout, bindings, opts, true);
-		}
+		this.pipelineWireframe = Mesh.createPipeline(device, layout, bindings, opts, true);
 
 		this.bindGroups = bindGroups.map((group, i) =>
 			device.createBindGroup({
@@ -250,9 +225,7 @@ fn posChart(vertex: Vertex) -> vec4f {
 	render(pass: GPURenderPassEncoder): void {
 		if (this.nInstances <= 0) return;
 
-		if (this.wireframe && this.pipelineWireframe) pass.setPipeline(this.pipelineWireframe);
-		else pass.setPipeline(this.pipeline);
-
+		pass.setPipeline(this.wireframe ? this.pipelineWireframe : this.pipeline);
 		this.bindGroups.forEach((b, i) => pass.setBindGroup(i, b));
 
 		const nIndices = this.indices.size / 4;

@@ -5,46 +5,11 @@ import { OHLCV } from './ohlcv.js';
 import { Trades } from './trades.js';
 import { Input } from './input.js';
 import { Aggregate, Period, Provider, minDate, maxDate, Trade } from '@jeditrader/providers';
-import { lods, lodKeys, minCellSize, Range } from './lod.js';
+import { lods, lodKeys, minCellSize, Range, getNext } from './lod.js';
 
 export const unitsPerMs = minCellSize;
 export const unitsPerDollar = minCellSize * 1e9;
 
-export function getNext(d: Date, p: Period | 'trade'): Date {
-	const res = new Date(d);
-	switch (p) {
-	case 'year':
-		res.setFullYear(d.getFullYear() + 1);
-		break;
-	case 'month':
-		res.setMonth(d.getMonth() + 1);
-		break;
-	case 'week':
-		res.setDate(d.getDate() + 7);
-		break;
-	case 'day':
-		res.setDate(d.getDate() + 1);
-		break;
-	case 'hour4':
-		res.setHours(d.getHours() + 4);
-		break;
-	case 'hour':
-		res.setHours(d.getHours() + 1);
-		break;
-	case 'minute5':
-		res.setMinutes(d.getMinutes() + 5);
-		break;
-	case 'minute':
-		res.setMinutes(d.getMinutes() + 1);
-		break;
-	case 'trade':
-		res.setTime(d.getTime() + 1);
-		break;
-	default:
-		throw new Error('unknown period ' + p);
-	}
-	return res;
-}
 
 function toBounds(aggs: Aggregate[], period: Period): Range<Vec3> {
 	let minTime = maxDate;
@@ -64,16 +29,16 @@ function toBounds(aggs: Aggregate[], period: Period): Range<Vec3> {
 		if (agg.volume > maxVolume) maxVolume = agg.volume;
 	}
 
-	const min = new Vec3(
+	const min = new Vec3([
 		minTime.getTime() * unitsPerMs,
 		minPrice * unitsPerDollar,
 		0
-	);
-	const max = new Vec3(
+	]);
+	const max = new Vec3([
 		getNext(maxTime, period).getTime() * unitsPerMs,
 		maxPrice * unitsPerDollar,
 		Math.sqrt(maxVolume)
-	);
+	]);
 
 	return { min, max };
 }

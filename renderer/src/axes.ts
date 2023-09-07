@@ -69,8 +69,8 @@ const indices = [
 
 export class Axes extends Mesh {
 	static defaultRange = {
-		min: new Vec3(-5000, -5000, -5000),
-		max: new Vec3(5000, 5000, 5000)
+		min: new Vec3([-5000, -5000, -5000]),
+		max: new Vec3([5000, 5000, 5000])
 	};
 	range: Range<Vec3> = Axes.defaultRange;
 
