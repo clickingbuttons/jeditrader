@@ -1,3 +1,5 @@
+import { Period } from '@jeditrader/providers';
+
 export async function compileShader(device: GPUDevice, code: string) {
 	var shaderModule = device.createShaderModule({ code });
 	var compilationInfo = await shaderModule.getCompilationInfo();

@@ -59,3 +59,39 @@ export function rollup(aggs: Aggregate[], toStartOfPeriod: (d: Date) => Date): A
 	return res;
 }
 
+export function getNext(d: Date, p: Period): Date {
+	const res = new Date(d);
+	switch (p) {
+	case 'year':
+		res.setUTCFullYear(d.getUTCFullYear() + 1);
+		break;
+	case 'month':
+		res.setUTCMonth(d.getUTCMonth() + 1);
+		break;
+	case 'week':
+		res.setUTCDate(d.getUTCDate() + 7);
+		break;
+	case 'day':
+		res.setUTCDate(d.getUTCDate() + 1);
+		break;
+	case 'hour4':
+		res.setUTCHours(d.getUTCHours() + 4);
+		break;
+	case 'hour':
+		res.setUTCHours(d.getUTCHours() + 1);
+		break;
+	case 'minute5':
+		res.setUTCMinutes(d.getUTCMinutes() + 5);
+		break;
+	case 'minute':
+		res.setUTCMinutes(d.getUTCMinutes() + 1);
+		break;
+	case 'trade':
+		res.setUTCMilliseconds(d.getTime() + 1);
+		break;
+	default:
+		throw new Error('unknown period ' + p);
+	}
+	return res;
+}
+

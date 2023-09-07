@@ -11,7 +11,7 @@ const wgslStruct = `struct Axes {
 }`;
 const vertCode = `
 	let p = pos(arg);
-	return VertexOutput(camera.mvp * p, p.xy + camera.eye.xy + camera.eyeLow.xy);
+	return VertexOutput(chart.viewProj * p, p.xy + chart.eye.xy + chart.eyeLow.xy);
 `;
 const fragCode = `
 	let uv = arg.uv;
@@ -74,15 +74,13 @@ export class Axes extends Mesh {
 	};
 	range: Range<Vec3> = Axes.defaultRange;
 
-	camera: Camera;
 	uniform: GPUBuffer;
 	horizontalLines: GPUBuffer;
 	verticalLines: GPUBuffer;
 
-	getGeometry() {
+	getGeometry(camPos: Vec3) {
 		const range = this.range;
-		const cameraZ = this.camera.eye.z;
-		const camPos = this.camera.eye;
+		const cameraZ = camPos.z;
 		const lod0 = cameraZ / 16;
 		const lod1 = cameraZ;
 
@@ -109,7 +107,7 @@ export class Axes extends Mesh {
 		return positions;
 	}
 
-	constructor(device: GPUDevice, camera: Camera) {
+	constructor(device: GPUDevice, chart: GPUBuffer) {
 		const uniform = createBuffer({
 			device,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -130,7 +128,7 @@ export class Axes extends Mesh {
 
 		super(
 			device,
-			camera,
+			chart,
 			new Array(nVertices * 3).fill(0),
 			indices,
 			{
@@ -164,15 +162,13 @@ export class Axes extends Mesh {
 		this.uniform = uniform;
 		this.horizontalLines = horizontalLines;
 		this.verticalLines = verticalLines;
-		this.camera = camera;
 	}
 
 	setRange(range: Range<Vec3>) {
 		this.range = range;
-		this.updatePositions(this.getGeometry());
 	}
 
-	update() {
-		this.setRange(this.range);
+	update(camPos: Vec3) {
+		this.updatePositions(this.getGeometry(camPos));
 	}
 }

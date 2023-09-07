@@ -3,7 +3,7 @@ import { Camera } from './camera.js';
 import { Mesh, ShaderBinding } from './mesh.js';
 import { Trade } from '@jeditrader/providers';
 import { createBuffer } from './util.js';
-import { Range, minCellSize } from './lod.js';
+import { Range } from './lod.js';
 
 const indices = [
 	//    5---6
@@ -56,7 +56,7 @@ export class Trades extends Mesh {
 	colors: GPUBuffer;
 	opacity: GPUBuffer;
 
-	constructor(device: GPUDevice, camera: Camera) {
+	constructor(device: GPUDevice, chart: GPUBuffer) {
 		// TODO: verify maxTrades
 		const maxTrades = 1e6;
 		const colors = createBuffer({
@@ -70,7 +70,7 @@ export class Trades extends Mesh {
 		});
 		super(
 			device,
-			camera,
+			chart,
 			new Array(3 * maxTrades).fill(0),
 			indices,
 			{
@@ -91,7 +91,7 @@ export class Trades extends Mesh {
 				],
 				depthWriteEnabled: false,
 				vertOutputFields: ['@interpolate(flat) instance: u32'],
-				vertCode: 'return VertexOutput(camera.mvp * pos(arg), arg.instance);',
+				vertCode: 'return VertexOutput(chart.viewProj * pos(arg), arg.instance);',
 				fragCode: `return vec4f(
 					colors[arg.instance * 3 + 0],
 					colors[arg.instance * 3 + 1],
@@ -106,6 +106,7 @@ export class Trades extends Mesh {
 	}
 
 	static toBox(trade: Trade, lastPrice: number) {
+		const minCellSize = 0.001;
 		const bodyMin = new Vec3([
 			trade.epochNS / 1e6,
 			trade.price,

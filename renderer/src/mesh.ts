@@ -1,7 +1,6 @@
 import { Camera } from './camera.js';
 import { presentationFormat, sampleCount, depthFormat, createBuffer } from './util.js';
 import { ShaderBinding } from './shader-binding.js';
-import { CSG } from '@jeditrader/geometry';
 
 export { ShaderBinding };
 
@@ -22,7 +21,7 @@ const defaultOptions = {
 	depthWriteEnabled: true,
 	cullMode: 'back',
 	vertOutputFields: [],
-	vertCode: 'return VertexOutput(camera.mvp * pos(arg));',
+	vertCode: 'return VertexOutput(chart.viewProj * pos(arg));',
 	fragCode: 'return vec4f(1.0, 1.0, 0.0, 1.0);',
 } as MeshOptions;
 
@@ -72,9 +71,9 @@ struct VertexOutput {
 // https://en.wikipedia.org/wiki/Kahan_summation_algorithm
 // https://prideout.net/emulating-double-precision
 fn subCamPos64(position: vec3f, positionLow: vec3f) -> vec3f {
-	let t1 = positionLow - camera.eyeLow;
+	let t1 = positionLow - chart.eyeLow;
 	let e = t1 - positionLow;
-	let t2 = ((-camera.eyeLow - e) + (positionLow - (t1 - e))) + position - camera.eye;
+	let t2 = ((-chart.eyeLow - e) + (positionLow - (t1 - e))) + position - chart.eye;
 	let highDifference = t1 + t2;
 	let lowDifference = t2 - (highDifference - t1);
 	return highDifference + lowDifference;
@@ -100,6 +99,7 @@ fn pos(vertex: Vertex) -> vec4f {
 		pos[i] = positions[index + i];
 		posLow[i] = positionsLow[index + i];
 	}
+	pos *= chart.axesScale;
 
 	return vec4f(subCamPos64(pos, posLow), 1.0);
 }
@@ -161,7 +161,7 @@ fn pos(vertex: Vertex) -> vec4f {
 
 	constructor(
 		device: GPUDevice,
-		camera: Camera,
+		chart: GPUBuffer,
 		positions: number[],
 		indices: number[],
 		options: Partial<MeshOptions> = defaultOptions
@@ -174,12 +174,17 @@ fn pos(vertex: Vertex) -> vec4f {
 
 		const bindings = [
 			new ShaderBinding({
-				name: 'camera',
+				name: 'chart',
 				type: 'uniform',
 				visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-				wgslStruct: Camera.wgslStruct,
-				wgslType: 'Camera',
-				buffer: camera.gpu.buffer,
+				wgslStruct: `struct Chart {
+					viewProj: mat4x4f,
+					eye: vec3f,
+					eyeLow: vec3f,
+					axesScale: vec3f,
+				}`,
+				wgslType: 'Chart',
+				buffer: chart,
 			}),
 			new ShaderBinding({ name: 'positions', buffer: this.positions }),
 			new ShaderBinding({ name: 'positionsLow', buffer: this.positionsLow }),
@@ -200,22 +205,6 @@ fn pos(vertex: Vertex) -> vec4f {
 				entries: group.map((b, j) => b.entry(j)),
 			})
 		 );
-	}
-
-	static fromCSG(
-		device: GPUDevice,
-		camera: Camera,
-		csg: CSG,
-		options: Partial<MeshOptions> = defaultOptions
-	): Mesh {
-		const { positions, indices } = csg.toIndexedTriangles();
-		return new Mesh(
-			device,
-			camera,
-			positions,
-			indices,
-			options
-		);
 	}
 
 	toggleWireframe() {

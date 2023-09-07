@@ -4,12 +4,9 @@ import { Axes } from './axes.js';
 import { OHLCV } from './ohlcv.js';
 import { Trades } from './trades.js';
 import { Input } from './input.js';
-import { Aggregate, Period, Provider, minDate, maxDate, Trade } from '@jeditrader/providers';
-import { lods, lodKeys, minCellSize, Range, getNext } from './lod.js';
-
-export const unitsPerMs = minCellSize;
-export const unitsPerDollar = minCellSize * 1e9;
-
+import { Aggregate, Period, Provider, minDate, maxDate, Trade, getNext } from '@jeditrader/providers';
+import { lods, lodKeys, Range } from './lod.js';
+import { createBuffer } from './util.js';
 
 function toBounds(aggs: Aggregate[], period: Period): Range<Vec3> {
 	let minTime = maxDate;
@@ -30,13 +27,13 @@ function toBounds(aggs: Aggregate[], period: Period): Range<Vec3> {
 	}
 
 	const min = new Vec3([
-		minTime.getTime() * unitsPerMs,
-		minPrice * unitsPerDollar,
+		minTime.getTime(),
+		minPrice,
 		0
 	]);
 	const max = new Vec3([
-		getNext(maxTime, period).getTime() * unitsPerMs,
-		maxPrice * unitsPerDollar,
+		getNext(maxTime, period).getTime(),
+		maxPrice,
 		Math.sqrt(maxVolume)
 	]);
 
@@ -45,10 +42,13 @@ function toBounds(aggs: Aggregate[], period: Period): Range<Vec3> {
 
 export class Chart {
 	device: GPUDevice;
+	uniform: GPUBuffer;
+
 	ticker: string;
 	input: Input;
 	camera: Camera;
 	axes: Axes;
+	axesScale = new Vec3([1, 1e9, 1]);
 	provider: Provider;
 	forceRender = false;
 
@@ -63,12 +63,27 @@ export class Chart {
 		ticker: string,
 	) {
 		this.device = device;
+
 		this.input = new Input(canvas);
-		this.camera = new Camera(canvas, device);
-		this.axes = new Axes(device, this.camera);
+		this.camera = new Camera(canvas);
+		this.uniform = createBuffer({
+			device,
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+			data: this.uniformData(),
+		});
+		this.axes = new Axes(device, this.uniform);
 		this.provider = provider;
 		this.ticker = '';
 		this.setTicker(ticker);
+	}
+
+	uniformData(): Float32Array {
+		return new Float32Array([
+			...this.camera.viewProj(),
+			...this.camera.eye, 0,
+			...this.camera.eye.f32Low(), 0,
+			...this.axesScale.f32(), 0,
+		]);
 	}
 
 	onData(lod: Period, data: Aggregate[] | Trade[]) {
@@ -78,11 +93,11 @@ export class Chart {
 		if ((data[0] as Aggregate).open !== undefined) {
 			data = data as Aggregate[];
 			if (lod === 'year') this.axes.setRange(toBounds(data, lod));
-			const ohlcv = (this.lods[lod].data as OHLCV) || new OHLCV(this.device, this.camera);
+			const ohlcv = (this.lods[lod].data as OHLCV) || new OHLCV(this.device, this.uniform);
 			ohlcv.updateGeometry(data, lod);
 			this.lods[lod].data = ohlcv;
 		} else {
-			const trades = (this.lods[lod].data as Trades) || new Trades(this.device, this.camera);
+			const trades = (this.lods[lod].data as Trades) || new Trades(this.device, this.uniform);
 			trades.updateGeometry(data as Trade[]);
 			this.lods[lod].data = trades;
 		}
@@ -106,8 +121,8 @@ export class Chart {
 	fetchPage() {
 		const horizonDistance = this.camera.eye.z * 2;
 		console.log('horizonDistance', horizonDistance)
-		const from = new Date((this.camera.eye.x - horizonDistance) / unitsPerMs);
-		const to = new Date((this.camera.eye.x + horizonDistance) / unitsPerMs);
+		const from = new Date((this.camera.eye.x - horizonDistance));
+		const to = new Date((this.camera.eye.x + horizonDistance));
 
 		// temporarily until panning is implemented
 		this.lods[this.lod].data?.destroy();
@@ -141,7 +156,9 @@ export class Chart {
 		const lodChanged = this.updateLod(this.camera.eye.z);
 		// if (this.lod > 3) this.fetchPage();
 		this.input.update();
-		this.axes.update();
+		this.axes.update(this.camera.eye);
+
+		this.device.queue.writeBuffer(this.uniform, 0, this.uniformData());
 
 		const needsRerender = this.input.focused || lodChanged || this.forceRender;
 		this.forceRender = false;
