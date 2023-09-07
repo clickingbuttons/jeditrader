@@ -1,16 +1,14 @@
 - axes labels
 - settings menu
-- tweak y+z axes unitsPerValue
 - best volume scale
 - LOD selector
+	- remove lod lock button
 - fix panning at high LOD
 - hours -> disappearing minute bars near start/EOD?
 - LOD transitions
 - object picking
 - ticker select
 - light/dark mode for chart
-- trades vertex optimization
-	- mesh shader?
 
 - line plot
 - plot API

@@ -1,8 +1,7 @@
-import { Camera } from './camera.js';
 import { presentationFormat, sampleCount, depthFormat, createBuffer } from './util.js';
-import { ShaderBinding } from './shader-binding.js';
+import { ShaderBinding, BufferBinding, SamplerBinding, TextureBinding } from './shader-binding.js';
 
-export { ShaderBinding };
+export { BufferBinding, SamplerBinding, TextureBinding };
 
 export interface MeshOptions {
 	vertexStride: number;
@@ -80,6 +79,7 @@ fn subCamPos64(position: vec3f, positionLow: vec3f) -> vec3f {
 }
 
 struct Position {
+	index: u32,
 	high: vec3f,
 	low: vec3f,
 	camRelative: vec4f,
@@ -101,13 +101,14 @@ fn pos(vertex: Vertex) -> Position {
 
 	var pos = vec3f(0.0);
 	var posLow = vec3f(0.0);
-	for (var i: u32 = 0; i < ${options.vertexStride}; i += 1) {
+	for (var i: u32 = 0; i < ${Math.min(options.vertexStride, 3)}; i += 1) {
 		pos[i] = positions[index + i];
 		posLow[i] = positionsLow[index + i];
 	}
 	pos *= chart.axesScale;
 
 	return Position(
+		index,
 		pos,
 		posLow,
 		vec4f(subCamPos64(pos, posLow), 1.0),
@@ -183,8 +184,7 @@ fn pos(vertex: Vertex) -> Position {
 		this.indices = createBuffer({ device, data: new Uint32Array(indices) });
 
 		const bindings = [
-			new ShaderBinding({
-				name: 'chart',
+			new BufferBinding('chart', chart, {
 				type: 'uniform',
 				visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
 				wgslStruct: `struct Chart {
@@ -194,12 +194,11 @@ fn pos(vertex: Vertex) -> Position {
 					axesScale: vec3f,
 				}`,
 				wgslType: 'Chart',
-				buffer: chart,
 			}),
-			new ShaderBinding({ name: 'positions', buffer: this.positions }),
-			new ShaderBinding({ name: 'positionsLow', buffer: this.positionsLow }),
-			new ShaderBinding({ name: 'indices', buffer: this.indices, wgslType: 'array<u32>' })
-		];
+			new BufferBinding('positions', this.positions),
+			new BufferBinding('positionsLow', this.positionsLow),
+			new BufferBinding('indices', this.indices, { wgslType: 'array<u32>' })
+		] as ShaderBinding[];
 		const bindGroups = [bindings, opts.bindings];
 		const layout = device.createPipelineLayout({
 			bindGroupLayouts: bindGroups.map(group =>

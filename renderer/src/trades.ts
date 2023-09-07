@@ -1,6 +1,6 @@
 import { Vec3 } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
-import { Mesh, ShaderBinding } from './mesh.js';
+import { Mesh, BufferBinding } from './mesh.js';
 import { Trade } from '@jeditrader/providers';
 import { createBuffer } from './util.js';
 import { Range } from './lod.js';
@@ -76,18 +76,20 @@ export class Trades extends Mesh {
 			{
 				instanceStride,
 				bindings: [
-					new ShaderBinding({
-						name: 'colors',
-						visibility: GPUShaderStage.FRAGMENT,
-						buffer: colors
-					}),
-					new ShaderBinding({
-						name: 'opacity',
-						type: 'uniform',
-						buffer: opacity,
-						visibility: GPUShaderStage.FRAGMENT,
-						wgslType: 'f32'
-					}),
+					new BufferBinding(
+						'colors',
+						colors,
+						{ visibility: GPUShaderStage.FRAGMENT }
+					),
+					new BufferBinding(
+						'opacity',
+						opacity,
+						{
+							type: 'uniform',
+							visibility: GPUShaderStage.FRAGMENT,
+							wgslType: 'f32'
+						}
+					),
 				],
 				depthWriteEnabled: false,
 				vertOutputFields: ['@interpolate(flat) instance: u32'],

@@ -1,8 +1,9 @@
-import { Mesh, ShaderBinding } from './mesh.js';
+import { Mesh, BufferBinding } from './mesh.js';
 import { Vec3 } from '@jeditrader/linalg';
 import { createBuffer } from './util.js';
 import { Range } from './lod.js';
 import { getNext, Period } from '@jeditrader/providers';
+import { Labels } from './labels.js';
 
 const wgslStruct = `struct Axes {
 	backgroundColor: vec4f,
@@ -82,6 +83,8 @@ export class Axes extends Mesh {
 	horizontalLines: GPUBuffer;
 	verticalLines: GPUBuffer;
 
+	labels: Labels;
+
 	getGeometry(camPos2: Vec3) {
 		const camPos = camPos2.div(this.scale);
 		const range = this.range;
@@ -140,24 +143,22 @@ export class Axes extends Mesh {
 			indices,
 			{
 				bindings: [
-					new ShaderBinding({
-						name: 'axes',
+					new BufferBinding('axes', uniform, {
 						type: 'uniform',
-						buffer: uniform,
 						visibility: GPUShaderStage.FRAGMENT,
 						wgslStruct,
 						wgslType: 'Axes',
 					}),
-					new ShaderBinding({
-						name: 'horizontalLines',
-						buffer: horizontalLines,
-						visibility: GPUShaderStage.FRAGMENT,
-					}),
-					new ShaderBinding({
-						name: 'verticalLines',
-						buffer: verticalLines,
-						visibility: GPUShaderStage.FRAGMENT,
-					}),
+					new BufferBinding(
+						'horizontalLines',
+						horizontalLines,
+						{ visibility: GPUShaderStage.FRAGMENT }
+					),
+					new BufferBinding(
+						'verticalLines',
+						verticalLines,
+						{ visibility: GPUShaderStage.FRAGMENT }
+					),
 				],
 				depthWriteEnabled: false,
 				cullMode: 'none',
@@ -169,10 +170,12 @@ export class Axes extends Mesh {
 		this.uniform = uniform;
 		this.horizontalLines = horizontalLines;
 		this.verticalLines = verticalLines;
+		this.labels = new Labels(device, chart);
 	}
 
 	setRange(range: Range<Vec3>) {
 		this.range = range;
+		console.log(range)
 	}
 
 	update(camPos: Vec3, period: Period) {
@@ -202,5 +205,10 @@ export class Axes extends Mesh {
 		this.device.queue.writeBuffer(this.uniform, 9 * 4, new Uint32Array([
 			horizontalLines.length, verticalLines.length,
 		]));
+	}
+
+	render(pass: GPURenderPassEncoder): void {
+		super.render(pass);
+		this.labels.render(pass);
 	}
 }

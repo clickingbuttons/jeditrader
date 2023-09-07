@@ -29,10 +29,10 @@ export const lods = {
 		cameraZ: 3e9,
 	},
 	'hour': {
-		cameraZ: 800e6,
+		cameraZ: 1e9,
 	},
 	'minute5': {
-		cameraZ: 200e6,
+		cameraZ: 100e6,
 	},
 	'minute': {
 		cameraZ: 20e6,
