@@ -96,7 +96,7 @@ export class OHLCV extends Mesh {
 				],
 				depthWriteEnabled: false,
 				vertOutputFields: ['@interpolate(flat) instance: u32'],
-				vertCode: 'return VertexOutput(chart.viewProj * pos(arg), arg.instance);',
+				vertCode: 'return VertexOutput(chart.viewProj * pos(arg).camRelative, arg.instance);',
 				fragCode: `return vec4f(
 	colors[arg.instance * 3 + 0],
 	colors[arg.instance * 3 + 1],

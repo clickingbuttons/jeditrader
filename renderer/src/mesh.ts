@@ -79,7 +79,13 @@ fn subCamPos64(position: vec3f, positionLow: vec3f) -> vec3f {
 	return highDifference + lowDifference;
 }
 
-fn pos(vertex: Vertex) -> vec4f {
+struct Position {
+	high: vec3f,
+	low: vec3f,
+	camRelative: vec4f,
+}
+
+fn pos(vertex: Vertex) -> Position {
 	var vertIndex = indices[vertex.vertex];
 	${wireframe ? `
 	let triangleIndex = vertex.vertex / 6u;
@@ -101,7 +107,11 @@ fn pos(vertex: Vertex) -> vec4f {
 	}
 	pos *= chart.axesScale;
 
-	return vec4f(subCamPos64(pos, posLow), 1.0);
+	return Position(
+		pos,
+		posLow,
+		vec4f(subCamPos64(pos, posLow), 1.0),
+	);
 }
 
 @vertex fn vertMain(arg: Vertex) -> VertexOutput {

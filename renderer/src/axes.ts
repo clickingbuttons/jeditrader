@@ -1,17 +1,19 @@
-import { Camera } from './camera.js';
 import { Mesh, ShaderBinding } from './mesh.js';
-import { Vec3, clamp } from '@jeditrader/linalg';
+import { Vec3 } from '@jeditrader/linalg';
 import { createBuffer } from './util.js';
 import { Range } from './lod.js';
+import { getNext } from '@jeditrader/providers';
 
 const wgslStruct = `struct Axes {
 	backgroundColor: vec4f,
 	lineColor: vec4f,
 	lineThickness: f32,
+	horizontalLinesLen: u32,
+	verticalLinesLen: u32,
 }`;
 const vertCode = `
 	let p = pos(arg);
-	return VertexOutput(chart.viewProj * p, p.xy + chart.eye.xy + chart.eyeLow.xy);
+	return VertexOutput(chart.viewProj * p.camRelative, p.camRelative.xy);
 `;
 const fragCode = `
 	let uv = arg.uv;
@@ -21,13 +23,13 @@ const fragCode = `
 	);
 	dudv *= axes.lineThickness;
 
-	for (var i: u32 = 0; i < arrayLength(&horizontalLines); i++) {
+	for (var i: u32 = 0; i < axes.horizontalLinesLen; i++) {
 		let xVal = horizontalLines[i];
 		if (uv.y > -dudv.y + xVal && uv.y < dudv.y + xVal) {
 			return axes.lineColor;
 		}
 	}
-	for (var i: u32 = 0; i < arrayLength(&verticalLines); i++) {
+	for (var i: u32 = 0; i < axes.verticalLinesLen; i++) {
 		let yVal = verticalLines[i];
 		if (uv.x > -dudv.x + yVal && uv.x < dudv.x + yVal) {
 			return axes.lineColor;
@@ -73,38 +75,40 @@ export class Axes extends Mesh {
 		max: new Vec3([5000, 5000, 5000])
 	};
 	range: Range<Vec3> = Axes.defaultRange;
+	scale = new Vec3([1, 1e9, 1]);
 
 	uniform: GPUBuffer;
 	horizontalLines: GPUBuffer;
 	verticalLines: GPUBuffer;
 
-	getGeometry(camPos: Vec3) {
+	getGeometry(camPos2: Vec3) {
+		const camPos = camPos2.div(this.scale);
 		const range = this.range;
 		const cameraZ = camPos.z;
 		const lod0 = cameraZ / 16;
 		const lod1 = cameraZ;
 
-		const clampX = (x: number) => clamp(x, range.min.x, range.max.x);
-		const clampY = (y: number) => clamp(y, range.min.y, range.max.y);
+		const points = [
+			new Vec3([camPos.x - lod0 / this.scale.x, camPos.y + lod0 / this.scale.y, 0]),
+			new Vec3([camPos.x + lod0 / this.scale.x, camPos.y + lod0 / this.scale.y, 0]),
+			new Vec3([camPos.x + lod0 / this.scale.x, camPos.y - lod0 / this.scale.y, 0]),
+			new Vec3([camPos.x - lod0 / this.scale.x, camPos.y - lod0 / this.scale.y, 0]),
 
-		const positions: number[] = [
-			clampX(camPos.x - lod0), clampY(camPos.y + lod0), 0,
-			clampX(camPos.x + lod0), clampY(camPos.y + lod0), 0,
-			clampX(camPos.x + lod0), clampY(camPos.y - lod0), 0,
-			clampX(camPos.x - lod0), clampY(camPos.y - lod0), 0,
-
-			clampX(camPos.x - lod1), clampY(camPos.y + lod1), 0,
-			clampX(camPos.x + lod1), clampY(camPos.y + lod1), 0,
-			clampX(camPos.x + lod1), clampY(camPos.y - lod1), 0,
-			clampX(camPos.x - lod1), clampY(camPos.y - lod1), 0,
-
-			range.min.x, range.max.y, 0,
-			range.max.x, range.max.y, 0,
-			range.max.x, range.min.y, 0,
-			range.min.x, range.min.y, 0,
+			new Vec3([camPos.x - lod1 / this.scale.x, camPos.y + lod1 / this.scale.y, 0]),
+			new Vec3([camPos.x + lod1 / this.scale.x, camPos.y + lod1 / this.scale.y, 0]),
+			new Vec3([camPos.x + lod1 / this.scale.x, camPos.y - lod1 / this.scale.y, 0]),
+			new Vec3([camPos.x - lod1 / this.scale.x, camPos.y - lod1 / this.scale.y, 0]),
 		];
 
-		return positions;
+		return points
+			.map(p => p.clamp(range.min, range.max))
+			.concat([
+				new Vec3([range.min.x, range.max.y, 0]),
+				new Vec3([range.max.x, range.max.y, 0]),
+				new Vec3([range.max.x, range.min.y, 0]),
+				new Vec3([range.min.x, range.min.y, 0]),
+			])
+			.reduce((acc: number[], cur: Vec3) => acc.concat([...cur]), []);
 	}
 
 	constructor(device: GPUDevice, chart: GPUBuffer) {
@@ -115,15 +119,17 @@ export class Axes extends Mesh {
 				0.2, 0.2, 0.2, 1, // backgroundColor
 				0, 0, 0, 1, // lineColor
 				2, // lineThickness
+				0, // horizontalLinesLen (u32)
+				0, // verticalLinesLen (u32)
 			])
 		});
 		const horizontalLines = createBuffer({
 			device,
-			data: new Float32Array(32)
+			data: new Float32Array(64)
 		});
 		const verticalLines = createBuffer({
 			device,
-			data: new Float32Array(32)
+			data: new Float32Array(64)
 		});
 
 		super(
@@ -170,5 +176,21 @@ export class Axes extends Mesh {
 
 	update(camPos: Vec3) {
 		this.updatePositions(this.getGeometry(camPos));
+
+		const verticalLines: number[] = [];
+		for (let i = new Date(this.range.min.x); i < new Date(this.range.max.x); i = getNext(i, 'year')) {
+		verticalLines.push(i.getTime());
+		}
+		this.device.queue.writeBuffer(this.verticalLines, 0, new Float32Array(
+			verticalLines.map(v => v * this.scale.x - camPos.x)
+		));
+
+		const horizontalLines = [10, 20, 30, 40, 50];
+		this.device.queue.writeBuffer(this.horizontalLines, 0, new Float32Array(
+			horizontalLines.map(v => v * this.scale.y - camPos.y)
+		));
+		this.device.queue.writeBuffer(this.uniform, 9 * 4, new Uint32Array([
+			horizontalLines.length, verticalLines.length,
+		]));
 	}
 }

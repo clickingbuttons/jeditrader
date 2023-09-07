@@ -44,11 +44,10 @@ export class Chart {
 	device: GPUDevice;
 	uniform: GPUBuffer;
 
-	ticker: string;
+	ticker: string = '';
 	input: Input;
 	camera: Camera;
 	axes: Axes;
-	axesScale = new Vec3([1, 1e9, 1]);
 	provider: Provider;
 	forceRender = false;
 
@@ -69,20 +68,20 @@ export class Chart {
 		this.uniform = createBuffer({
 			device,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-			data: this.uniformData(),
+			data: new Float32Array(Chart.uniformDataLen),
 		});
 		this.axes = new Axes(device, this.uniform);
 		this.provider = provider;
-		this.ticker = '';
 		this.setTicker(ticker);
 	}
 
+	static uniformDataLen = 16 + 4 + 4 + 4;
 	uniformData(): Float32Array {
 		return new Float32Array([
 			...this.camera.viewProj(),
 			...this.camera.eye, 0,
 			...this.camera.eye.f32Low(), 0,
-			...this.axesScale.f32(), 0,
+			...this.axes.scale.f32(), 0,
 		]);
 	}
 
