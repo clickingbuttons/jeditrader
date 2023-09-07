@@ -1,5 +1,3 @@
-import { isEqual } from 'date-fns';
-
 export type Aggregate = {
 	time: Date;
 	open: number;
@@ -43,7 +41,7 @@ export function rollup(aggs: Aggregate[], toStartOfPeriod: (d: Date) => Date): A
 		const lastAgg = res[res.length - 1];
 		const lastPeriod = lastAgg?.time;
 
-		if (!isEqual(period, lastPeriod)) {
+		if (period.getTime() !== lastPeriod.getTime()) {
 			res.push({ ...agg, time: period });
 			liquidity = 0;
 		} else {
@@ -59,35 +57,73 @@ export function rollup(aggs: Aggregate[], toStartOfPeriod: (d: Date) => Date): A
 	return res;
 }
 
-export function getNext(d: Date, p: Period): Date {
-	const res = new Date(d);
+export function getNext(
+	d: Date,
+	p: Period,
+	multiplier: number = 1,
+	truncate: boolean = false
+): Date {
+	let res = new Date(d);
 	switch (p) {
 	case 'year':
-		res.setUTCFullYear(d.getUTCFullYear() + 1);
+		res.setUTCFullYear(d.getUTCFullYear() + 1 * multiplier);
+		if (truncate) {
+			res.setUTCMonth(0);
+			res.setUTCDate(1);
+			res.setUTCHours(0, 0, 0, 0);
+		}
 		break;
 	case 'month':
-		res.setUTCMonth(d.getUTCMonth() + 1);
+		res.setUTCMonth(d.getUTCMonth() + 1 * multiplier);
+		if (truncate) {
+			res.setUTCDate(1);
+			res.setUTCHours(0, 0, 0, 0);
+		}
 		break;
 	case 'week':
-		res.setUTCDate(d.getUTCDate() + 7);
+		res.setUTCDate(d.getUTCDate() + 7 * multiplier);
+		if (truncate) {
+			res.setUTCDate(res.getUTCDate() - res.getUTCDay());
+			res.setUTCHours(0, 0, 0, 0);
+		}
 		break;
 	case 'day':
-		res.setUTCDate(d.getUTCDate() + 1);
+		res.setUTCDate(d.getUTCDate() + 1 * multiplier);
+		if (truncate) {
+			res.setUTCHours(0, 0, 0, 0);
+		}
 		break;
 	case 'hour4':
-		res.setUTCHours(d.getUTCHours() + 4);
+		res.setUTCHours(d.getUTCHours() + 4 * multiplier);
+		if (truncate) {
+			res.setUTCHours(Math.floor(res.getUTCHours() / 4) * 4, 0, 0, 0);
+		}
 		break;
 	case 'hour':
-		res.setUTCHours(d.getUTCHours() + 1);
+		res.setUTCHours(d.getUTCHours() + 1 * multiplier);
+		if (truncate) {
+			res.setUTCMinutes(0, 0, 0);
+		}
 		break;
 	case 'minute5':
-		res.setUTCMinutes(d.getUTCMinutes() + 5);
+		res.setUTCMinutes(d.getUTCMinutes() + 5 * multiplier);
+		if (truncate) {
+			res.setUTCMinutes(
+				Math.floor(res.getUTCMinutes() / 5) * 5,
+				0,
+				0
+			);
+		}
 		break;
 	case 'minute':
-		res.setUTCMinutes(d.getUTCMinutes() + 1);
+		res.setUTCMinutes(d.getUTCMinutes() + 1 * multiplier);
+		if (truncate) {
+			res.setUTCSeconds(0);
+			res.setUTCMilliseconds(0);
+		}
 		break;
 	case 'trade':
-		res.setUTCMilliseconds(d.getTime() + 1);
+		res.setUTCMilliseconds(d.getTime() + 1 * multiplier);
 		break;
 	default:
 		throw new Error('unknown period ' + p);

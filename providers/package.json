@@ -9,7 +9,6 @@
 	"author": "clickingbuttons",
 	"license": "MIT",
 	"dependencies": {
-		"@webgpu/types": "^0.1.34",
-		"date-fns": "^2.30.0"
+		"@webgpu/types": "^0.1.34"
 	}
 }

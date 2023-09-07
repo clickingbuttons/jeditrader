@@ -2,7 +2,7 @@ import { Mesh, ShaderBinding } from './mesh.js';
 import { Vec3 } from '@jeditrader/linalg';
 import { createBuffer } from './util.js';
 import { Range } from './lod.js';
-import { getNext } from '@jeditrader/providers';
+import { getNext, Period } from '@jeditrader/providers';
 
 const wgslStruct = `struct Axes {
 	backgroundColor: vec4f,
@@ -68,6 +68,7 @@ const indices = [
 	7, 11, 4,
 	11, 8, 4,
 ];
+const maxLines = 64;
 
 export class Axes extends Mesh {
 	static defaultRange = {
@@ -125,11 +126,11 @@ export class Axes extends Mesh {
 		});
 		const horizontalLines = createBuffer({
 			device,
-			data: new Float32Array(64)
+			data: new Float32Array(maxLines)
 		});
 		const verticalLines = createBuffer({
 			device,
-			data: new Float32Array(64)
+			data: new Float32Array(maxLines)
 		});
 
 		super(
@@ -174,12 +175,20 @@ export class Axes extends Mesh {
 		this.range = range;
 	}
 
-	update(camPos: Vec3) {
+	update(camPos: Vec3, period: Period) {
 		this.updatePositions(this.getGeometry(camPos));
 
+		// Only render lines around camera.
+		const start = getNext(new Date(camPos.x), period, -maxLines / 2, true);
+		const end = getNext(new Date(camPos.x), period, maxLines / 2 - 1, true);
+
 		const verticalLines: number[] = [];
-		for (let i = new Date(this.range.min.x); i < new Date(this.range.max.x); i = getNext(i, 'year')) {
-		verticalLines.push(i.getTime());
+		for (
+			let epochMs = start.getTime();
+			epochMs < end.getTime();
+			epochMs = getNext(new Date(epochMs), period).getTime()
+		) {
+			verticalLines.push(epochMs);
 		}
 		this.device.queue.writeBuffer(this.verticalLines, 0, new Float32Array(
 			verticalLines.map(v => v * this.scale.x - camPos.x)
@@ -189,6 +198,7 @@ export class Axes extends Mesh {
 		this.device.queue.writeBuffer(this.horizontalLines, 0, new Float32Array(
 			horizontalLines.map(v => v * this.scale.y - camPos.y)
 		));
+
 		this.device.queue.writeBuffer(this.uniform, 9 * 4, new Uint32Array([
 			horizontalLines.length, verticalLines.length,
 		]));

@@ -26,16 +26,16 @@ export const lods = {
 		cameraZ: 10e9,
 	},
 	'hour4': {
-		cameraZ: 4e9,
+		cameraZ: 3e9,
 	},
 	'hour': {
-		cameraZ: 2e9,
+		cameraZ: 800e6,
 	},
 	'minute5': {
-		cameraZ: 250e6,
+		cameraZ: 200e6,
 	},
 	'minute': {
-		cameraZ: 50e6,
+		cameraZ: 20e6,
 	},
 	'trade': {
 		cameraZ: 10e6,

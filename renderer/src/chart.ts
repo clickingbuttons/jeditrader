@@ -119,7 +119,6 @@ export class Chart {
 
 	fetchPage() {
 		const horizonDistance = this.camera.eye.z * 2;
-		console.log('horizonDistance', horizonDistance)
 		const from = new Date((this.camera.eye.x - horizonDistance));
 		const to = new Date((this.camera.eye.x + horizonDistance));
 
@@ -155,7 +154,8 @@ export class Chart {
 		const lodChanged = this.updateLod(this.camera.eye.z);
 		// if (this.lod > 3) this.fetchPage();
 		this.input.update();
-		this.axes.update(this.camera.eye);
+		const lodMinus = Math.max(lodKeys.indexOf(this.lod) - 1, 0);
+		this.axes.update(this.camera.eye, lodKeys[lodMinus]);
 
 		this.device.queue.writeBuffer(this.uniform, 0, this.uniformData());
 
