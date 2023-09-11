@@ -28,8 +28,8 @@ export class Input {
 
 	posX = -1;
 	posY = -1;
-	lastPosX = -1;
-	lastPosY = -1;
+	movementX = 0;
+	movementY = 0;
 
 	constructor(canvas: HTMLCanvasElement) {
 		document.addEventListener('keydown', this.keydown.bind(this));
@@ -57,13 +57,16 @@ export class Input {
 
 	mousemove(ev: MouseEvent) {
 		this.focused = true;
+
 		this.posX = ev.clientX;
 		this.posY = ev.clientY;
+		this.movementX += ev.movementX;
+		this.movementY += ev.movementY;
 	}
 
 	update() {
-		this.lastPosX = this.posX;
-		this.lastPosY = this.posY;
+		this.movementX = 0;
+		this.movementY = 0;
 	}
 
 	mousedown(ev: MouseEvent) {

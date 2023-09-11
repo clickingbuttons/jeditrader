@@ -43,6 +43,7 @@ export class Mesh {
 
 	wireframe = false;
 	nInstances = 1;
+	visible = true;
 
 	static shaderCode(
 		wireframe: boolean,
@@ -221,7 +222,7 @@ fn pos(vertex: Vertex) -> Position {
 	}
 
 	render(pass: GPURenderPassEncoder): void {
-		if (this.nInstances <= 0) return;
+		if (this.nInstances <= 0 || !this.visible) return;
 
 		pass.setPipeline(this.wireframe ? this.pipelineWireframe : this.pipeline);
 		this.bindGroups.forEach((b, i) => pass.setBindGroup(i, b));

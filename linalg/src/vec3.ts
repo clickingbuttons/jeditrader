@@ -1,6 +1,4 @@
-export function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(n, max));
-}
+import { clamp } from './util.js';
 
 export class Vec3 extends Float64Array {
 	get x(): number { return this[0]; }

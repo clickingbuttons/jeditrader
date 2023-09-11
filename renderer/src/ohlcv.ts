@@ -2,7 +2,7 @@ import { Vec3 } from '@jeditrader/linalg';
 import { Mesh, BufferBinding } from './mesh.js';
 import { Aggregate, Period, getNext } from '@jeditrader/providers';
 import { createBuffer } from './util.js';
-import { Range } from './lod.js';
+import { Range } from './util.js';
 
 const indices = [
 	//    5---6
@@ -185,11 +185,5 @@ export class OHLCV extends Mesh {
 		this.device.queue.writeBuffer(this.colors, offset3 * 3, new Float32Array(colors));
 
 		this.nInstances += positions.length / instanceStride;
-	}
-
-	destroy() {
-		super.destroy();
-		this.colors.destroy();
-		this.opacity.destroy();
 	}
 }

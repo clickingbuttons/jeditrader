@@ -7,6 +7,7 @@ import './chart.css';
 
 export function Chart() {
 	const canvas = useRef<HTMLCanvasElement | null>(null);
+	const canvasUI = useRef<HTMLCanvasElement | null>(null);
 	const [renderer, setRenderer] = useState<Renderer | null>(null);
 	const [ticker, setTicker] = useState('F');
 
@@ -23,12 +24,12 @@ export function Chart() {
 
 	useEffect(() => {
 		if (provider) {
-			if (canvas.current) {
-				Renderer.init(canvas.current, provider, ticker).then(r => {
+			if (canvas.current && canvasUI.current) {
+				Renderer.init(canvas.current, canvasUI.current, provider, ticker).then(r => {
 					setRenderer(r);
 					r.render();
 				});
-			} else console.error("useRef couldn't find a canvas");
+			} else console.error("useRef couldn't find canvases");
 		}
 	}, [provider]);
 
@@ -73,6 +74,8 @@ export function Chart() {
 		);
 	}
 
+	let x = 0;
+
 	return (
 		<>
 			<Toolbar
@@ -80,7 +83,18 @@ export function Chart() {
 				setTicker={setTicker}
 				renderer={renderer}
 			/>
-			<canvas class="canvas" ref={canvas} />
+			{/*<div class="canvases" onMouseMove={ev => {
+				if (ev.ctrlKey) {
+					x += ev.movementX;
+					console.log(x, ev.movementX)
+				}
+			}}>
+				x
+			</div>*/}
+			<div class="canvases">
+				<canvas ref={canvas} />
+				<canvas ref={canvasUI} />
+			</div>
 		</>
 	);
 }

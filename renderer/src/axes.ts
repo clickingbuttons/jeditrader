@@ -1,9 +1,10 @@
 import { Mesh, BufferBinding } from './mesh.js';
 import { Vec3 } from '@jeditrader/linalg';
 import { createBuffer } from './util.js';
-import { Range } from './lod.js';
+import { Range } from './util.js';
 import { getNext, Period } from '@jeditrader/providers';
 import { Labels } from './labels.js';
+import { Camera } from './camera.js';
 
 const wgslStruct = `struct Axes {
 	backgroundColor: vec4f,
@@ -74,11 +75,7 @@ const indices = [
 const maxLines = 64;
 
 export class Axes extends Mesh {
-	static defaultRange = {
-		min: new Vec3([-5000, -5000, -5000]),
-		max: new Vec3([5000, 5000, 5000])
-	};
-	range: Range<Vec3> = Axes.defaultRange;
+	range: Range<Vec3>;
 	scale = new Vec3([1, 1e9, 1]);
 
 	uniform: GPUBuffer;
@@ -87,8 +84,8 @@ export class Axes extends Mesh {
 
 	labels: Labels;
 
-	getGeometry(camPos2: Vec3) {
-		const camPos = camPos2.div(this.scale);
+	getGeometry(eye: Vec3) {
+		const camPos = eye.div(this.scale);
 		const range = this.range;
 		const cameraZ = camPos.z;
 		const lod0 = cameraZ / 16;
@@ -117,7 +114,13 @@ export class Axes extends Mesh {
 			.reduce((acc: number[], cur: Vec3) => acc.concat([...cur]), []);
 	}
 
-	constructor(device: GPUDevice, chart: GPUBuffer) {
+	constructor(
+		device: GPUDevice,
+		chartUniform: GPUBuffer,
+		range: Range<Vec3>,
+		canvas: HTMLCanvasElement,
+		camera: Camera,
+	) {
 		const uniform = createBuffer({
 			device,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -140,7 +143,7 @@ export class Axes extends Mesh {
 
 		super(
 			device,
-			chart,
+			chartUniform,
 			new Array(nVertices * 3).fill(0),
 			indices,
 			{
@@ -169,23 +172,19 @@ export class Axes extends Mesh {
 				fragCode,
 			}
 		);
+		this.range = range;
 		this.uniform = uniform;
 		this.horizontalLines = horizontalLines;
 		this.verticalLines = verticalLines;
-		this.labels = new Labels(device, chart);
+		this.labels = new Labels(canvas, camera);
 	}
 
-	setRange(range: Range<Vec3>) {
-		this.range = range;
-		console.log(range)
-	}
-
-	update(camPos: Vec3, period: Period) {
-		this.updatePositions(this.getGeometry(camPos));
+	update(eye: Vec3, period: Period) {
+		this.updatePositions(this.getGeometry(eye));
 
 		// Only render lines around camera.
-		const start = getNext(new Date(camPos.x), period, -maxLines / 2, true);
-		const end = getNext(new Date(camPos.x), period, maxLines / 2 - 1, true);
+		const start = getNext(new Date(eye.x), period, -maxLines / 2, true);
+		const end = getNext(new Date(eye.x), period, maxLines / 2 - 1, true);
 
 		const verticalLines: number[] = [];
 		for (
@@ -196,12 +195,12 @@ export class Axes extends Mesh {
 			verticalLines.push(epochMs);
 		}
 		this.device.queue.writeBuffer(this.verticalLines, 0, new Float32Array(
-			verticalLines.map(v => v * this.scale.x - camPos.x)
+			verticalLines.map(v => v * this.scale.x - eye.x)
 		));
 
 		const horizontalLines = [10, 20, 30, 40, 50];
 		this.device.queue.writeBuffer(this.horizontalLines, 0, new Float32Array(
-			horizontalLines.map(v => v * this.scale.y - camPos.y)
+			horizontalLines.map(v => v * this.scale.y - eye.y)
 		));
 
 		this.device.queue.writeBuffer(this.uniform, 9 * 4, new Uint32Array([
@@ -211,17 +210,7 @@ export class Axes extends Mesh {
 		const translation = new Vec3([this.range.min.x, this.range.min.y, 0]);
 		this.labels.setLabels([{
 			text: 'FA',
-			pos: translation.add(new Vec3([0, horizontalLines[0], 0])),
+			pos: translation
 		}]);
-	}
-
-	render(pass: GPURenderPassEncoder): void {
-		super.render(pass);
-		this.labels.render(pass);
-	}
-
-	toggleWireframe() {
-		super.toggleWireframe();
-		this.labels.toggleWireframe();
 	}
 }

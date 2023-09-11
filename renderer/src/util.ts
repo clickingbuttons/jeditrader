@@ -1,4 +1,7 @@
-import { Period } from '@jeditrader/providers';
+export type Range<T> = {
+	min: T;
+	max: T;
+}
 
 export async function compileShader(device: GPUDevice, code: string) {
 	var shaderModule = device.createShaderModule({ code });
@@ -100,3 +103,4 @@ export function createBuffer({
 export function align(n: number, alignment: number) {
 	return (n + alignment - 1) & ~(alignment - 1);
 }
+

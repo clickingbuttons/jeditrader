@@ -5,6 +5,7 @@ import { debounce } from './helpers.js';
 
 export class Renderer {
 	canvas: HTMLCanvasElement;
+	canvasUI: HTMLCanvasElement;
 	device: GPUDevice;
 	context: GPUCanvasContext;
 	renderTarget: GPUTexture;
@@ -17,12 +18,14 @@ export class Renderer {
 
 	private constructor(
 		canvas: HTMLCanvasElement,
+		canvasUI: HTMLCanvasElement,
 		device: GPUDevice,
 		context: GPUCanvasContext,
 		provider: Provider,
 		ticker: string,
 	) {
 		this.canvas = canvas;
+		this.canvasUI = canvasUI;
 		this.device = device;
 		this.context = context;
 		this.renderTarget = this.createRenderTarget();
@@ -30,10 +33,10 @@ export class Renderer {
 		this.depthTexture = this.createDepthTarget();
 		this.depthTextureView = this.depthTexture.createView();
 
-		this.chart = new Chart(canvas, this.device, provider, ticker);
+		this.chart = new Chart(canvas, canvasUI, this.device, provider, ticker);
 
-		const observer = new ResizeObserver(debounce(this.onResize.bind(this)));
-		observer.observe(canvas);
+		new ResizeObserver(debounce(this.onResize.bind(this))).observe(canvas);
+		new ResizeObserver(debounce(this.onResize.bind(this))).observe(canvasUI);
 	}
 
 	onResize(entries: ResizeObserverEntry[]) {
@@ -53,7 +56,7 @@ export class Renderer {
 		this.depthTexture = this.createDepthTarget();
 		this.depthTextureView = this.depthTexture.createView();
 
-		this.chart.forceRender = true;
+		this.chart.dirty = 1;
 	}
 
 	createRenderTarget() {
@@ -78,9 +81,9 @@ export class Renderer {
 		const dt = time - this.lastTime;
 		this.lastTime = time;
 
-		const needsRerender = this.chart.update(dt);
+		this.chart.update(dt);
 		// Save CPU
-		if (!needsRerender) {
+		if (!this.chart.dirty) {
 			requestAnimationFrame(this.frame.bind(this));
 			return;
 		}
@@ -108,6 +111,7 @@ export class Renderer {
 		pass.end();
 		this.device.queue.submit([commandEncoder.finish()]);
 
+		this.chart.dirty = 0;
 		requestAnimationFrame(this.frame.bind(this));
 	}
 
@@ -120,7 +124,12 @@ export class Renderer {
 		return new Error(msg);
 	}
 
-	static async init(canvas: HTMLCanvasElement, provider: Provider, ticker: string) {
+	static async init(
+		canvas: HTMLCanvasElement,
+		canvasUI: HTMLCanvasElement,
+		provider: Provider,
+		ticker: string
+	) {
 		if (navigator.gpu === undefined)
 			throw Renderer.error(canvas, 'WebGPU is not supported/enabled in your browser');
 
@@ -131,7 +140,7 @@ export class Renderer {
 		if (context === null) throw Renderer.error(canvas, 'No WebGPU context');
 		context.configure({ device, format: presentationFormat });
 
-		return new Renderer(canvas, device, context, provider, ticker);
+		return new Renderer(canvas, canvasUI, device, context, provider, ticker);
 	}
 
 	toggleWireframe() {
@@ -139,15 +148,11 @@ export class Renderer {
 	}
 
 	toggleLodLock() {
-		this.chart.lockLod = !this.chart.lockLod;
+		this.chart.toggleLodLock();
 	}
 
 	setTicker(ticker: string) {
 		this.chart.setTicker(ticker);
-	}
-
-	setProvider(provider: Provider) {
-		this.chart.provider = provider;
 	}
 };
 
