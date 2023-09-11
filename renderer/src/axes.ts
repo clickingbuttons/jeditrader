@@ -16,6 +16,8 @@ const vertCode = `
 	let p = pos(arg);
 	return VertexOutput(chart.viewProj * p.camRelative, p.camRelative.xy);
 `;
+// If replacing this with quads, use:
+// https://github.com/m-schuetz/webgpu_wireframe_thicklines/blob/master/renderWireframeThick.js
 const fragCode = `
 	let uv = arg.uv;
 	var dudv = vec2(
@@ -205,10 +207,21 @@ export class Axes extends Mesh {
 		this.device.queue.writeBuffer(this.uniform, 9 * 4, new Uint32Array([
 			horizontalLines.length, verticalLines.length,
 		]));
+
+		const translation = new Vec3([this.range.min.x, this.range.min.y, 0]);
+		this.labels.setLabels([{
+			text: 'FA',
+			pos: translation.add(new Vec3([0, horizontalLines[0], 0])),
+		}]);
 	}
 
 	render(pass: GPURenderPassEncoder): void {
 		super.render(pass);
 		this.labels.render(pass);
+	}
+
+	toggleWireframe() {
+		super.toggleWireframe();
+		this.labels.toggleWireframe();
 	}
 }
