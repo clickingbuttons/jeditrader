@@ -83,6 +83,7 @@ export class Mat4 extends Float64Array {
 		]);
 	}
 
+
 	static translate(v: Vec3): Mat4 {
 		return new Mat4([
 			1, 0, 0, 0,
@@ -99,6 +100,10 @@ export class Mat4 extends Float64Array {
 			0.0, 0.0, v.z, 0,
 			0.0, 0.0, 0.0, 1,
 		]);
+	}
+
+	static identity() {
+		return Mat4.scale(new Vec3([1, 1, 1]));
 	}
 
 	f32() {

@@ -4,7 +4,7 @@ import { OHLCV } from './ohlcv.js';
 import { Trades } from './trades.js';
 import { Range } from './util.js';
 
-function toBounds(aggs: Aggregate[], period: Period): Range<Vec3> {
+function toBounds(aggs: Aggregate[], period: Exclude<Period, 'trade'>): Range<Vec3> {
 	let minTime = maxDate;
 	let maxTime = minDate;
 	let minPrice = Number.MAX_VALUE;
@@ -60,7 +60,7 @@ export class ChartData {
 		max: new Vec3([5000, 5000, 5000])
 	};
 
-	meshes: { [p in Period]: OHLCV | Trades };
+	meshes;
 	lowerLod: Period = 'year';
 	lod: Period = 'month';
 	lockLod = false;
@@ -90,23 +90,20 @@ export class ChartData {
 		this.setTicker(ticker);
 	}
 
-	onData(lod: Period, data: Aggregate[] | Trade[]) {
+	onAggs(lod: Exclude<Period, 'trade'>, data: Aggregate[]) {
 		if (data.length == 0) return;
-		console.log('onData', lod, data.length)
-		if ((data[0] as Aggregate).open !== undefined) {
-			data = data as Aggregate[];
-			(this.meshes[lod] as OHLCV).updateGeometry(data, lod);
-
-			if (lod === 'year') {
-				console.log('a')
-				const { min, max } = toBounds(data as Aggregate[], lod);
-				this.range.min = min;
-				this.range.max = max;
-			}
-		} else {
-			data = data as Trade[];
-			(this.meshes[lod] as Trades).updateGeometry(data);
+		console.log('onOHLCV', lod, data.length);
+		(this.meshes[lod] as OHLCV).updateGeometry(data, lod);
+		if (lod === 'year') {
+			const { min, max } = toBounds(data, lod);
+			this.range.min = min;
+			this.range.max = max;
 		}
+	}
+
+	onTrades(data: Trade[]) {
+		if (data.length == 0) return;
+		this.meshes.trade.updateGeometry(data);
 	}
 
 	setTicker(ticker: string) {
@@ -116,8 +113,8 @@ export class ChartData {
 		Object.values(this.meshes).forEach(m => m.nInstances = 0);
 		// Even 100 years of daily aggs are only ~1MB.
 		// Because of this, just cache everything that's daily or above.
-		(['year', 'month', 'week', 'day'] as Period[]).forEach(lod => {
-			this.provider[lod](ticker, minDate, new Date(), aggs => this.onData(lod, aggs));
+		(['year', 'month', 'week', 'day'] as Exclude<Period, 'trade'>[]).forEach(lod => {
+			this.provider[lod](ticker, minDate, new Date(), aggs => this.onAggs(lod, aggs));
 		});
 	}
 
@@ -129,7 +126,12 @@ export class ChartData {
 		// temporarily until panning is implemented
 		this.meshes[this.lod].nInstances = 0;
 
-		this.provider[this.lod](this.ticker, from, to, aggs => this.onData(this.lod, aggs));
+		if (this.lod === 'trade') {
+			this.provider.trade(this.ticker, from, to, data => this.onTrades(data));
+		} else {
+			const lod = this.lod as Exclude<Period, 'trade'>;
+			this.provider[lod](this.ticker, from, to, data => this.onAggs(lod, data));
+		}
 	}
 
 	update(eye: Vec3): number {

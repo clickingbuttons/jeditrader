@@ -1,11 +1,12 @@
 import { Axes } from './axes.js';
+import { Mat4, Vec3, Vec4 } from '@jeditrader/linalg';
 import { Provider } from '@jeditrader/providers';
-import { ChartData } from './lod.js';
+import { ChartData } from './chart-data.js';
 import { Scene } from './scene.js';
 
 export class Chart extends Scene {
 	axes: Axes;
-	data: ChartData;
+	ticker: ChartData;
 
 	constructor(
 		canvas: HTMLCanvasElement,
@@ -15,37 +16,40 @@ export class Chart extends Scene {
 		ticker: string,
 	) {
 		super(canvas, canvasUI, device);
-		this.data = new ChartData(device, this.uniform, provider, ticker);
-		this.setTicker(ticker);
-		this.axes = new Axes(device, this.uniform, this.data.range, canvasUI, this.camera);
+		this.ticker = new ChartData(device, this.uniform, provider, ticker);
+		this.axes = new Axes(device, this.uniform, this.ticker.range, canvasUI, this.sceneToClip.bind(this));
 		this.nodes = [
 			this.axes,
-			this.data,
+			this.ticker,
 		];
 	}
 
 	setTicker(ticker: string) {
-		this.data.setTicker(ticker);
-	}
-
-	uniformData() {
-		return new Float32Array([
-			...super.uniformData(),
-			...this.axes.scale.f32(), 0,
-		]);
+		this.ticker.setTicker(ticker);
 	}
 
 	update(dt: DOMHighResTimeStamp) {
 		super.update(dt);
-		this.dirty |= this.data.update(this.camera.eye);
-		this.axes.update(this.camera.eye, this.data.lowerLod);
+		this.dirty |= this.ticker.update(this.camera.eye);
+		this.axes.update(this.camera.eye, this.ticker.lowerLod);
 
+		this.model = Mat4.scale(this.axes.scale);
 		this.device.queue.writeBuffer(this.uniform, 0, this.uniformData());
 
 		this.input.update();
 	}
 
 	toggleLodLock() {
-		this.data.lockLod = !this.data.lockLod;
+		this.ticker.lockLod = !this.ticker.lockLod;
+	}
+
+	sceneToClip(pos: Vec3): Vec4 {
+		const mvp = this.camera.proj().mul(this.camera.view(false)).mul(this.model);
+		let res = new Vec4([...pos, 1.0]).transform(mvp);
+		// divide X and Y by W just like the GPU does
+		res.x /= res.w;
+		res.y /= res.w;
+
+		return res;
 	}
 };

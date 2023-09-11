@@ -1,4 +1,4 @@
-import { Mat4, Vec3, Vec4, degToRad, clamp } from '@jeditrader/linalg';
+import { Mat4, Vec3, degToRad, clamp } from '@jeditrader/linalg';
 import { Input } from './input.js';
 
 declare let window: {
@@ -61,10 +61,18 @@ export class Camera {
 		return +input.focused;
 	}
 
-	view(): Mat4 {
+	view(relative: boolean): Mat4 {
 		const direction = this.direction();
 		const target = this.eye.add(direction);
 		const res = Mat4.lookAt(this.eye, target, this.up);
+
+		if (relative) {
+			// These can be numbers larger than f32 can handle precisely.
+			// Instead we calculate relative to eye in the vertex shader.
+			res[12] = 0;
+			res[13] = 0;
+			res[14] = 0;
+		}
 
 		return res;
 	}
@@ -79,35 +87,5 @@ export class Camera {
 			zNear,
 			zFar,
 		);
-	}
-
-	viewProj(): Mat4 {
-		const view = this.view();
-		// These can be numbers larger than f32 can handle precisely.
-		// Instead we calculate relative to eye in the vertex shader.
-		view[12] = 0;
-		view[13] = 0;
-		view[14] = 0;
-
-		return this.proj().mul(view);
-	}
-
-	sceneToClip(pos: Vec3): Vec4 {
-		const viewProj = this.proj().mul(this.view());
-		const vec4 = new Vec4([pos.x, pos.y, pos.z, 1.0]);
-		// divide X and Y by W just like the GPU does.
-		let res = vec4.transform(viewProj);
-// -0.7633553006212955
-// 0.030136740506814252
-// 259434475949.9285
-// 267724939185.05508
-// -2648.7129259527064
-// 9.887604531161791
-// -8553078387.68004
-// -254240541.4804256
-		res.x /= res.w;
-		res.y /= res.w;
-
-		return res;
 	}
 }

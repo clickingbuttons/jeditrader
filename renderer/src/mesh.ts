@@ -20,7 +20,7 @@ const defaultOptions = {
 	depthWriteEnabled: true,
 	cullMode: 'back',
 	vertOutputFields: [],
-	vertCode: 'return VertexOutput(chart.viewProj * pos(arg));',
+	vertCode: 'return VertexOutput(chart.proj * chart.view * pos(arg));',
 	fragCode: 'return vec4f(1.0, 1.0, 0.0, 1.0);',
 } as MeshOptions;
 
@@ -79,14 +79,7 @@ fn subCamPos64(position: vec3f, positionLow: vec3f) -> vec3f {
 	return highDifference + lowDifference;
 }
 
-struct Position {
-	index: u32,
-	high: vec3f,
-	low: vec3f,
-	camRelative: vec4f,
-}
-
-fn pos(vertex: Vertex) -> Position {
+fn pos(vertex: Vertex) -> vec4f {
 	var vertIndex = indices[vertex.vertex];
 	${wireframe ? `
 	let triangleIndex = vertex.vertex / 6u;
@@ -106,14 +99,9 @@ fn pos(vertex: Vertex) -> Position {
 		pos[i] = positions[index + i];
 		posLow[i] = positionsLow[index + i];
 	}
-	pos *= chart.axesScale;
+	pos = (chart.model * vec4f(pos, 1.0)).xyz;
 
-	return Position(
-		index,
-		pos,
-		posLow,
-		vec4f(subCamPos64(pos, posLow), 1.0),
-	);
+	return vec4f(subCamPos64(pos, posLow), 1.0);
 }
 
 @vertex fn vertMain(arg: Vertex) -> VertexOutput {
@@ -189,10 +177,11 @@ fn pos(vertex: Vertex) -> Position {
 				type: 'uniform',
 				visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
 				wgslStruct: `struct Chart {
-					viewProj: mat4x4f,
+					model: mat4x4f,
+					view: mat4x4f,
+					proj: mat4x4f,
 					eye: vec3f,
 					eyeLow: vec3f,
-					axesScale: vec3f,
 				}`,
 				wgslType: 'Chart',
 			}),

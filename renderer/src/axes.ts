@@ -3,7 +3,7 @@ import { Vec3 } from '@jeditrader/linalg';
 import { createBuffer } from './util.js';
 import { Range } from './util.js';
 import { getNext, Period } from '@jeditrader/providers';
-import { Labels } from './labels.js';
+import { Labels, SceneToClip } from './labels.js';
 import { Camera } from './camera.js';
 
 const wgslStruct = `struct Axes {
@@ -15,7 +15,7 @@ const wgslStruct = `struct Axes {
 }`;
 const vertCode = `
 	let p = pos(arg);
-	return VertexOutput(chart.viewProj * p.camRelative, p.camRelative.xy);
+	return VertexOutput(chart.proj * chart.view * p, p.xy);
 `;
 // If replacing this with quads, use:
 // https://github.com/m-schuetz/webgpu_wireframe_thicklines/blob/master/renderWireframeThick.js
@@ -119,7 +119,7 @@ export class Axes extends Mesh {
 		chartUniform: GPUBuffer,
 		range: Range<Vec3>,
 		canvas: HTMLCanvasElement,
-		camera: Camera,
+		sceneToClip: SceneToClip,
 	) {
 		const uniform = createBuffer({
 			device,
@@ -176,7 +176,7 @@ export class Axes extends Mesh {
 		this.uniform = uniform;
 		this.horizontalLines = horizontalLines;
 		this.verticalLines = verticalLines;
-		this.labels = new Labels(canvas, camera);
+		this.labels = new Labels(canvas, sceneToClip);
 	}
 
 	update(eye: Vec3, period: Period) {
@@ -208,9 +208,11 @@ export class Axes extends Mesh {
 		]));
 
 		const translation = new Vec3([this.range.min.x, this.range.min.y, 0]);
-		this.labels.setLabels([{
-			text: 'FA',
-			pos: translation
-		}]);
+		this.labels.setLabels(
+			horizontalLines.map(l => ({
+				text: '' + l,
+				pos: translation.add(new Vec3([0, l, 0]))
+			}))
+		);
 	}
 }

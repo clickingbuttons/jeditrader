@@ -1,3 +1,4 @@
+import { Mat4 } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
 import { Input } from './input.js';
 import { createBuffer } from './util.js';
@@ -9,9 +10,12 @@ interface DebugRenderable {
 
 export class Scene {
 	device: GPUDevice;
-	uniform: GPUBuffer;
+
 	input: Input;
 	camera: Camera;
+
+	model: Mat4;
+	uniform: GPUBuffer;
 	nodes: (DebugRenderable | undefined)[] = [];
 
 	dirty: number = 1;
@@ -20,11 +24,12 @@ export class Scene {
 		canvas: HTMLCanvasElement,
 		canvasUI: HTMLCanvasElement,
 		device: GPUDevice,
-		uniformLen: number = 32,
+		uniformLen: number = 4 * 4 * 4,
 	) {
 		this.device = device;
 		this.input = new Input(canvasUI);
 		this.camera = new Camera(canvas);
+		this.model = Mat4.identity();
 		this.uniform = createBuffer({
 			device,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -34,7 +39,9 @@ export class Scene {
 
 	uniformData() {
 		return new Float32Array([
-			...this.camera.viewProj(),
+			...this.model,
+			...this.camera.view(true),
+			...this.camera.proj(),
 			...this.camera.eye, 0,
 			...this.camera.eye.f32Low(), 0,
 		]);

@@ -74,8 +74,6 @@ export function Chart() {
 		);
 	}
 
-	let x = 0;
-
 	return (
 		<>
 			<Toolbar
@@ -83,14 +81,6 @@ export function Chart() {
 				setTicker={setTicker}
 				renderer={renderer}
 			/>
-			{/*<div class="canvases" onMouseMove={ev => {
-				if (ev.ctrlKey) {
-					x += ev.movementX;
-					console.log(x, ev.movementX)
-				}
-			}}>
-				x
-			</div>*/}
 			<div class="canvases">
 				<canvas ref={canvas} />
 				<canvas ref={canvasUI} />
