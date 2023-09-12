@@ -248,4 +248,9 @@ export class Axes extends Mesh {
 				)
 		);
 	}
+
+	render(pass: GPURenderPassEncoder) {
+		super.render(pass);
+		this.labels.render();
+	}
 }

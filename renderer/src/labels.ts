@@ -28,6 +28,7 @@ export class Labels {
 	sceneToClip: SceneToClip;
 
 	ctx: CanvasRenderingContext2D;
+	labels: Label[] = [];
 
 	constructor(canvas: HTMLCanvasElement, sceneToClip: SceneToClip) {
 		this.canvas = canvas;
@@ -38,10 +39,15 @@ export class Labels {
 	}
 
 	setLabels(labels: Label[]) {
+		this.labels = labels;
+	}
+
+	render() {
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
 		const height = 14;
-		this.ctx.font = `${height}px monospace`;
+		const face = 'sans';
+		this.ctx.font = `${height}px ${face}`;
 		this.ctx.textBaseline = 'middle';
 		this.ctx.textAlign = 'center';
 		this.ctx.fillStyle = 'white';
@@ -55,7 +61,7 @@ export class Labels {
 			top: 0,
 			bottom: 0,
 		};
-		labels.forEach(l => {
+		this.labels.forEach(l => {
 			const clipPos = this.sceneToClip(l.pos);
 			if (clipPos.z < 0) return;
 			const x = (1 + clipPos.x) / 2 * this.canvas.width;
