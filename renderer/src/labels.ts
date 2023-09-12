@@ -7,6 +7,22 @@ export interface Label {
 
 export type SceneToClip = (pos: Vec3) => Vec4;
 
+interface Rectangle {
+	left: number;
+	right: number;
+	top: number;
+	bottom: number;
+};
+
+function intersects(r1: Rectangle, r2: Rectangle) {
+  return !(
+		r2.left > r1.right ||
+		r2.right < r1.left ||
+		r2.top > r1.bottom ||
+		r2.bottom < r1.top
+	);
+}
+
 export class Labels {
 	canvas: HTMLCanvasElement;
 	sceneToClip: SceneToClip;
@@ -23,15 +39,40 @@ export class Labels {
 
 	setLabels(labels: Label[]) {
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-		this.ctx.font = `32px monospace`;
+
+		const height = 14;
+		this.ctx.font = `${height}px monospace`;
 		this.ctx.textBaseline = 'middle';
 		this.ctx.textAlign = 'center';
 		this.ctx.fillStyle = 'white';
+		// Stoke for text shadow
+		this.ctx.strokeStyle = 'black';
+		this.ctx.lineWidth = 2;
+
+		let lastRect: Rectangle = {
+			left: 0,
+			right: 0,
+			top: 0,
+			bottom: 0,
+		};
 		labels.forEach(l => {
 			const clipPos = this.sceneToClip(l.pos);
-			const screenPosX = (1 + clipPos.x) / 2 * this.canvas.width;
-			const screenPosY = this.canvas.height - ((1 + clipPos.y) / 2 * this.canvas.height);
-			this.ctx.fillText(l.text, screenPosX, screenPosY);
+			if (clipPos.z < 0) return;
+			const x = (1 + clipPos.x) / 2 * this.canvas.width;
+			const y = (1 - clipPos.y) / 2 * this.canvas.height;
+			const width = this.ctx.measureText(l.text).width;
+			const rect: Rectangle = {
+				left: x - width / 2,
+				right: x + width / 2,
+				top: y + height / 2,
+				bottom: y + height * 3 / 2,
+			};
+			// Don't draw text that overlaps.
+			if (intersects(lastRect, rect)) return;
+			lastRect = rect;
+
+			this.ctx.strokeText(l.text, x, y);
+			this.ctx.fillText(l.text, x, y);
 		});
 	}
 }

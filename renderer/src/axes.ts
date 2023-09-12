@@ -4,7 +4,7 @@ import { createBuffer } from './util.js';
 import { Range } from './util.js';
 import { getNext, Period } from '@jeditrader/providers';
 import { Labels, SceneToClip } from './labels.js';
-import { Camera } from './camera.js';
+import { toymd } from './helpers.js';
 
 const wgslStruct = `struct Axes {
 	backgroundColor: vec4f,
@@ -73,6 +73,33 @@ const indices = [
 	11, 8, 4,
 ];
 const maxLines = 64;
+
+function pad2(n: number) {
+	return (n + '').padStart(2, '0');
+}
+
+function toLabel(period: Period, ms: number): string {
+	let d = new Date(ms);
+	switch (period) {
+	case 'year':
+		return '' + d.getUTCFullYear();
+	case 'month':
+		return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`
+	case 'week':
+	case 'day':
+		return toymd(d);
+	case 'hour4':
+	case 'hour':
+		return `${toymd(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+	case 'minute5':
+	case 'minute':
+		return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+	case 'trade':
+		return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+	default:
+		throw new Error('unknown period ' + period);
+	}
+}
 
 export class Axes extends Mesh {
 	range: Range<Vec3>;
@@ -192,13 +219,13 @@ export class Axes extends Mesh {
 			epochMs < end.getTime();
 			epochMs = getNext(new Date(epochMs), period).getTime()
 		) {
-			verticalLines.push(epochMs);
+			if (epochMs > this.range.min.x && epochMs < this.range.max.x) verticalLines.push(epochMs);
 		}
 		this.device.queue.writeBuffer(this.verticalLines, 0, new Float32Array(
 			verticalLines.map(v => v * this.scale.x - eye.x)
 		));
 
-		const horizontalLines = [10, 20, 30, 40, 50];
+		const horizontalLines = [10, 20];
 		this.device.queue.writeBuffer(this.horizontalLines, 0, new Float32Array(
 			horizontalLines.map(v => v * this.scale.y - eye.y)
 		));
@@ -207,12 +234,18 @@ export class Axes extends Mesh {
 			horizontalLines.length, verticalLines.length,
 		]));
 
-		const translation = new Vec3([this.range.min.x, this.range.min.y, 0]);
 		this.labels.setLabels(
-			horizontalLines.map(l => ({
-				text: '' + l,
-				pos: translation.add(new Vec3([0, l, 0]))
-			}))
+			horizontalLines
+				.map(l => ({
+					text: '$' + l,
+					pos: new Vec3([this.range.min.x, l, 0])
+				}))
+				.concat(
+					verticalLines.map(l => ({
+						text: toLabel(period, l),
+						pos: new Vec3([l, this.range.min.y, 0])
+					}))
+				)
 		);
 	}
 }

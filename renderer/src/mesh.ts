@@ -100,6 +100,7 @@ fn pos(vertex: Vertex) -> vec4f {
 		posLow[i] = positionsLow[index + i];
 	}
 	pos = (chart.model * vec4f(pos, 1.0)).xyz;
+	posLow = (chart.model * vec4f(posLow, 1.0)).xyz;
 
 	return vec4f(subCamPos64(pos, posLow), 1.0);
 }
