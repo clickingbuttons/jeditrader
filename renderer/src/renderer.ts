@@ -1,7 +1,8 @@
 import { depthFormat, presentationFormat, sampleCount } from './util.js';
-import { Provider } from '@jeditrader/providers';
+import { Provider, Period } from '@jeditrader/providers';
 import { Chart } from './chart.js';
 import { debounce } from './helpers.js';
+import { Lod } from './chart-data.js';
 
 export class Renderer {
 	canvas: HTMLCanvasElement;
@@ -23,6 +24,7 @@ export class Renderer {
 		context: GPUCanvasContext,
 		provider: Provider,
 		ticker: string,
+		onPeriodChange: (l: Period) => void,
 	) {
 		this.canvas = canvas;
 		this.canvasUI = canvasUI;
@@ -33,7 +35,7 @@ export class Renderer {
 		this.depthTexture = this.createDepthTarget();
 		this.depthTextureView = this.depthTexture.createView();
 
-		this.chart = new Chart(canvas, canvasUI, this.device, provider, ticker);
+		this.chart = new Chart(canvas, canvasUI, this.device, provider, ticker, onPeriodChange);
 
 		new ResizeObserver(debounce(this.onResize.bind(this))).observe(canvas);
 		new ResizeObserver(debounce(this.onResize.bind(this))).observe(canvasUI);
@@ -128,7 +130,8 @@ export class Renderer {
 		canvas: HTMLCanvasElement,
 		canvasUI: HTMLCanvasElement,
 		provider: Provider,
-		ticker: string
+		ticker: string,
+		onPeriodChange: (l: Period) => void,
 	) {
 		if (navigator.gpu === undefined)
 			throw Renderer.error(canvas, 'WebGPU is not supported/enabled in your browser');
@@ -140,19 +143,19 @@ export class Renderer {
 		if (context === null) throw Renderer.error(canvas, 'No WebGPU context');
 		context.configure({ device, format: presentationFormat });
 
-		return new Renderer(canvas, canvasUI, device, context, provider, ticker);
+		return new Renderer(canvas, canvasUI, device, context, provider, ticker, onPeriodChange);
 	}
 
 	toggleWireframe() {
 		this.chart.toggleWireframe();
 	}
 
-	toggleLodLock() {
-		this.chart.toggleLodLock();
-	}
-
 	setTicker(ticker: string) {
 		this.chart.setTicker(ticker);
+	}
+
+	setLod(lod: Lod) {
+		this.chart.setLod(lod);
 	}
 };
 

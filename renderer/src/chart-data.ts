@@ -3,6 +3,7 @@ import { Period, Aggregate, Trade, Provider, minDate, maxDate, getNext } from '@
 import { OHLCV } from './ohlcv.js';
 import { Trades } from './trades.js';
 import { Range } from './util.js';
+import { Camera } from './camera.js';
 
 function toBounds(aggs: Aggregate[], period: Exclude<Period, 'trade'>): Range<Vec3> {
 	let minTime = maxDate;
@@ -47,11 +48,15 @@ const cameraZs: { [p in Period]: number } = {
 	'minute': 20e6,
 	'trade': 10e6,
 };
+const lodKeys = Object.keys(cameraZs) as Period[];
+export type Lod = Period | 'auto';
+export const lods: Lod[] = ['auto', ...lodKeys];
 
 export class ChartData {
 	device: GPUDevice;
 	uniform: GPUBuffer;
 	provider: Provider;
+	camera: Camera;
 
 	ticker: string = '';
 	// Don't assign this, `Axes` holds a ref.
@@ -61,19 +66,26 @@ export class ChartData {
 	};
 
 	meshes;
-	lowerLod: Period = 'year';
 	lod: Period = 'month';
-	lockLod = false;
+	lowerLod: Period = 'year';
+
+	autoLod = true;
+	onPeriodChange: (l: Period) => void;
 
 	constructor(
 		device: GPUDevice,
 		chartUniform: GPUBuffer,
 		provider: Provider,
 		ticker: string,
+		camera: Camera,
+		onPeriodChange: (l: Period) => void,
 	) {
 		this.device = device;
 		this.uniform = chartUniform;
 		this.provider = provider;
+		this.camera = camera;
+		this.onPeriodChange = onPeriodChange;
+
 		this.meshes = {
 			'year': new OHLCV(device, chartUniform),
 			'month': new OHLCV(device, chartUniform),
@@ -118,7 +130,26 @@ export class ChartData {
 		});
 	}
 
-	fetchPage(eye: Vec3) {
+	setUserLod(lod: Lod) {
+		console.log('setUserLod', lod)
+		this.autoLod = lod === 'auto';
+		if (lod !== 'auto') this.setLod(lod);
+	}
+
+	setLod(lod: Period) {
+		if (lod === this.lod) return;
+		this.lod = lod;
+
+		const lodIndex = lodKeys.indexOf(lod);
+		this.lowerLod = lodKeys[Math.max(lodIndex - 1, 0)];
+		Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === lod);
+		console.log('visible', lod);
+
+		if (lodKeys.indexOf(lod) >= lodKeys.indexOf('hour4')) this.fetchPage();
+	}
+
+	fetchPage() {
+		const { eye } = this.camera;
 		const horizonDistance = eye.z * 2;
 		const from = new Date((eye.x - horizonDistance));
 		const to = new Date((eye.x + horizonDistance));
@@ -134,32 +165,16 @@ export class ChartData {
 		}
 	}
 
-	update(eye: Vec3): number {
-		if (this.lockLod) return 0;
-
-		const lodKeys = Object.keys(cameraZs) as Period[];
-		const lastLod = this.lod;
+	update() {
 		for (var i = lodKeys.length - 1; i >= 0; i--) {
 			const period = lodKeys[i];
-			if (eye.z < cameraZs[period]) {
-				const newLod = lodKeys[i];
-
-				// if (newLod > 3) this.fetchPage();
-				if (newLod !== lastLod) {
-					this.lod = newLod;
-					this.lowerLod = lodKeys[Math.max(i - 1, 0)];
-					Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === this.lod);
-					console.log('visible', this.lod);
-
-					if (lodKeys.indexOf(newLod) >= lodKeys.indexOf('hour4')) this.fetchPage(eye);
-					return 1;
-				} else {
-					return 0;
-				}
+			if (this.camera.eye.z < cameraZs[period]) {
+				this.onPeriodChange(period);
+				if (this.autoLod) this.setLod(period);
+				break;
 			}
 		}
-
-		return 0;
+		// TODO: proper fetchPage
 	}
 
 	render(pass: GPURenderPassEncoder): void {

@@ -1,8 +1,9 @@
 import { Axes } from './axes.js';
 import { Mat4, Vec3, Vec4 } from '@jeditrader/linalg';
-import { Provider } from '@jeditrader/providers';
+import { Provider, Period } from '@jeditrader/providers';
 import { ChartData } from './chart-data.js';
 import { Scene } from './scene.js';
+import { Lod } from './chart-data.js';
 
 export class Chart extends Scene {
 	axes: Axes;
@@ -14,9 +15,10 @@ export class Chart extends Scene {
 		device: GPUDevice,
 		provider: Provider,
 		ticker: string,
+		onPeriodChange: (l: Period) => void,
 	) {
 		super(canvas, canvasUI, device);
-		this.ticker = new ChartData(device, this.uniform, provider, ticker);
+		this.ticker = new ChartData(device, this.uniform, provider, ticker, this.camera, onPeriodChange);
 		this.axes = new Axes(device, this.uniform, this.ticker.range, canvasUI, this.sceneToClip.bind(this));
 		this.nodes = [
 			this.axes,
@@ -28,19 +30,19 @@ export class Chart extends Scene {
 		this.ticker.setTicker(ticker);
 	}
 
+	setLod(lod: Lod) {
+		this.ticker.setUserLod(lod);
+	}
+
 	update(dt: DOMHighResTimeStamp) {
 		super.update(dt);
-		this.dirty |= this.ticker.update(this.camera.eye);
+		this.ticker.update();
 		this.axes.update(this.camera.eye, this.ticker.lowerLod);
 
 		this.model = Mat4.scale(this.axes.scale);
 		this.device.queue.writeBuffer(this.uniform, 0, this.uniformData());
 
 		this.input.update();
-	}
-
-	toggleLodLock() {
-		this.ticker.lockLod = !this.ticker.lockLod;
 	}
 
 	sceneToClip(pos: Vec3): Vec4 {
