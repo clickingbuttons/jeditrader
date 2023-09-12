@@ -23,8 +23,6 @@ export class Renderer {
 		device: GPUDevice,
 		context: GPUCanvasContext,
 		provider: Provider,
-		ticker: string,
-		onPeriodChange: (l: Period) => void,
 	) {
 		this.canvas = canvas;
 		this.canvasUI = canvasUI;
@@ -35,7 +33,7 @@ export class Renderer {
 		this.depthTexture = this.createDepthTarget();
 		this.depthTextureView = this.depthTexture.createView();
 
-		this.chart = new Chart(canvas, canvasUI, this.device, provider, ticker, onPeriodChange);
+		this.chart = new Chart(canvas, canvasUI, this.device, provider);
 
 		new ResizeObserver(debounce(this.onResize.bind(this))).observe(canvas);
 		new ResizeObserver(debounce(this.onResize.bind(this))).observe(canvasUI);
@@ -130,8 +128,6 @@ export class Renderer {
 		canvas: HTMLCanvasElement,
 		canvasUI: HTMLCanvasElement,
 		provider: Provider,
-		ticker: string,
-		onPeriodChange: (l: Period) => void,
 	) {
 		if (navigator.gpu === undefined)
 			throw Renderer.error(canvas, 'WebGPU is not supported/enabled in your browser');
@@ -143,19 +139,11 @@ export class Renderer {
 		if (context === null) throw Renderer.error(canvas, 'No WebGPU context');
 		context.configure({ device, format: presentationFormat });
 
-		return new Renderer(canvas, canvasUI, device, context, provider, ticker, onPeriodChange);
+		return new Renderer(canvas, canvasUI, device, context, provider);
 	}
 
 	toggleWireframe() {
 		this.chart.toggleWireframe();
-	}
-
-	setTicker(ticker: string) {
-		this.chart.setTicker(ticker);
-	}
-
-	setLod(lod: Lod) {
-		this.chart.setLod(lod);
 	}
 };
 

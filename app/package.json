@@ -2,7 +2,12 @@
 	"name": "@jeditrader/app",
 	"version": "0.0.1",
 	"description": "WebGPU charting application",
-	"keywords": ["polygon", "api", "charting", "webgpu"],
+	"keywords": [
+		"polygon",
+		"api",
+		"charting",
+		"webgpu"
+	],
 	"type": "module",
 	"scripts": {
 		"build": "esbuild-scripts build",
@@ -22,6 +27,7 @@
 		"@jeditrader/linalg": "^0.0.1",
 		"@jeditrader/providers": "^0.0.1",
 		"@jeditrader/renderer": "^0.0.1",
+		"@preact/signals": "^1.2.1",
 		"preact": "^10.16.0",
 		"preact-router": "^4.1.2"
 	}

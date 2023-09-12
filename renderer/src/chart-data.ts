@@ -1,4 +1,5 @@
 import { Vec3 } from '@jeditrader/linalg';
+import { signal } from '@preact/signals-core';
 import { Period, Aggregate, Trade, Provider, minDate, maxDate, getNext } from '@jeditrader/providers';
 import { OHLCV } from './ohlcv.js';
 import { Trades } from './trades.js';
@@ -58,7 +59,7 @@ export class ChartData {
 	provider: Provider;
 	camera: Camera;
 
-	ticker: string = '';
+	ticker = signal('F');
 	// Don't assign this, `Axes` holds a ref.
 	range: Range<Vec3> = {
 		min: new Vec3([-5000, -5000, -5000]),
@@ -66,25 +67,22 @@ export class ChartData {
 	};
 
 	meshes;
-	lod: Period = 'month';
+	lod = signal<Period>('month');
 	lowerLod: Period = 'year';
 
-	autoLod = true;
-	onPeriodChange: (l: Period) => void;
+	autoLod = signal(true);
+	autoLodPeriod = signal<Period>(this.lod.value);
 
 	constructor(
 		device: GPUDevice,
 		chartUniform: GPUBuffer,
 		provider: Provider,
-		ticker: string,
 		camera: Camera,
-		onPeriodChange: (l: Period) => void,
 	) {
 		this.device = device;
 		this.uniform = chartUniform;
 		this.provider = provider;
 		this.camera = camera;
-		this.onPeriodChange = onPeriodChange;
 
 		this.meshes = {
 			'year': new OHLCV(device, chartUniform),
@@ -97,9 +95,24 @@ export class ChartData {
 			'minute': new OHLCV(device, chartUniform),
 			'trade': new Trades(device, chartUniform),
 		};
-		Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === this.lod);
+		Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === this.lod.value);
 
-		this.setTicker(ticker);
+		this.ticker.subscribe(ticker => {
+			Object.values(this.meshes).forEach(m => m.nInstances = 0);
+			// Even 100 years of daily aggs are only ~1MB.
+			// Because of this, just cache everything that's daily or above.
+			(['year', 'month', 'week', 'day'] as Exclude<Period, 'trade'>[]).forEach(lod => {
+				this.provider[lod](ticker, minDate, new Date(), aggs => this.onAggs(lod, aggs));
+			});
+		});
+		this.lod.subscribe((lod: Period) => {
+			console.log('lod change', lod)
+			const lodIndex = lodKeys.indexOf(lod);
+			this.lowerLod = lodKeys[Math.max(lodIndex - 1, 0)];
+			Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === lod);
+
+			if (lodKeys.indexOf(lod) >= lodKeys.indexOf('hour4')) this.fetchPage();
+		});
 	}
 
 	onAggs(lod: Exclude<Period, 'trade'>, data: Aggregate[]) {
@@ -118,50 +131,20 @@ export class ChartData {
 		this.meshes.trade.updateGeometry(data);
 	}
 
-	setTicker(ticker: string) {
-		if (this.ticker === ticker) return;
-		this.ticker = ticker;
-
-		Object.values(this.meshes).forEach(m => m.nInstances = 0);
-		// Even 100 years of daily aggs are only ~1MB.
-		// Because of this, just cache everything that's daily or above.
-		(['year', 'month', 'week', 'day'] as Exclude<Period, 'trade'>[]).forEach(lod => {
-			this.provider[lod](ticker, minDate, new Date(), aggs => this.onAggs(lod, aggs));
-		});
-	}
-
-	setUserLod(lod: Lod) {
-		console.log('setUserLod', lod)
-		this.autoLod = lod === 'auto';
-		if (lod !== 'auto') this.setLod(lod);
-	}
-
-	setLod(lod: Period) {
-		if (lod === this.lod) return;
-		this.lod = lod;
-
-		const lodIndex = lodKeys.indexOf(lod);
-		this.lowerLod = lodKeys[Math.max(lodIndex - 1, 0)];
-		Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === lod);
-		console.log('visible', lod);
-
-		if (lodKeys.indexOf(lod) >= lodKeys.indexOf('hour4')) this.fetchPage();
-	}
-
 	fetchPage() {
 		const { eye } = this.camera;
 		const horizonDistance = eye.z * 2;
 		const from = new Date((eye.x - horizonDistance));
 		const to = new Date((eye.x + horizonDistance));
+		const lod = this.lod.value;
 
 		// temporarily until panning is implemented
-		this.meshes[this.lod].nInstances = 0;
+		this.meshes[lod].nInstances = 0;
 
-		if (this.lod === 'trade') {
-			this.provider.trade(this.ticker, from, to, data => this.onTrades(data));
+		if (lod === 'trade') {
+			this.provider.trade(this.ticker.value, from, to, data => this.onTrades(data));
 		} else {
-			const lod = this.lod as Exclude<Period, 'trade'>;
-			this.provider[lod](this.ticker, from, to, data => this.onAggs(lod, data));
+			this.provider[lod](this.ticker.value, from, to, data => this.onAggs(lod, data));
 		}
 	}
 
@@ -169,8 +152,8 @@ export class ChartData {
 		for (var i = lodKeys.length - 1; i >= 0; i--) {
 			const period = lodKeys[i];
 			if (this.camera.eye.z < cameraZs[period]) {
-				this.onPeriodChange(period);
-				if (this.autoLod) this.setLod(period);
+				this.autoLodPeriod.value = period;
+				if (this.autoLod.value) this.lod.value = period;
 				break;
 			}
 		}

@@ -2,15 +2,18 @@
 	"name": "@jeditrader/renderer",
 	"version": "0.0.1",
 	"type": "module",
-	"exports": { ".":"./dist/esm/index.js" },
+	"exports": {
+		".": "./dist/esm/index.js"
+	},
 	"types": "dist/esm/index.d.ts",
 	"description": "WebGPU chart renderer",
 	"repository": "https://github.com/clickingbuttons/jeditrader",
 	"author": "clickingbuttons",
 	"license": "MIT",
 	"dependencies": {
-		"@jeditrader/linalg": "^0.0.1",
 		"@jeditrader/geometry": "^0.0.1",
+		"@jeditrader/linalg": "^0.0.1",
+		"@preact/signals-core": "^1.5.0",
 		"@webgpu/types": "^0.1.34"
 	}
 }

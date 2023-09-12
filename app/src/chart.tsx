@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'preact/hooks';
 import { Toolbar } from './toolbar.js';
 import { Renderer } from '@jeditrader/renderer';
 import { getCookie, setCookie } from './cookies.js';
-import { Provider, Clickhouse, Polygon, Period } from '@jeditrader/providers';
+import { Provider, Clickhouse, Polygon } from '@jeditrader/providers';
 import './chart.css';
 
 function ProviderSelect({ setProvider }: { setProvider(p: Provider): void }) {
@@ -59,13 +59,11 @@ export function Chart() {
 
 	const [provider, setProvider] = useState<Provider | null>(null);
 	const [renderer, setRenderer] = useState<Renderer | null>(null);
-	const [ticker, setTicker] = useState('F');
-	const [period, setPeriod] = useState<Period>('month');
 
 	useEffect(() => {
 		if (provider) {
 			if (canvas.current && canvasUI.current) {
-				Renderer.init(canvas.current, canvasUI.current, provider, ticker, setPeriod).then(r => {
+				Renderer.init(canvas.current, canvasUI.current, provider).then(r => {
 					setRenderer(r);
 					r.render();
 				});
@@ -73,18 +71,11 @@ export function Chart() {
 		}
 	}, [provider]);
 
-	useEffect(() => renderer?.setTicker(ticker), [ticker]);
-
 	if (!provider) return <ProviderSelect setProvider={setProvider} />
 
 	return (
 		<>
-			<Toolbar
-				ticker={ticker}
-				setTicker={setTicker}
-				renderer={renderer}
-				period={period}
-			/>
+			<Toolbar renderer={renderer} />
 			<div class="canvases">
 				<canvas ref={canvas} />
 				<canvas ref={canvasUI} />

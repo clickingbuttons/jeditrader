@@ -1,6 +1,6 @@
 import { Axes } from './axes.js';
 import { Mat4, Vec3, Vec4 } from '@jeditrader/linalg';
-import { Provider, Period } from '@jeditrader/providers';
+import { Provider } from '@jeditrader/providers';
 import { ChartData } from './chart-data.js';
 import { Scene } from './scene.js';
 import { Lod } from './chart-data.js';
@@ -14,24 +14,14 @@ export class Chart extends Scene {
 		canvasUI: HTMLCanvasElement,
 		device: GPUDevice,
 		provider: Provider,
-		ticker: string,
-		onPeriodChange: (l: Period) => void,
 	) {
 		super(canvas, canvasUI, device);
-		this.ticker = new ChartData(device, this.uniform, provider, ticker, this.camera, onPeriodChange);
+		this.ticker = new ChartData(device, this.uniform, provider, this.camera);
 		this.axes = new Axes(device, this.uniform, this.ticker.range, canvasUI, this.sceneToClip.bind(this));
 		this.nodes = [
 			this.axes,
 			this.ticker,
 		];
-	}
-
-	setTicker(ticker: string) {
-		this.ticker.setTicker(ticker);
-	}
-
-	setLod(lod: Lod) {
-		this.ticker.setUserLod(lod);
 	}
 
 	update(dt: DOMHighResTimeStamp) {
