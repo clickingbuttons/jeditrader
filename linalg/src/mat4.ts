@@ -122,4 +122,8 @@ export class Mat4 extends Float64Array {
 			this[ 3], this[ 7], this[11], this[15],
 		]);
 	}
+
+	clone(): Mat4 {
+		return new Mat4(this);
+	}
 }

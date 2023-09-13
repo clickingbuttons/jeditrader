@@ -1,40 +1,50 @@
 import { Axes } from './axes.js';
-import { Mat4 } from '@jeditrader/linalg';
+import { Mat4, Vec3 } from '@jeditrader/linalg';
 import { Provider } from '@jeditrader/providers';
 import { ChartData } from './chart-data.js';
 import { Scene } from './scene.js';
+import { Range } from './util.js';
+import { signal, Signal } from '@preact/signals-core';
+import { RendererFlags } from './renderer.js';
 
 export class Chart extends Scene {
 	axes: Axes;
 	data: ChartData;
 
+	range = signal<Range<Vec3>>({
+		min: new Vec3([-5000, -5000, -5000]),
+		max: new Vec3([5000, 5000, 5000])
+	});
+
 	constructor(
-		canvas: HTMLCanvasElement,
+		aspectRatio: Signal<number>,
 		canvasUI: HTMLCanvasElement,
 		device: GPUDevice,
 		provider: Provider,
+		flags: RendererFlags,
 	) {
-		super(canvas, canvasUI, device);
-		this.axes = new Axes(device, this.uniform, canvasUI, this.sceneToClip.bind(this));
-		this.data = new ChartData(device, this.uniform, provider, this.camera, this.axes.range);
+		super(aspectRatio, canvasUI, device, flags);
+		this.data = new ChartData(
+			device,
+			this.uniform,
+			provider,
+			this.camera.eye,
+			this.range,
+			flags,
+		);
+		this.axes = new Axes(
+			device,
+			this.uniform,
+			canvasUI,
+			this.sceneToClip.bind(this),
+			this.camera.eye,
+			this.data.lod,
+			this.range
+		);
+		this.axes.scale.subscribe(s => this.model.value = Mat4.scale(s));
 		this.nodes = [
 			this.axes,
 			this.data,
 		];
-	}
-
-	update(dt: DOMHighResTimeStamp): boolean {
-		let res = super.update(dt);
-
-		res = this.data.update() || res;
-		this.axes.update(this.camera.eye, this.data.lowerLod);
-
-		this.model = Mat4.scale(this.axes.scale);
-		this.device.queue.writeBuffer(this.uniform, 0, this.uniformData());
-
-		this.input.update();
-
-		this.data.dirty = false;
-		return res;
 	}
 };

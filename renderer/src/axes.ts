@@ -1,10 +1,12 @@
 import { Mesh, BufferBinding } from './mesh.js';
 import { Vec3 } from '@jeditrader/linalg';
 import { createBuffer } from './util.js';
-import { Range } from './util.js';
 import { getNext, Period } from '@jeditrader/providers';
 import { Labels, SceneToClip } from './labels.js';
 import { toymd } from './helpers.js';
+import { Signal, effect } from '@preact/signals-core';
+import { Range } from './util.js';
+import { lodKeys } from './chart-data.js';
 import { signal } from '@preact/signals-core';
 
 const wgslStruct = `struct Axes {
@@ -103,11 +105,7 @@ function toLabel(period: Period, ms: number): string {
 }
 
 export class Axes extends Mesh {
-	range = signal<Range<Vec3>>({
-		min: new Vec3([-5000, -5000, -5000]),
-		max: new Vec3([5000, 5000, 5000])
-	});
-	scale = new Vec3([1, 1e9, 1]);
+	scale = signal(new Vec3([1, 1e9, 1]));
 
 	uniform: GPUBuffer;
 	horizontalLines: GPUBuffer;
@@ -115,41 +113,14 @@ export class Axes extends Mesh {
 
 	labels: Labels;
 
-	getGeometry(eye: Vec3) {
-		const camPos = eye.div(this.scale);
-		const range = this.range.value;
-		const cameraZ = camPos.z;
-		const lod0 = cameraZ / 16;
-		const lod1 = cameraZ;
-
-		const points = [
-			new Vec3([camPos.x - lod0 / this.scale.x, camPos.y + lod0 / this.scale.y, 0]),
-			new Vec3([camPos.x + lod0 / this.scale.x, camPos.y + lod0 / this.scale.y, 0]),
-			new Vec3([camPos.x + lod0 / this.scale.x, camPos.y - lod0 / this.scale.y, 0]),
-			new Vec3([camPos.x - lod0 / this.scale.x, camPos.y - lod0 / this.scale.y, 0]),
-
-			new Vec3([camPos.x - lod1 / this.scale.x, camPos.y + lod1 / this.scale.y, 0]),
-			new Vec3([camPos.x + lod1 / this.scale.x, camPos.y + lod1 / this.scale.y, 0]),
-			new Vec3([camPos.x + lod1 / this.scale.x, camPos.y - lod1 / this.scale.y, 0]),
-			new Vec3([camPos.x - lod1 / this.scale.x, camPos.y - lod1 / this.scale.y, 0]),
-		];
-
-		return points
-			.map(p => p.clamp(range.min, range.max))
-			.concat([
-				new Vec3([range.min.x, range.max.y, 0]),
-				new Vec3([range.max.x, range.max.y, 0]),
-				new Vec3([range.max.x, range.min.y, 0]),
-				new Vec3([range.min.x, range.min.y, 0]),
-			])
-			.reduce((acc: number[], cur: Vec3) => acc.concat([...cur]), []);
-	}
-
 	constructor(
 		device: GPUDevice,
 		chartUniform: GPUBuffer,
 		canvas: HTMLCanvasElement,
 		sceneToClip: SceneToClip,
+		eye: Signal<Vec3>,
+		lod: Signal<Period>,
+		range: Signal<Range<Vec3>>,
 	) {
 		const uniform = createBuffer({
 			device,
@@ -206,12 +177,45 @@ export class Axes extends Mesh {
 		this.horizontalLines = horizontalLines;
 		this.verticalLines = verticalLines;
 		this.labels = new Labels(canvas, sceneToClip);
+
+		effect(() => this.updatePositions(this.getGeometry(eye.value, range.value)));
+		effect(() => this.updateLabels(eye.value, range.value, lod.value));
 	}
 
-	update(eye: Vec3, period: Period) {
-		this.updatePositions(this.getGeometry(eye));
+	getGeometry(eye: Vec3, range: Range<Vec3>) {
+		const scale = this.scale.value;
+		const camPos = eye.div(scale);
+		const cameraZ = camPos.z;
+		const lod0 = cameraZ / 16;
+		const lod1 = cameraZ;
 
-		const range = this.range.value;
+		const points = [
+			new Vec3([camPos.x - lod0 / scale.x, camPos.y + lod0 / scale.y, 0]),
+			new Vec3([camPos.x + lod0 / scale.x, camPos.y + lod0 / scale.y, 0]),
+			new Vec3([camPos.x + lod0 / scale.x, camPos.y - lod0 / scale.y, 0]),
+			new Vec3([camPos.x - lod0 / scale.x, camPos.y - lod0 / scale.y, 0]),
+
+			new Vec3([camPos.x - lod1 / scale.x, camPos.y + lod1 / scale.y, 0]),
+			new Vec3([camPos.x + lod1 / scale.x, camPos.y + lod1 / scale.y, 0]),
+			new Vec3([camPos.x + lod1 / scale.x, camPos.y - lod1 / scale.y, 0]),
+			new Vec3([camPos.x - lod1 / scale.x, camPos.y - lod1 / scale.y, 0]),
+		];
+
+		return points
+			.map(p => p.clamp(range.min, range.max))
+			.concat([
+				new Vec3([range.min.x, range.max.y, 0]),
+				new Vec3([range.max.x, range.max.y, 0]),
+				new Vec3([range.max.x, range.min.y, 0]),
+				new Vec3([range.min.x, range.min.y, 0]),
+			])
+			.reduce((acc, cur) => acc.concat([...cur]), [] as number[]);
+	}
+
+	updateLabels(eye: Vec3, range: Range<Vec3>, period: Period) {
+		const scale = this.scale.value;
+		const lodIndex = lodKeys.indexOf(period);
+		period = lodKeys[Math.max(0, lodIndex - 1)];
 		// Only render lines around camera.
 		const start = getNext(new Date(eye.x), period, -maxLines / 2, true);
 		const end = getNext(new Date(eye.x), period, maxLines / 2 - 1, true);
@@ -225,12 +229,12 @@ export class Axes extends Mesh {
 			if (epochMs > range.min.x && epochMs < range.max.x) verticalLines.push(epochMs);
 		}
 		this.device.queue.writeBuffer(this.verticalLines, 0, new Float32Array(
-			verticalLines.map(v => v * this.scale.x - eye.x)
+			verticalLines.map(v => v * scale.x - eye.x)
 		));
 
 		const horizontalLines = [10, 20];
 		this.device.queue.writeBuffer(this.horizontalLines, 0, new Float32Array(
-			horizontalLines.map(v => v * this.scale.y - eye.y)
+			horizontalLines.map(v => v * scale.y - eye.y)
 		));
 
 		this.device.queue.writeBuffer(this.uniform, 9 * 4, new Uint32Array([

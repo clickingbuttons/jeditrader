@@ -2,7 +2,11 @@ import { depthFormat, presentationFormat, sampleCount } from './util.js';
 import { Provider } from '@jeditrader/providers';
 import { Chart } from './chart.js';
 import { debounce } from './helpers.js';
-import { signal } from '@preact/signals-core';
+import { Signal, signal } from '@preact/signals-core';
+
+export interface RendererFlags {
+	rerender: boolean;
+}
 
 export class Renderer {
 	canvas: HTMLCanvasElement;
@@ -15,8 +19,11 @@ export class Renderer {
 	depthTextureView: GPUTextureView;
 
 	lastTime = performance.now();
-	rerender = signal(true);
+	flags: RendererFlags = {
+		rerender: true,
+	};
 
+	aspectRatio: Signal<number>;
 	chart: Chart;
 
 	private constructor(
@@ -35,9 +42,10 @@ export class Renderer {
 		this.depthTexture = this.createDepthTarget();
 		this.depthTextureView = this.depthTexture.createView();
 
-		this.chart = new Chart(canvas, canvasUI, this.device, provider);
+		this.aspectRatio = signal(canvas.width / canvas.height);
+		this.chart = new Chart(this.aspectRatio, canvasUI, this.device, provider, this.flags);
 
-		new ResizeObserver(debounce(this.onResize.bind(this))).observe(canvas);
+		new ResizeObserver(debounce(this.onResizeWebGPU.bind(this))).observe(canvas);
 		new ResizeObserver(debounce(this.onResize.bind(this))).observe(canvasUI);
 	}
 
@@ -46,10 +54,13 @@ export class Renderer {
 		const canvas = entry.target as HTMLCanvasElement;
 		const width = entry.contentBoxSize[0].inlineSize;
 		const height = entry.contentBoxSize[0].blockSize;
-		console.log('resize', width, height)
 		canvas.width = Math.max(1, Math.min(width, this.device.limits.maxTextureDimension2D));
 		canvas.height = Math.max(1, Math.min(height, this.device.limits.maxTextureDimension2D));
+	}
 
+	onResizeWebGPU(entries: ResizeObserverEntry[]) {
+		this.onResize(entries);
+		console.log('resize', this.canvas.width, this.canvas.height)
 		this.renderTarget.destroy();
 		this.renderTarget = this.createRenderTarget();
 		this.renderTargetView = this.renderTarget.createView();
@@ -58,7 +69,7 @@ export class Renderer {
 		this.depthTexture = this.createDepthTarget();
 		this.depthTextureView = this.depthTexture.createView();
 
-		this.rerender.value = true;
+		this.aspectRatio.value = this.canvas.width / this.canvas.height;
 	}
 
 	createRenderTarget() {
@@ -83,9 +94,9 @@ export class Renderer {
 		const dt = time - this.lastTime;
 		this.lastTime = time;
 
-		this.rerender.value = this.chart.update(dt) || this.rerender.value;
+		this.chart.update(dt);
 		// Save CPU
-		if (!this.rerender.value) {
+		if (!this.flags.rerender) {
 			requestAnimationFrame(this.frame.bind(this));
 			return;
 		}
@@ -113,7 +124,7 @@ export class Renderer {
 		pass.end();
 		this.device.queue.submit([commandEncoder.finish()]);
 
-		this.rerender.value = false;
+		this.flags.rerender = false;
 		requestAnimationFrame(this.frame.bind(this));
 	}
 
@@ -146,6 +157,7 @@ export class Renderer {
 
 	toggleWireframe() {
 		this.chart.toggleWireframe();
+		this.flags.rerender = true;
 	}
 };
 

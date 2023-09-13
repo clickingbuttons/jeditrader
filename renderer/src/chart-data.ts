@@ -1,10 +1,10 @@
 import { Vec3 } from '@jeditrader/linalg';
-import { signal, Signal } from '@preact/signals-core';
+import { signal, Signal, effect } from '@preact/signals-core';
 import { Period, Aggregate, Trade, Provider, minDate, maxDate, getNext } from '@jeditrader/providers';
 import { OHLCV } from './ohlcv.js';
 import { Trades } from './trades.js';
 import { Range } from './util.js';
-import { Camera } from './camera.js';
+import { RendererFlags } from './renderer.js';
 
 function toBounds(aggs: Aggregate[], period: Exclude<Period, 'trade'>): Range<Vec3> {
 	let minTime = maxDate;
@@ -49,7 +49,7 @@ const cameraZs: { [p in Period]: number } = {
 	'minute': 20e6,
 	'trade': 10e6,
 };
-const lodKeys = Object.keys(cameraZs) as Period[];
+export const lodKeys = Object.keys(cameraZs) as Period[];
 export type Lod = Period | 'auto';
 export const lods: Lod[] = ['auto', ...lodKeys];
 
@@ -57,32 +57,31 @@ export class ChartData {
 	device: GPUDevice;
 	uniform: GPUBuffer;
 	provider: Provider;
-	camera: Camera;
 
 	ticker = signal('F');
 	range: Signal<Range<Vec3>>;
 
 	meshes;
 	lod = signal<Period>('month');
-	lowerLod: Period = 'year';
 
 	autoLod = signal(true);
 	autoLodPeriod = signal<Period>(this.lod.value);
 
-	dirty = true;
+	flags: RendererFlags;
 
 	constructor(
 		device: GPUDevice,
 		chartUniform: GPUBuffer,
 		provider: Provider,
-		camera: Camera,
+		eye: Signal<Vec3>,
 		range: Signal<Range<Vec3>>,
+		flags: RendererFlags,
 	) {
 		this.device = device;
 		this.uniform = chartUniform;
 		this.provider = provider;
-		this.camera = camera;
 		this.range = range;
+		this.flags = flags;
 
 		this.meshes = {
 			'year': new OHLCV(device, chartUniform),
@@ -98,22 +97,21 @@ export class ChartData {
 		Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === this.lod.value);
 
 		this.ticker.subscribe(ticker => {
-			this.dirty = true;
 			Object.values(this.meshes).forEach(m => m.nInstances = 0);
 			// Even 100 years of daily aggs are only ~1MB.
 			// Because of this, just cache everything that's daily or above.
 			(['year', 'month', 'week', 'day'] as Exclude<Period, 'trade'>[]).forEach(lod => {
 				this.provider[lod](ticker, minDate, new Date(), aggs => this.onAggs(lod, aggs));
 			});
+			flags.rerender = true;
 		});
 		this.lod.subscribe((lod: Period) => {
-			this.dirty = true;
-			console.log('lod change', lod)
-			const lodIndex = lodKeys.indexOf(lod);
-			this.lowerLod = lodKeys[Math.max(lodIndex - 1, 0)];
 			Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === lod);
-
-			if (lodKeys.indexOf(lod) >= lodKeys.indexOf('hour4')) this.fetchPage();
+			flags.rerender = true;
+		});
+		eye.subscribe(this.onCameraMove.bind(this));
+		effect(() => {
+			if (lodKeys.indexOf(this.lod.value) >= lodKeys.indexOf('hour4')) this.fetchPage(eye.value);
 		});
 	}
 
@@ -122,17 +120,16 @@ export class ChartData {
 
 		this.meshes[lod].updateGeometry(data, lod);
 		if (lod === 'year') this.range.value = toBounds(data, lod);
-		this.dirty = true;
+		if (lod === this.lod.value) this.flags.rerender = true;
 	}
 
 	onTrades(data: Trade[]) {
 		if (data.length == 0) return;
 		this.meshes.trade.updateGeometry(data);
-		this.dirty = true;
+		if (this.lod.value == 'trade') this.flags.rerender = true;
 	}
 
-	fetchPage() {
-		const { eye } = this.camera;
+	fetchPage(eye: Vec3) {
 		const horizonDistance = eye.z * 2;
 		const from = new Date((eye.x - horizonDistance));
 		const to = new Date((eye.x + horizonDistance));
@@ -140,24 +137,23 @@ export class ChartData {
 		const ticker = this.ticker.value;
 
 		// temporarily until panning is implemented
-		this.dirty = true;
+		this.flags.rerender = true;
 		this.meshes[lod].nInstances = 0;
 
 		if (lod === 'trade') this.provider.trade(ticker, from, to, data => this.onTrades(data));
 		else this.provider[lod](ticker, from, to, data => this.onAggs(lod, data));
 	}
 
-	update(): boolean {
+	onCameraMove(eye: Vec3) {
 		for (var i = lodKeys.length - 1; i >= 0; i--) {
 			const period = lodKeys[i];
-			if (this.camera.eye.z < cameraZs[period]) {
+			if (eye.z < cameraZs[period]) {
 				this.autoLodPeriod.value = period;
 				if (this.autoLod.value) this.lod.value = period;
 				break;
 			}
 		}
 		// TODO: proper fetchPage
-		return this.dirty;
 	}
 
 	render(pass: GPURenderPassEncoder): void {

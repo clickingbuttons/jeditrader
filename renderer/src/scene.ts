@@ -2,6 +2,8 @@ import { Mat4, Vec3, Vec4 } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
 import { Input } from './input.js';
 import { createBuffer } from './util.js';
+import { effect, signal, Signal } from '@preact/signals-core';
+import { RendererFlags } from './renderer.js';
 
 interface DebugRenderable {
 	render(pass: GPURenderPassEncoder): void;
@@ -14,39 +16,50 @@ export class Scene {
 	input: Input;
 	camera: Camera;
 
-	model: Mat4;
+	model = signal(Mat4.identity());
 	uniform: GPUBuffer;
 	nodes: (DebugRenderable | undefined)[] = [];
 
 	constructor(
-		canvas: HTMLCanvasElement,
+		aspectRatio: Signal<number>,
 		canvasUI: HTMLCanvasElement,
 		device: GPUDevice,
-		uniformLen: number = 4 * 4 * 4,
+		flags: RendererFlags,
 	) {
 		this.device = device;
 		this.input = new Input(canvasUI);
-		this.camera = new Camera(canvas);
-		this.model = Mat4.identity();
+		this.camera = new Camera(aspectRatio);
 		this.uniform = createBuffer({
 			device,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-			data: new Float32Array(uniformLen),
+			data: this.uniformData(),
+		});
+		effect(() => {
+			this.device.queue.writeBuffer(this.uniform, 0, this.uniformData());
+			flags.rerender = true;
 		});
 	}
 
 	uniformData() {
+		const viewRel = this.camera.view.value.clone();
+		// These can be numbers larger than f32 can handle precisely.
+		// Instead we calculate relative to eye in the vertex shader.
+		viewRel[12] = 0;
+		viewRel[13] = 0;
+		viewRel[14] = 0;
+
 		return new Float32Array([
-			...this.model,
-			...this.camera.view(true),
-			...this.camera.proj(),
-			...this.camera.eye, 0,
-			...this.camera.eye.f32Low(), 0,
+			...this.model.value,
+			...viewRel,
+			...this.camera.proj.value,
+			...this.camera.eye.value, 0,
+			...this.camera.eye.value.f32Low(), 0,
 		]);
 	}
 
-	update(dt: DOMHighResTimeStamp): boolean {
-		return this.camera.update(dt, this.input);
+	update(dt: DOMHighResTimeStamp) {
+		this.camera.update(dt, this.input);
+		this.input.update();
 	}
 
 	render(pass: GPURenderPassEncoder) {
@@ -58,7 +71,7 @@ export class Scene {
 	}
 
 	sceneToClip(pos: Vec3): Vec4 {
-		const mvp = this.camera.proj().mul(this.camera.view(false)).mul(this.model);
+		const mvp = this.camera.proj.value.mul(this.camera.view.value).mul(this.model.value);
 		let res = new Vec4([...pos, 1.0]).transform(mvp);
 		// divide X and Y by W just like the GPU does
 		res.x /= res.w;
