@@ -5,6 +5,7 @@ import { Range } from './util.js';
 import { getNext, Period } from '@jeditrader/providers';
 import { Labels, SceneToClip } from './labels.js';
 import { toymd } from './helpers.js';
+import { signal } from '@preact/signals-core';
 
 const wgslStruct = `struct Axes {
 	backgroundColor: vec4f,
@@ -102,7 +103,10 @@ function toLabel(period: Period, ms: number): string {
 }
 
 export class Axes extends Mesh {
-	range: Range<Vec3>;
+	range = signal<Range<Vec3>>({
+		min: new Vec3([-5000, -5000, -5000]),
+		max: new Vec3([5000, 5000, 5000])
+	});
 	scale = new Vec3([1, 1e9, 1]);
 
 	uniform: GPUBuffer;
@@ -113,7 +117,7 @@ export class Axes extends Mesh {
 
 	getGeometry(eye: Vec3) {
 		const camPos = eye.div(this.scale);
-		const range = this.range;
+		const range = this.range.value;
 		const cameraZ = camPos.z;
 		const lod0 = cameraZ / 16;
 		const lod1 = cameraZ;
@@ -144,7 +148,6 @@ export class Axes extends Mesh {
 	constructor(
 		device: GPUDevice,
 		chartUniform: GPUBuffer,
-		range: Range<Vec3>,
 		canvas: HTMLCanvasElement,
 		sceneToClip: SceneToClip,
 	) {
@@ -199,7 +202,6 @@ export class Axes extends Mesh {
 				fragCode,
 			}
 		);
-		this.range = range;
 		this.uniform = uniform;
 		this.horizontalLines = horizontalLines;
 		this.verticalLines = verticalLines;
@@ -209,6 +211,7 @@ export class Axes extends Mesh {
 	update(eye: Vec3, period: Period) {
 		this.updatePositions(this.getGeometry(eye));
 
+		const range = this.range.value;
 		// Only render lines around camera.
 		const start = getNext(new Date(eye.x), period, -maxLines / 2, true);
 		const end = getNext(new Date(eye.x), period, maxLines / 2 - 1, true);
@@ -219,7 +222,7 @@ export class Axes extends Mesh {
 			epochMs < end.getTime();
 			epochMs = getNext(new Date(epochMs), period).getTime()
 		) {
-			if (epochMs > this.range.min.x && epochMs < this.range.max.x) verticalLines.push(epochMs);
+			if (epochMs > range.min.x && epochMs < range.max.x) verticalLines.push(epochMs);
 		}
 		this.device.queue.writeBuffer(this.verticalLines, 0, new Float32Array(
 			verticalLines.map(v => v * this.scale.x - eye.x)
@@ -238,12 +241,12 @@ export class Axes extends Mesh {
 			horizontalLines
 				.map(l => ({
 					text: '$' + l,
-					pos: new Vec3([this.range.min.x, l, 0])
+					pos: new Vec3([range.min.x, l, 0])
 				}))
 				.concat(
 					verticalLines.map(l => ({
 						text: toLabel(period, l),
-						pos: new Vec3([l, this.range.min.y, 0])
+						pos: new Vec3([l, range.min.y, 0])
 					}))
 				)
 		);

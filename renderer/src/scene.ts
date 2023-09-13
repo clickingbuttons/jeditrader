@@ -1,4 +1,4 @@
-import { Mat4 } from '@jeditrader/linalg';
+import { Mat4, Vec3, Vec4 } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
 import { Input } from './input.js';
 import { createBuffer } from './util.js';
@@ -17,8 +17,6 @@ export class Scene {
 	model: Mat4;
 	uniform: GPUBuffer;
 	nodes: (DebugRenderable | undefined)[] = [];
-
-	dirty: number = 1;
 
 	constructor(
 		canvas: HTMLCanvasElement,
@@ -47,8 +45,8 @@ export class Scene {
 		]);
 	}
 
-	update(dt: DOMHighResTimeStamp) {
-		this.dirty |= this.camera.update(dt, this.input);
+	update(dt: DOMHighResTimeStamp): boolean {
+		return this.camera.update(dt, this.input);
 	}
 
 	render(pass: GPURenderPassEncoder) {
@@ -57,5 +55,15 @@ export class Scene {
 
 	toggleWireframe() {
 		this.nodes.forEach(m => m?.toggleWireframe());
+	}
+
+	sceneToClip(pos: Vec3): Vec4 {
+		const mvp = this.camera.proj().mul(this.camera.view(false)).mul(this.model);
+		let res = new Vec4([...pos, 1.0]).transform(mvp);
+		// divide X and Y by W just like the GPU does
+		res.x /= res.w;
+		res.y /= res.w;
+
+		return res;
 	}
 }

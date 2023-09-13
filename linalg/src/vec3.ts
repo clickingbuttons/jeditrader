@@ -77,4 +77,8 @@ export class Vec3 extends Float64Array {
 	f32Low() {
 		return new Float32Array(this.map(v => v - Math.fround(v)));
 	}
+
+	eq(v: Vec3): boolean {
+		return this.x === v.x && this.y === v.y && this.z === v.z;
+	}
 }

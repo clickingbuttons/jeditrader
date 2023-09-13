@@ -1,8 +1,8 @@
 import { depthFormat, presentationFormat, sampleCount } from './util.js';
-import { Provider, Period } from '@jeditrader/providers';
+import { Provider } from '@jeditrader/providers';
 import { Chart } from './chart.js';
 import { debounce } from './helpers.js';
-import { Lod } from './chart-data.js';
+import { signal } from '@preact/signals-core';
 
 export class Renderer {
 	canvas: HTMLCanvasElement;
@@ -13,7 +13,9 @@ export class Renderer {
 	renderTargetView: GPUTextureView;
 	depthTexture: GPUTexture;
 	depthTextureView: GPUTextureView;
+
 	lastTime = performance.now();
+	rerender = signal(true);
 
 	chart: Chart;
 
@@ -56,7 +58,7 @@ export class Renderer {
 		this.depthTexture = this.createDepthTarget();
 		this.depthTextureView = this.depthTexture.createView();
 
-		this.chart.dirty = 1;
+		this.rerender.value = true;
 	}
 
 	createRenderTarget() {
@@ -81,9 +83,9 @@ export class Renderer {
 		const dt = time - this.lastTime;
 		this.lastTime = time;
 
-		this.chart.update(dt);
+		this.rerender.value = this.chart.update(dt) || this.rerender.value;
 		// Save CPU
-		if (!this.chart.dirty) {
+		if (!this.rerender.value) {
 			requestAnimationFrame(this.frame.bind(this));
 			return;
 		}
@@ -111,7 +113,7 @@ export class Renderer {
 		pass.end();
 		this.device.queue.submit([commandEncoder.finish()]);
 
-		this.chart.dirty = 0;
+		this.rerender.value = false;
 		requestAnimationFrame(this.frame.bind(this));
 	}
 

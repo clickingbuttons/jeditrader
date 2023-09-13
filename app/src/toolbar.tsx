@@ -14,7 +14,7 @@ dark.subscribe(dark => {
 function LodSelect({ renderer }: { renderer: Renderer | null }) {
 	if (!renderer) return null;
 
-	const data = renderer.chart.ticker;
+	const data = renderer.chart.data;
 	return (
 		<select
 			value={data.autoLod.value ? 'auto' : data.lod.value}
@@ -39,8 +39,8 @@ export function Toolbar({ renderer }: { renderer: Renderer | null }) {
 		<div class="toolbar">
 			{renderer &&
 				<SymbolPicker
-					value={renderer.chart.ticker.ticker}
-					onChange={newTicker => renderer.chart.ticker.ticker.value = newTicker}
+					value={renderer.chart.data.ticker}
+					onChange={newTicker => renderer.chart.data.ticker.value = newTicker}
 				/>
 			}
 

@@ -30,7 +30,11 @@ export class Camera {
 		]).normalize();
 	}
 
-	update(dt: DOMHighResTimeStamp, input: Input): number {
+	update(dt: DOMHighResTimeStamp, input: Input): boolean {
+		const initialYaw = this.yaw;
+		const initialPitch = this.pitch;
+		const initialEye = this.eye;
+
 		if (input.buttons.mouse2) {
 			this.yaw -= input.movementX / 1e3;
 			this.pitch += input.movementY / 1e3;
@@ -57,8 +61,7 @@ export class Camera {
 			);
 		if (input.buttons.space) this.eye = this.eye.add(this.up.mulScalar(cameraSpeed));
 
-		// TODO: proper change detection
-		return +input.focused;
+		return initialYaw !== this.yaw || initialPitch !== this.pitch || !initialEye.eq(this.eye);
 	}
 
 	view(relative: boolean): Mat4 {

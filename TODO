@@ -1,16 +1,17 @@
-- axes labels
 - settings menu
+- LOD transition HTTP lag (wait for some data, fade current out)
+- auto y ticks
 - best volume scale
-- LOD selector
-	- remove lod lock button
+- x/y hover
+	- box select
 - fix panning at high LOD
-- hours -> disappearing minute bars near start/EOD?
-- LOD transitions
-- object picking
+
 - ticker select
 - light/dark mode for chart
+- labels follow cam view
 
+- scatter plot
 - line plot
-- plot API
+- JS plot API
 - HTTP+ws API
 - scripting language support
