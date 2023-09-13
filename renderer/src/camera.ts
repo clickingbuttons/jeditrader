@@ -13,9 +13,9 @@ function makeDirection(pitch: number, yaw: number): Vec3 {
 // https://carmencincotti.com/2022-05-02/homogeneous-coordinates-clip-space-ndc/#clip-space
 export class Camera {
 	eye = signal(new Vec3([
-		1357504146000,
-		-34199906000,
-		265554258000,
+		1356734171487.6748,
+		141025292903.74258,
+		244990244869.45505,
 	]));
 	pitch = signal(-1.47);
 	yaw = signal(-0.002);
@@ -62,7 +62,7 @@ export class Camera {
 				+Math.PI / 2 - epsilon
 			);
 		}
-		if (input.buttons.mouse1) console.log(this.eye, this.pitch, this.yaw);
+		if (input.buttons.mouse1) console.log(this.eye.value, this.pitch.value, this.yaw.value);
 
 		const absZ = Math.abs(this.eye.value.z);
 		let cameraSpeed = dt * Math.max(absZ, 0.001) / 200;

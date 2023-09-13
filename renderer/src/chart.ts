@@ -39,7 +39,8 @@ export class Chart extends Scene {
 			this.sceneToClip.bind(this),
 			this.camera.eye,
 			this.data.lod,
-			this.range
+			this.range,
+			aspectRatio,
 		);
 		this.axes.scale.subscribe(s => this.model.value = Mat4.scale(s));
 		this.nodes = [

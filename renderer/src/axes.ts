@@ -7,7 +7,7 @@ import { toymd } from './helpers.js';
 import { Signal, effect } from '@preact/signals-core';
 import { Range } from './util.js';
 import { lodKeys } from './chart-data.js';
-import { signal } from '@preact/signals-core';
+import { computed } from '@preact/signals-core';
 
 const wgslStruct = `struct Axes {
 	backgroundColor: vec4f,
@@ -105,7 +105,7 @@ function toLabel(period: Period, ms: number): string {
 }
 
 export class Axes extends Mesh {
-	scale = signal(new Vec3([1, 1e9, 1]));
+	scale: Signal<Vec3>;
 
 	uniform: GPUBuffer;
 	horizontalLines: GPUBuffer;
@@ -121,6 +121,7 @@ export class Axes extends Mesh {
 		eye: Signal<Vec3>,
 		lod: Signal<Period>,
 		range: Signal<Range<Vec3>>,
+		aspectRatio: Signal<number>,
 	) {
 		const uniform = createBuffer({
 			device,
@@ -177,6 +178,11 @@ export class Axes extends Mesh {
 		this.horizontalLines = horizontalLines;
 		this.verticalLines = verticalLines;
 		this.labels = new Labels(canvas, sceneToClip);
+		this.scale = computed(() => {
+			const len = range.value.max.sub(range.value.min);
+			const desiredHeight = len.x / aspectRatio.value;
+			return new Vec3([1, desiredHeight / len.y, 1]);
+		});
 
 		effect(() => this.updatePositions(this.getGeometry(eye.value, range.value)));
 		effect(() => this.updateLabels(eye.value, range.value, lod.value));
@@ -232,7 +238,12 @@ export class Axes extends Mesh {
 			verticalLines.map(v => v * scale.x - eye.x)
 		));
 
-		const horizontalLines = [10, 20];
+		const yLen = range.max.y - range.min.y;
+		const yStep = 10 ** Math.floor(Math.log10(yLen));
+		const horizontalLines: number[] = [];
+		for (let i = Math.ceil(range.min.y / yStep) * yStep; i <= range.max.y; i += yStep) {
+			horizontalLines.push(i);
+		}
 		this.device.queue.writeBuffer(this.horizontalLines, 0, new Float32Array(
 			horizontalLines.map(v => v * scale.y - eye.y)
 		));
