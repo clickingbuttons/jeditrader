@@ -1,9 +1,12 @@
-- settings menu
 - LOD transition HTTP lag (wait for some data, fade current out)
+	- LOD level instead of horizon
+	- async writebuffer
+	- buffer len check
 - auto y ticks
 - best volume scale
 - x/y hover
 	- box select
+- resize via corner drag
 - fix panning at high LOD
 
 - ticker select

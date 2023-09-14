@@ -4,10 +4,10 @@ import { createBuffer } from './util.js';
 import { getNext, Period } from '@jeditrader/providers';
 import { Labels, SceneToClip } from './labels.js';
 import { toymd } from './helpers.js';
-import { Signal, effect } from '@preact/signals-core';
+import { Signal, effect, signal } from '@preact/signals-core';
 import { Range } from './util.js';
-import { lodKeys } from './chart-data.js';
-import { computed } from '@preact/signals-core';
+import { lodKeys, getLodIndex } from './lod.js';
+import { ChartContext } from './chart.js';
 
 const wgslStruct = `struct Axes {
 	backgroundColor: vec4f,
@@ -105,7 +105,7 @@ function toLabel(period: Period, ms: number): string {
 }
 
 export class Axes extends Mesh {
-	scale: Signal<Vec3>;
+	scale = signal(new Vec3([1, 1, 1]));
 
 	uniform: GPUBuffer;
 	horizontalLines: GPUBuffer;
@@ -114,17 +114,13 @@ export class Axes extends Mesh {
 	labels: Labels;
 
 	constructor(
-		device: GPUDevice,
-		chartUniform: GPUBuffer,
+		ctx: ChartContext,
 		canvas: HTMLCanvasElement,
 		sceneToClip: SceneToClip,
-		eye: Signal<Vec3>,
-		lod: Signal<Period>,
-		range: Signal<Range<Vec3>>,
 		aspectRatio: Signal<number>,
 	) {
 		const uniform = createBuffer({
-			device,
+			device: ctx.device,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 			data: new Float32Array([
 				0.2, 0.2, 0.2, 1, // backgroundColor
@@ -135,17 +131,17 @@ export class Axes extends Mesh {
 			])
 		});
 		const horizontalLines = createBuffer({
-			device,
+			device: ctx.device,
 			data: new Float32Array(maxLines)
 		});
 		const verticalLines = createBuffer({
-			device,
+			device: ctx.device,
 			data: new Float32Array(maxLines)
 		});
 
 		super(
-			device,
-			chartUniform,
+			ctx.device,
+			ctx.uniform,
 			new Array(nVertices * 3).fill(0),
 			indices,
 			{
@@ -178,14 +174,14 @@ export class Axes extends Mesh {
 		this.horizontalLines = horizontalLines;
 		this.verticalLines = verticalLines;
 		this.labels = new Labels(canvas, sceneToClip);
-		this.scale = computed(() => {
-			const len = range.value.max.sub(range.value.min);
+		effect(() => {
+			const len = ctx.range.value.max.sub(ctx.range.value.min);
 			const desiredHeight = len.x / aspectRatio.value;
-			return new Vec3([1, desiredHeight / len.y, 1]);
+			this.scale.value = new Vec3([1, desiredHeight / len.y, 1]);
 		});
 
-		effect(() => this.updatePositions(this.getGeometry(eye.value, range.value)));
-		effect(() => this.updateLabels(eye.value, range.value, lod.value));
+		effect(() => this.updatePositions(this.getGeometry(ctx.eye.value, ctx.range.value)));
+		effect(() => this.updateLabels(ctx.eye.value, ctx.range.value));
 	}
 
 	getGeometry(eye: Vec3, range: Range<Vec3>) {
@@ -218,13 +214,14 @@ export class Axes extends Mesh {
 			.reduce((acc, cur) => acc.concat([...cur]), [] as number[]);
 	}
 
-	updateLabels(eye: Vec3, range: Range<Vec3>, period: Period) {
+	updateLabels(eye: Vec3, range: Range<Vec3>) {
+		const lodIndex = getLodIndex(eye.z);
+		const period = lodKeys[Math.max(0, lodIndex - 1)];
+
 		const scale = this.scale.value;
-		const lodIndex = lodKeys.indexOf(period);
-		period = lodKeys[Math.max(0, lodIndex - 1)];
 		// Only render lines around camera.
-		const start = getNext(new Date(eye.x), period, -maxLines / 2, true);
-		const end = getNext(new Date(eye.x), period, maxLines / 2 - 1, true);
+		const start = getNext(new Date(eye.x / scale.x), period, -maxLines / 2, true);
+		const end = getNext(new Date(eye.x / scale.x), period, maxLines / 2 - 1, true);
 
 		const verticalLines: number[] = [];
 		for (

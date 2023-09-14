@@ -7,5 +7,5 @@ export function preferDark(): boolean {
 }
 
 export function getVar(cssVar: string): string {
-	return getComputedStyle(document.body).getPropertyValue(cssVar);
+	return getComputedStyle(document.body).getPropertyValue(cssVar).replace('\n', ' ');
 }

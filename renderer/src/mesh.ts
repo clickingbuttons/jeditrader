@@ -162,7 +162,7 @@ fn pos(vertex: Vertex) -> vec4f {
 
 	constructor(
 		device: GPUDevice,
-		chart: GPUBuffer,
+		uniform: GPUBuffer,
 		positions: number[],
 		indices: number[],
 		options: Partial<MeshOptions> = defaultOptions
@@ -174,7 +174,7 @@ fn pos(vertex: Vertex) -> vec4f {
 		this.indices = createBuffer({ device, data: new Uint32Array(indices) });
 
 		const bindings = [
-			new BufferBinding('chart', chart, {
+			new BufferBinding('chart', uniform, {
 				type: 'uniform',
 				visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
 				wgslStruct: `struct Chart {

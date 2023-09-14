@@ -1,20 +1,30 @@
 import { Axes } from './axes.js';
 import { Mat4, Vec3 } from '@jeditrader/linalg';
-import { Provider } from '@jeditrader/providers';
+import { Provider, Period } from '@jeditrader/providers';
 import { ChartData } from './chart-data.js';
 import { Scene } from './scene.js';
 import { Range } from './util.js';
-import { signal, Signal } from '@preact/signals-core';
+import { signal, Signal, computed } from '@preact/signals-core';
 import { RendererFlags } from './renderer.js';
+import { getLod, Lod } from './lod.js';
+
+export interface ChartContext {
+	device: GPUDevice;
+	uniform: GPUBuffer;
+	eye: Signal<Vec3>;
+	autoLod: Signal<Period>;
+	range: Signal<Range<Vec3>>;
+}
 
 export class Chart extends Scene {
 	axes: Axes;
-	data: ChartData;
+	tickers: ChartData[];
 
 	range = signal<Range<Vec3>>({
 		min: new Vec3([-5000, -5000, -5000]),
 		max: new Vec3([5000, 5000, 5000])
 	});
+	autoLod: Signal<Period>;
 
 	constructor(
 		aspectRatio: Signal<number>,
@@ -24,28 +34,45 @@ export class Chart extends Scene {
 		flags: RendererFlags,
 	) {
 		super(aspectRatio, canvasUI, device, flags);
-		this.data = new ChartData(
+		this.autoLod = computed(() => getLod(this.camera.eye.value.z));
+
+		const ctx: ChartContext = {
 			device,
-			this.uniform,
-			provider,
-			this.camera.eye,
-			this.range,
-			flags,
-		);
+			uniform: this.uniform,
+			eye: this.camera.eye,
+			autoLod: this.autoLod,
+			range: this.range,
+		};
+
+		this.tickers = [
+			new ChartData(
+				ctx,
+				provider,
+				flags,
+			),
+		];
 		this.axes = new Axes(
-			device,
-			this.uniform,
+			ctx,
 			canvasUI,
 			this.sceneToClip.bind(this),
-			this.camera.eye,
-			this.data.lod,
-			this.range,
 			aspectRatio,
 		);
 		this.axes.scale.subscribe(s => this.model.value = Mat4.scale(s));
 		this.nodes = [
 			this.axes,
-			this.data,
+			...this.tickers,
 		];
+	}
+
+	getLod(): Lod {
+		if (this.tickers[0].autoLodEnabled.value) return 'auto';
+		return this.tickers[0].lod.value;
+	}
+
+	setLod(lod: Lod) {
+		this.tickers.forEach(t => {
+			t.autoLodEnabled.value = lod === 'auto';
+			t.lod.value = lod === 'auto' ? this.autoLod.value : lod;
+		});
 	}
 };

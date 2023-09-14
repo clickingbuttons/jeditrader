@@ -1,4 +1,3 @@
-import { JSX } from 'preact';
 import { useState, useEffect, useRef, useCallback, StateUpdater } from 'preact/hooks';
 import './select.css';
 

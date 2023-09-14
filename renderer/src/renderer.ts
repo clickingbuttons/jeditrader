@@ -23,6 +23,7 @@ export class Renderer {
 		rerender: true,
 	};
 
+	clearColor = signal({ r: 135 / 255, g: 206 / 255, b: 235 / 255, a: 1.0 });
 	aspectRatio: Signal<number>;
 	chart: Chart;
 
@@ -60,7 +61,6 @@ export class Renderer {
 
 	onResizeWebGPU(entries: ResizeObserverEntry[]) {
 		this.onResize(entries);
-		console.log('resize', this.canvas.width, this.canvas.height)
 		this.renderTarget.destroy();
 		this.renderTarget = this.createRenderTarget();
 		this.renderTargetView = this.renderTarget.createView();
@@ -107,7 +107,7 @@ export class Renderer {
 				{
 					view: this.renderTargetView,
 					resolveTarget: this.context.getCurrentTexture().createView(),
-					clearValue: { r: 135 / 255, g: 206 / 255, b: 235 / 255, a: 1.0 },
+					clearValue: this.clearColor.value,
 					loadOp: 'clear',
 					storeOp: 'store',
 				},

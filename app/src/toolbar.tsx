@@ -1,48 +1,45 @@
-import { signal } from '@preact/signals';
+import { JSX } from 'preact';
 import { SymbolPicker } from './select.js';
-import { LightMode, DarkMode } from './icons/index.js';
+import { LightMode, DarkMode, Settings, Debug } from './icons/index.js';
 import { Renderer, lods, Lod } from '@jeditrader/renderer';
-import { preferDark } from './helpers.js';
+import { Signal } from '@preact/signals';
 import './toolbar.css';
 
-const dark = signal(preferDark());
-dark.subscribe(dark => {
-	if (dark) document.body.classList.replace('light', 'dark');
-	else document.body.classList.replace('dark', 'light');
-});
-
 function LodSelect({ renderer }: { renderer: Renderer | null }) {
-	if (!renderer) return null;
-
-	const data = renderer.chart.data;
+	const chart = renderer?.chart;
 	return (
 		<select
-			value={data.autoLod.value ? 'auto' : data.lod.value}
+			value={chart?.getLod()}
+			disabled={!chart}
 			onChange={ev => {
-				const newLod = ev.currentTarget.value as Lod;
-				if (newLod === 'auto') data.autoLod.value = true;
-				else {
-					data.autoLod.value = false;
-					data.lod.value = newLod;
-				}
+				if (!chart) return;
+				chart.setLod(ev.currentTarget.value as Lod);
 			}}
 		>
 			{lods.map(l =>
-				<option value={l}>{l === 'auto' ? `auto (${data.autoLodPeriod.value})` : l}</option>
+				<option value={l}>
+					{l === 'auto' ? `auto (${chart ? chart.autoLod.value : 'loading'})` : l}
+				</option>
 			)}
 		</select>
 	);
 }
 
-export function Toolbar({ renderer }: { renderer: Renderer | null }) {
+interface ToolbarProps extends JSX.HTMLAttributes<HTMLDivElement> {
+	renderer: Renderer | null;
+	showSettings: boolean;
+	setShowSettings: (b: boolean) => void;
+	dark: Signal<boolean>;
+}
+
+export function Toolbar({ renderer, showSettings, setShowSettings, dark, style }: ToolbarProps) {
 	return (
-		<div class="toolbar">
-			{renderer &&
-				<SymbolPicker
-					value={renderer.chart.data.ticker}
-					onChange={newTicker => renderer.chart.data.ticker.value = newTicker}
-				/>
-			}
+		<div class="toolbar" style={style}>
+			<SymbolPicker
+				value={renderer?.chart.tickers[0].ticker}
+				onChange={newTicker => renderer && (renderer.chart.tickers[0].ticker.value = newTicker)}
+				disabled={!renderer}
+			/>
 
 			<div class="toolbar-spacer" />
 
@@ -50,13 +47,23 @@ export function Toolbar({ renderer }: { renderer: Renderer | null }) {
 
 			<div class="toolbar-buttons" >
 				<button
+					title="Toggle wireframe"
+					onClick={() => renderer?.toggleWireframe()}
+					disabled={!renderer}
+				>
+					<Debug />
+				</button>
+				<button
 					title={`Activate ${dark.value ? 'light' : 'dark'} mode`}
 					onClick={() => dark.value = !dark.value}
 				>
 					{dark ? <LightMode /> : <DarkMode />}
 				</button>
-				<button title="Toggle wireframe" onClick={() => renderer?.toggleWireframe()}>
-					Wireframe
+				<button
+					title="Toggle settings drawer"
+					onClick={() => setShowSettings(!showSettings)}
+				>
+					<Settings />
 				</button>
 			</div>
 		</div>

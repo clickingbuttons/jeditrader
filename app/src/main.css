@@ -1,44 +1,48 @@
 :root {
-	--color-1: #fefcfb;
-	--color-2: #1282a2;
-	--color-3: #034078;
-	--color-4: #001f54;
-	--color-5: #0a1128;
+	--color-1: 254, 252, 251;
+	--color-2: 18, 130, 162;
+	--color-3: 3, 64, 120;
+	--color-4: 0, 31, 84;
+	--color-5: 10, 17, 40;
 	--bg: var(--color-1);
+	--bg-overlay: var(--color-1), 0.5;
 	--fg: var(--color-5);
-	--border-color: #ddd;
+	--border-color: 221, 221, 221;
 
-	--horz-line-color: #f0f3fa;
+	--horz-line-color: 240, 243, 250;
 }
 
 .dark {
 	--bg: var(--color-5);
+	--bg-overlay: var(--color-5), 0.5;
 	--fg: var(--color-1);
-	--border-color: var(--color-4);
-	--horz-line-color: #363C4E;
+	--border-color: 133, 133, 133;
+	--horz-line-color: 54, 60, 78;
 }
 
 html, body, div[id='root'] {
 	height: 100%;
-	background: var(--bg);
-	color: var(--fg);
+	background: rgb(var(--bg));
+	color: rgb(var(--fg));
 	width: 100%;
 	height: 100vh;
-}
-
-.dark input,
-.dark select,
-.dark button
-{
-	background: var(--bg);
-	color: var(--fg);
-	border-color: var(--border-color);
 }
 
 div[id='root'] {
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
+}
+
+input, select, button {
+	background: rgba(var(--bg-overlay));
+	color: rgb(var(--fg));
+	border: 1px solid var(--border-color);
+}
+
+button {
+	border: 2px solid var(--border-color);
+	cursor: pointer;
 }
 
 a, a:visited, a:hover, a:active {

@@ -5,6 +5,8 @@ import { OHLCV } from './ohlcv.js';
 import { Trades } from './trades.js';
 import { Range } from './util.js';
 import { RendererFlags } from './renderer.js';
+import { lodKeys } from './lod.js';
+import { ChartContext } from './chart.js';
 
 function toBounds(aggs: Aggregate[], period: Exclude<Period, 'trade'>): Range<Vec3> {
 	let minTime = maxDate;
@@ -38,21 +40,6 @@ function toBounds(aggs: Aggregate[], period: Exclude<Period, 'trade'>): Range<Ve
 	return { min, max };
 }
 
-const cameraZs: { [p in Period]: number } = {
-	'year': Number.MAX_VALUE,
-	'month': 1e12,
-	'week': 40e9,
-	'day': 10e9,
-	'hour4': 3e9,
-	'hour': 1e9,
-	'minute5': 100e6,
-	'minute': 20e6,
-	'trade': 10e6,
-};
-export const lodKeys = Object.keys(cameraZs) as Period[];
-export type Lod = Period | 'auto';
-export const lods: Lod[] = ['auto', ...lodKeys];
-
 export class ChartData {
 	device: GPUDevice;
 	uniform: GPUBuffer;
@@ -64,35 +51,31 @@ export class ChartData {
 	meshes;
 	lod = signal<Period>('month');
 
-	autoLod = signal(true);
-	autoLodPeriod = signal<Period>(this.lod.value);
+	autoLodEnabled = signal(true);
 
 	flags: RendererFlags;
 
 	constructor(
-		device: GPUDevice,
-		chartUniform: GPUBuffer,
+		ctx: ChartContext,
 		provider: Provider,
-		eye: Signal<Vec3>,
-		range: Signal<Range<Vec3>>,
 		flags: RendererFlags,
 	) {
-		this.device = device;
-		this.uniform = chartUniform;
+		this.device = ctx.device;
+		this.uniform = ctx.uniform;
 		this.provider = provider;
-		this.range = range;
+		this.range = ctx.range;
 		this.flags = flags;
 
 		this.meshes = {
-			'year': new OHLCV(device, chartUniform),
-			'month': new OHLCV(device, chartUniform),
-			'week': new OHLCV(device, chartUniform),
-			'day': new OHLCV(device, chartUniform),
-			'hour4': new OHLCV(device, chartUniform),
-			'hour': new OHLCV(device, chartUniform),
-			'minute5': new OHLCV(device, chartUniform),
-			'minute': new OHLCV(device, chartUniform),
-			'trade': new Trades(device, chartUniform),
+			'year': new OHLCV(ctx.device, ctx.uniform),
+			'month': new OHLCV(ctx.device, ctx.uniform),
+			'week': new OHLCV(ctx.device, ctx.uniform),
+			'day': new OHLCV(ctx.device, ctx.uniform),
+			'hour4': new OHLCV(ctx.device, ctx.uniform),
+			'hour': new OHLCV(ctx.device, ctx.uniform),
+			'minute5': new OHLCV(ctx.device, ctx.uniform),
+			'minute': new OHLCV(ctx.device, ctx.uniform),
+			'trade': new Trades(ctx.device, ctx.uniform),
 		};
 		Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === this.lod.value);
 
@@ -100,18 +83,21 @@ export class ChartData {
 			Object.values(this.meshes).forEach(m => m.nInstances = 0);
 			// Even 100 years of daily aggs are only ~1MB.
 			// Because of this, just cache everything that's daily or above.
-			(['year', 'month', 'week', 'day'] as Exclude<Period, 'trade'>[]).forEach(lod => {
-				this.provider[lod](ticker, minDate, new Date(), aggs => this.onAggs(lod, aggs));
+			(['year', 'month', 'week', 'day'] as Exclude<Period, 'trade'>[]).forEach(period => {
+				this.provider[period](ticker, minDate, new Date(), aggs => this.onAggs(period, aggs));
 			});
 			flags.rerender = true;
 		});
-		this.lod.subscribe((lod: Period) => {
-			Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === lod);
+		this.lod.subscribe((period: Period) => {
+			Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === period);
 			flags.rerender = true;
 		});
-		eye.subscribe(this.onCameraMove.bind(this));
+		ctx.autoLod.subscribe((newLod: Period) => {
+			if (this.autoLodEnabled.value) this.lod.value = newLod;
+			// TODO: proper fetchPage
+		});
 		effect(() => {
-			if (lodKeys.indexOf(this.lod.value) >= lodKeys.indexOf('hour4')) this.fetchPage(eye.value);
+			if (lodKeys.indexOf(this.lod.value) >= lodKeys.indexOf('hour4')) this.fetchPage(ctx.eye.value);
 		});
 	}
 
@@ -130,11 +116,13 @@ export class ChartData {
 	}
 
 	fetchPage(eye: Vec3) {
+		const lod = this.lod.value;
+		const ticker = this.ticker.value;
 		const horizonDistance = eye.z * 2;
 		const from = new Date((eye.x - horizonDistance));
 		const to = new Date((eye.x + horizonDistance));
-		const lod = this.lod.value;
-		const ticker = this.ticker.value;
+
+		console.log('fetchPage', from, to)
 
 		// temporarily until panning is implemented
 		this.flags.rerender = true;
@@ -142,18 +130,6 @@ export class ChartData {
 
 		if (lod === 'trade') this.provider.trade(ticker, from, to, data => this.onTrades(data));
 		else this.provider[lod](ticker, from, to, data => this.onAggs(lod, data));
-	}
-
-	onCameraMove(eye: Vec3) {
-		for (var i = lodKeys.length - 1; i >= 0; i--) {
-			const period = lodKeys[i];
-			if (eye.z < cameraZs[period]) {
-				this.autoLodPeriod.value = period;
-				if (this.autoLod.value) this.lod.value = period;
-				break;
-			}
-		}
-		// TODO: proper fetchPage
 	}
 
 	render(pass: GPURenderPassEncoder): void {
