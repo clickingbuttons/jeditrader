@@ -5,7 +5,7 @@ import { OHLCV } from './ohlcv.js';
 import { Trades } from './trades.js';
 import { Range } from './util.js';
 import { RendererFlags } from './renderer.js';
-import { lodKeys } from './lod.js';
+import { lodKeys, getLodIndex } from './lod.js';
 import { ChartContext } from './chart.js';
 
 function toBounds(aggs: Aggregate[], period: Exclude<Period, 'trade'>): Range<Vec3> {
@@ -94,7 +94,6 @@ export class ChartData {
 		});
 		ctx.autoLod.subscribe((newLod: Period) => {
 			if (this.autoLodEnabled.value) this.lod.value = newLod;
-			// TODO: proper fetchPage
 		});
 		effect(() => {
 			if (lodKeys.indexOf(this.lod.value) >= lodKeys.indexOf('hour4')) this.fetchPage(ctx.eye.value);
@@ -111,25 +110,33 @@ export class ChartData {
 
 	onTrades(data: Trade[]) {
 		if (data.length == 0) return;
+
 		this.meshes.trade.updateGeometry(data);
-		if (this.lod.value == 'trade') this.flags.rerender = true;
+		if ('trade' === this.lod.value) this.flags.rerender = true;
 	}
 
 	fetchPage(eye: Vec3) {
-		const lod = this.lod.value;
+		const lodIndex = getLodIndex(eye.z);
+		const lod = lodKeys[lodIndex];
+		const period = lodKeys[Math.max(0, lodIndex - 1)];
 		const ticker = this.ticker.value;
-		const horizonDistance = eye.z * 2;
-		const from = new Date((eye.x - horizonDistance));
-		const to = new Date((eye.x + horizonDistance));
 
-		console.log('fetchPage', from, to)
+		const camDate = new Date(eye.x);
+		let from = getNext(camDate, period, -100, true);
+		let to = getNext(camDate, period, 100, true);
+		const mesh = this.meshes[lod];
 
-		// temporarily until panning is implemented
-		this.flags.rerender = true;
-		this.meshes[lod].nInstances = 0;
+		if (!mesh.from || from < mesh.from || !mesh.to || to > mesh.to) {
+			// Trust data will come...
+			if (!mesh.from || from < mesh.from) mesh.from = new Date(from);
+			if (!mesh.to || to > mesh.to) mesh.to = new Date(to);
 
-		if (lod === 'trade') this.provider.trade(ticker, from, to, data => this.onTrades(data));
-		else this.provider[lod](ticker, from, to, data => this.onAggs(lod, data));
+			if (mesh.from && from < mesh.from) to = new Date(mesh.from);
+			else if (mesh.to && to > mesh.to) from = new Date(mesh.to);
+
+			if (lod === 'trade') this.provider.trade(ticker, from, to, data => this.onTrades(data));
+			else this.provider[lod](ticker, from, to, data => this.onAggs(lod, data));
+		}
 	}
 
 	render(pass: GPURenderPassEncoder): void {

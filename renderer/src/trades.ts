@@ -55,6 +55,9 @@ export class Trades extends Mesh {
 	colors: GPUBuffer;
 	opacity: GPUBuffer;
 
+	from?: Date;
+	to?: Date;
+
 	constructor(device: GPUDevice, chart: GPUBuffer) {
 		// TODO: verify maxTrades
 		const maxTrades = 1e6;

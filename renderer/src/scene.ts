@@ -57,11 +57,6 @@ export class Scene {
 		]);
 	}
 
-	update(dt: DOMHighResTimeStamp) {
-		this.camera.update(dt, this.input);
-		this.input.update();
-	}
-
 	render(pass: GPURenderPassEncoder) {
 		this.nodes.forEach(m => m?.render(pass));
 	}

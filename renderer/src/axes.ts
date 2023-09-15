@@ -8,6 +8,7 @@ import { Signal, effect, signal } from '@preact/signals-core';
 import { Range } from './util.js';
 import { lodKeys, getLodIndex } from './lod.js';
 import { ChartContext } from './chart.js';
+import { Input } from './input.js';
 
 const wgslStruct = `struct Axes {
 	backgroundColor: vec4f,
@@ -262,6 +263,16 @@ export class Axes extends Mesh {
 					}))
 				)
 		);
+	}
+
+	update(input: Input) {
+		document.body.style.cursor = input.buttons.shift ? 'ns-resize' : 'auto';
+		if (input.buttons.mouse0 && input.buttons.shift) {
+			const newVal = this.scale.value.clone();
+			// newVal.x += input.movementX;
+			newVal.y -= input.movementY * 100e6;
+			this.scale.value = newVal;
+		}
 	}
 
 	render(pass: GPURenderPassEncoder) {

@@ -64,6 +64,12 @@ export class Chart extends Scene {
 		];
 	}
 
+	update(dt: DOMHighResTimeStamp) {
+		this.camera.update(dt, this.input);
+		this.axes.update(this.input);
+		this.input.update();
+	}
+
 	getLod(): Lod {
 		if (this.tickers[0].autoLodEnabled.value) return 'auto';
 		return this.tickers[0].lod.value;

@@ -61,8 +61,8 @@ export class OHLCV extends Mesh {
 	colors: GPUBuffer;
 	opacity: GPUBuffer;
 
-	// start: Date;
-	// end: Date;
+	from?: Date;
+	to?: Date;
 
 	constructor(device: GPUDevice, chart: GPUBuffer) {
 		// TODO: verify maxCandles
@@ -112,6 +112,7 @@ export class OHLCV extends Mesh {
 		);
 		this.colors = colors;
 		this.opacity = opacity;
+		this.visible = false;
 		this.nInstances = 0;
 	}
 
@@ -181,9 +182,6 @@ export class OHLCV extends Mesh {
 
 	updateGeometry(aggs: Aggregate[], period: Period) {
 		const { positions, colors } = OHLCV.getGeometry(aggs, period);
-
-		// if (aggs[0].time < this.start) this.start = new Date(aggs[0].time);
-		// if (aggs[aggs.length - 1].time > this.end) this.end = new Date(aggs[aggs.length - 1].time);
 
 		const offset3 = this.nInstances * Float32Array.BYTES_PER_ELEMENT;
 		this.updatePositions(positions, offset3 * instanceStride);
