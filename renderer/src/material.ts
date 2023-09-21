@@ -1,6 +1,6 @@
-import { ShaderBinding, BufferBinding } from './shader-binding.js';
-import { Scene } from './scene.js';
 import { presentationFormat, sampleCount, depthFormat } from './util.js';
+import { ShaderBinding } from './shader-binding.js';
+import { Scene } from './scene.js';
 import { Mesh } from './mesh.js';
 
 export interface MaterialOptions {
@@ -18,9 +18,9 @@ const defaultOptions: MaterialOptions = {
 	bindings: [],
 	depthWriteEnabled: true,
 	cullMode: 'back',
-	vertOutputFields: [],
-	vertCode: 'return VertexOutput(scene.proj * scene.view * pos(arg));',
-	fragCode: 'return vec4f(1.0, 1.0, 0.0, 1.0);',
+	vertOutputFields: ['color: vec4f'],
+	vertCode: 'return VertexOutput(scene.proj * scene.view * pos(arg), color(arg));',
+	fragCode: 'return arg.color;',
 };
 
 function bindGroupCode(shaderBindings: ShaderBinding[], group: number, label: string): string {
@@ -50,9 +50,7 @@ struct VertexOutput {
 	${options.vertOutputFields.map((s, i) => `@location(${i}) ${s},`).join('\n	')}
 }
 
-// Emulated double precision subtraction ported from dssub() in DSFUN90.
-// https://www.davidhbailey.com/dhbsoftware/
-// https://en.wikipedia.org/wiki/Kahan_summation_algorithm
+// Emulated double precision subtraction from Knuth.
 // https://prideout.net/emulating-double-precision
 fn subCamPos64(position: vec3f, positionLow: vec3f) -> vec3f {
 	let t1 = positionLow - scene.eyeLow;
@@ -84,7 +82,24 @@ fn pos(arg: VertexInput) -> vec4f {
 		posLow[i] = positionsLow[index + i];
 	}
 
+	var modelIndex = 0u;
+	if (arg.instance < arrayLength(&models)) {
+		modelIndex = arg.instance;
+	}
+
+	let model = models[modelIndex];
+	pos = (model * vec4f(pos, 1.0)).xyz;
+
 	return vec4f(subCamPos64(pos, posLow), 1.0);
+}
+
+fn color(arg: VertexInput) -> vec4f {
+	var colorIndex = 0u;
+	if (arg.instance < arrayLength(&colors)) {
+		colorIndex = arg.instance;
+	}
+
+	return colors[colorIndex];
 }
 
 @vertex fn vertMain(arg: VertexInput) -> VertexOutput {
@@ -182,6 +197,7 @@ export class Material {
 		this.meshes.push(...meshes.map(mesh => ({
 			mesh,
 			bindGroup: this.device.createBindGroup({
+				label: 'material bind',
 				layout: this.pipeline.getBindGroupLayout(1),
 				entries: Mesh.bindGroups.map((group, i) => {
 					group.buffer = mesh[group.name as 'positions' | 'positionsLow' | 'indices'];
@@ -194,7 +210,6 @@ export class Material {
 	render(pass: GPURenderPassEncoder): void {
 		pass.setPipeline(this.wireframe ? this.pipelineWireframe : this.pipeline);
 		this.meshes.forEach(({ bindGroup, mesh }) => {
-			console.log('render mesh', mesh)
 			pass.setBindGroup(1, bindGroup);
 
 			const nIndices = mesh.indices.size / Float32Array.BYTES_PER_ELEMENT;

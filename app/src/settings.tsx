@@ -1,8 +1,8 @@
 import { h, JSX } from 'preact';
-import { Renderer, Scene } from '@jeditrader/renderer';
+import { Renderer } from '@jeditrader/renderer';
 import { Vec3 } from '@jeditrader/linalg';
-import './settings.css';
 import { Signal, signal as newSignal } from '@preact/signals';
+import './settings.css';
 
 function InputVec3({ value, onChange }: { value: Vec3, onChange: (v: Vec3) => void }) {
 	return (
@@ -109,7 +109,7 @@ function SettingInput({ signal }: { signal: Signal<any> }) {
 		</div>
 	);
 
-	return <span>Unknown signal type for {JSON.stringify(signal.value)}</span>;
+	return <span>Unknown type {JSON.stringify(signal.value)}</span>;
 }
 
 function Setting({ label, signal }: {label: string, signal: Signal<any>}) {
