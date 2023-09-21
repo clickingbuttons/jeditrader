@@ -23,6 +23,7 @@ function keyMap(key: string): keyof Input['buttons'] | undefined {
 }
 
 export class Input {
+	canvas: HTMLCanvasElement;
 	focused = false;
 	buttons = { ...defaultButtons };
 
@@ -32,12 +33,14 @@ export class Input {
 	movementY = 0;
 
 	constructor(canvas: HTMLCanvasElement) {
+		this.canvas = canvas;
 		document.addEventListener('keydown', this.keydown.bind(this));
 		document.addEventListener('keyup', this.keyup.bind(this));
 		canvas.addEventListener('mousemove', this.mousemove.bind(this));
 		canvas.addEventListener('mousedown', this.mousedown.bind(this));
 		canvas.addEventListener('mouseup', this.mouseup.bind(this));
-		canvas.addEventListener('mouseenter', this.mouseenter.bind(this));
+		canvas.addEventListener('focus', () => this.focused = true);
+		canvas.addEventListener('blur', () => this.focused = false);
 		canvas.addEventListener('mouseleave', this.mouseleave.bind(this));
 		canvas.addEventListener('contextmenu', e => e.preventDefault());
 	}
@@ -56,8 +59,6 @@ export class Input {
 	keyup(ev: KeyboardEvent) { this.handleKey(ev, false); }
 
 	mousemove(ev: MouseEvent) {
-		this.focused = true;
-
 		this.posX = ev.clientX;
 		this.posY = ev.clientY;
 		this.movementX += ev.movementX;
@@ -70,6 +71,7 @@ export class Input {
 	}
 
 	mousedown(ev: MouseEvent) {
+		this.canvas.focus();
 		ev.preventDefault();
 		this.buttons[`mouse${ev.button as 0 | 1 | 2}`] = true;
 	}
@@ -79,12 +81,5 @@ export class Input {
 		this.buttons[`mouse${ev.button as 0 | 1 | 2}`] = false;
 	}
 
-	mouseenter(_ev: MouseEvent) {
-		this.focused = true;
-	}
-
-	mouseleave(_ev: MouseEvent) {
-		this.focused = false;
-		this.buttons = { ...defaultButtons };
-	}
+	mouseleave() { this.buttons = { ...defaultButtons }; }
 };

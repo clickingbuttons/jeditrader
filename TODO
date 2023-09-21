@@ -1,20 +1,21 @@
-- LOD transition HTTP lag (wait for some data, fade current out)
-	- LOD level instead of horizon
-	- async writebuffer
-	- buffer len check
+- extract settings
+- abstract scene + node
+- model matrices
 - auto y ticks
 - best volume scale
 - x/y hover
 	- box select
-- resize via corner drag
-- fix panning at high LOD
 
+- blur when cursor enters chart
 - ticker select
-- light/dark mode for chart
-- labels follow cam view
 
 - scatter plot
 - line plot
 - JS plot API
 - HTTP+ws API
 - scripting language support
+
+data
+- remove test tickers (how'd they get in there?!)
+- agg30m for premarket research
+- better agg1d conditions (consider using auctions = 17, 8)

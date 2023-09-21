@@ -1,24 +1,24 @@
 import { Axes } from './axes.js';
 import { Mat4, Vec3 } from '@jeditrader/linalg';
 import { Provider, Period } from '@jeditrader/providers';
-import { ChartData } from './chart-data.js';
+import { AutoTicker } from './auto-ticker.js';
 import { Scene } from './scene.js';
 import { Range } from './util.js';
-import { signal, Signal, computed } from '@preact/signals-core';
-import { RendererFlags } from './renderer.js';
+import { signal, Signal, computed, effect } from '@preact/signals-core';
 import { getLod, Lod } from './lod.js';
+import { Node } from './node.js';
+import { Input } from './input.js';
 
 export interface ChartContext {
-	device: GPUDevice;
-	uniform: GPUBuffer;
-	eye: Signal<Vec3>;
+	scene: Scene,
 	autoLod: Signal<Period>;
 	range: Signal<Range<Vec3>>;
 }
 
-export class Chart extends Scene {
+export class Chart extends Node {
+	/*
 	axes: Axes;
-	tickers: ChartData[];
+	tickers: AutoTicker[];
 
 	range = signal<Range<Vec3>>({
 		min: new Vec3([-5000, -5000, -5000]),
@@ -26,48 +26,36 @@ export class Chart extends Scene {
 	});
 	autoLod: Signal<Period>;
 
-	constructor(
-		aspectRatio: Signal<number>,
-		canvasUI: HTMLCanvasElement,
-		device: GPUDevice,
-		provider: Provider,
-		flags: RendererFlags,
-	) {
-		super(aspectRatio, canvasUI, device, flags);
-		this.autoLod = computed(() => getLod(this.camera.eye.value.z));
+	settings;
+
+	constructor(scene: Scene, provider: Provider) {
+		super();
+		this.autoLod = computed(() => getLod(scene.camera.eye.value.z));
 
 		const ctx: ChartContext = {
-			device,
-			uniform: this.uniform,
-			eye: this.camera.eye,
+			scene,
 			autoLod: this.autoLod,
 			range: this.range,
 		};
 
-		this.tickers = [
-			new ChartData(
-				ctx,
-				provider,
-				flags,
-			),
-		];
-		this.axes = new Axes(
-			ctx,
-			canvasUI,
-			this.sceneToClip.bind(this),
-			aspectRatio,
-		);
-		this.axes.scale.subscribe(s => this.model.value = Mat4.scale(s));
-		this.nodes = [
-			this.axes,
-			...this.tickers,
-		];
+		this.tickers = [ new AutoTicker(ctx, provider) ];
+		this.axes = new Axes(ctx);
+		this.settings = {
+			axes: this.axes.settings,
+		};
+		effect(() => {
+			const origin = this.axes.scaleOffset ?? new Vec3([0, 0, 0]);
+			this.model = Mat4
+				.translate(origin)
+				.scale(this.axes.scale.value)
+				.translate(origin.mulScalar(-1));
+		});
+		this.meshes = [ this.axes ];
+		this.nodes = this.tickers;
 	}
 
-	update(dt: DOMHighResTimeStamp) {
-		this.camera.update(dt, this.input);
-		this.axes.update(this.input);
-		this.input.update();
+	update(dt: DOMHighResTimeStamp, input: Input) {
+		this.axes.update(input);
 	}
 
 	getLod(): Lod {
@@ -81,4 +69,5 @@ export class Chart extends Scene {
 			t.lod.value = lod === 'auto' ? this.autoLod.value : lod;
 		});
 	}
+ */
 };

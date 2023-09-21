@@ -124,6 +124,10 @@ export class Polygon implements Provider {
 		return this.agg(ticker, 1, 'minute', from, to, onData);
 	}
 
+	second(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
+		console.error('polygon has no second aggs and fetching trades takes forever :)')
+	}
+
 	trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void) {
 		if (from < polygonMinDate) from = polygonMinDate;
 

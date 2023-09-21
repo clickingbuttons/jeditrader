@@ -8,7 +8,8 @@ const cameraZs: { [p in Period]: number } = {
 	'hour': 1e9,
 	'minute5': 100e6,
 	'minute': 20e6,
-	'trade': 10e6,
+	'second': 10e6,
+	'trade': 5e6,
 };
 export const lodKeys = Object.keys(cameraZs) as Period[];
 export type Lod = Period | 'auto';

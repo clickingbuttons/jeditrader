@@ -83,7 +83,6 @@ export class Mat4 extends Float64Array {
 		]);
 	}
 
-
 	static translate(v: Vec3): Mat4 {
 		return new Mat4([
 			1, 0, 0, 0,
@@ -125,5 +124,22 @@ export class Mat4 extends Float64Array {
 
 	clone(): Mat4 {
 		return new Mat4(this);
+	}
+
+	print() {
+		console.log([
+			[this[0], this[1], this[2], this[3]].join(' '),
+			[this[4], this[5], this[6], this[7]].join(' '),
+			[this[8], this[9], this[10], this[11]].join(' '),
+			[this[12], this[13], this[14], this[15]].join(' '),
+		].join('\n'))
+	}
+
+	translate(v: Vec3): Mat4 {
+		return this.mul(Mat4.translate(v));
+	}
+
+	scale(v: Vec3): Mat4 {
+		return this.mul(Mat4.scale(v));
 	}
 }

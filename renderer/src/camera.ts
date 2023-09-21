@@ -13,9 +13,7 @@ function makeDirection(pitch: number, yaw: number): Vec3 {
 // https://carmencincotti.com/2022-05-02/homogeneous-coordinates-clip-space-ndc/#clip-space
 export class Camera {
 	eye = signal(new Vec3([
-		1356734171487.6748,
-		141025292903.74258,
-		244990244869.45505,
+		0, 0, 10
 	]));
 	pitch = signal(-1.47);
 	yaw = signal(-0.002);
@@ -35,20 +33,13 @@ export class Camera {
 			const direction = this.direction.value;
 			const eye = this.eye.value;
 			const target = eye.add(direction);
-			const view = Mat4.lookAt(eye, target, this.up);
-
-			return view;
+			return Mat4.lookAt(eye, target, this.up);
 		});
 		this.proj = computed(() => {
 			const absZ = Math.abs(this.eye.value.z);
 			const zNear = absZ / 32;
 			const zFar = absZ * 1e3;
-			return Mat4.perspective(
-				degToRad(90),
-				aspectRatio.value,
-				zNear,
-				zFar,
-			);
+			return Mat4.perspective(degToRad(90), aspectRatio.value, zNear, zFar);
 		});
 	}
 

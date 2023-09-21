@@ -16,6 +16,6 @@
 }
 
 .toolbar-buttons > button > svg path {
-  fill: var(--fg);
+  fill: rgb(var(--fg));
 }
 

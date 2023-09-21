@@ -14,7 +14,7 @@ export type Trade = {
 	conditions: number[];
 }
 
-export type Period = 'year' | 'month' | 'week' | 'day' | 'hour4' | 'hour' | 'minute5' | 'minute' | 'trade';
+export type Period = 'year' | 'month' | 'week' | 'day' | 'hour4' | 'hour' | 'minute5' | 'minute' | 'second' | 'trade';
 export interface Provider {
 	year(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
 	month(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
@@ -24,6 +24,7 @@ export interface Provider {
 	hour(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
 	minute5(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
 	minute(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
+	second(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
 	trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void): void;
 }
 
@@ -119,6 +120,12 @@ export function getNext(
 		res.setUTCMinutes(d.getUTCMinutes() + 1 * multiplier);
 		if (truncate) {
 			res.setUTCSeconds(0);
+			res.setUTCMilliseconds(0);
+		}
+		break;
+	case 'second':
+		res.setUTCSeconds(d.getUTCSeconds() + 1 * multiplier);
+		if (truncate) {
 			res.setUTCMilliseconds(0);
 		}
 		break;

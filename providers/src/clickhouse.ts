@@ -1,6 +1,7 @@
 import { Aggregate, Period, Provider, Trade } from './provider.js';
 
 const periodMap = {
+	'second': 'agg1s',
 	'minute': 'agg1m',
 	'minute5': 'agg5m',
 	'hour': 'agg1h',
@@ -105,6 +106,10 @@ export class Clickhouse implements Provider {
 
 	minute(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
 		return this.agg(ticker, 'minute', from, to, onData);
+	}
+
+	second(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
+		return this.agg(ticker, 'second', from, to, onData);
 	}
 
 	trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void) {

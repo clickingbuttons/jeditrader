@@ -1,11 +1,29 @@
 import { depthFormat, presentationFormat, sampleCount } from './util.js';
-import { Provider } from '@jeditrader/providers';
-import { Chart } from './chart.js';
+import { Scene } from './scene.js';
 import { debounce } from './helpers.js';
 import { Signal, signal } from '@preact/signals-core';
+import { TestScene } from './test-scene.js';
 
 export interface RendererFlags {
 	rerender: boolean;
+}
+
+function growCanvas(canvas: HTMLCanvasElement) {
+	const { width, height } = canvas.getBoundingClientRect();
+	canvas.width = width;
+	canvas.height = height;
+}
+
+export function drawMessage(canvas: HTMLCanvasElement, msg: string, font = '64px sans') {
+	const ctx = canvas.getContext('2d');
+	if (!ctx) return;
+
+	ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+	ctx.font = font;
+	ctx.textBaseline = 'middle';
+	ctx.textAlign = 'center';
+	ctx.fillStyle = 'white';
+	ctx.fillText(msg, ctx.canvas.width / 2, ctx.canvas.height / 2);
 }
 
 export class Renderer {
@@ -13,6 +31,7 @@ export class Renderer {
 	canvasUI: HTMLCanvasElement;
 	device: GPUDevice;
 	context: GPUCanvasContext;
+
 	renderTarget: GPUTexture;
 	renderTargetView: GPUTextureView;
 	depthTexture: GPUTexture;
@@ -23,16 +42,16 @@ export class Renderer {
 		rerender: true,
 	};
 
-	clearColor = signal({ r: 135 / 255, g: 206 / 255, b: 235 / 255, a: 1.0 });
+	settings;
+
 	aspectRatio: Signal<number>;
-	chart: Chart;
+	scene: Scene;
 
 	private constructor(
 		canvas: HTMLCanvasElement,
 		canvasUI: HTMLCanvasElement,
 		device: GPUDevice,
 		context: GPUCanvasContext,
-		provider: Provider,
 	) {
 		this.canvas = canvas;
 		this.canvasUI = canvasUI;
@@ -42,25 +61,20 @@ export class Renderer {
 		this.renderTargetView = this.renderTarget.createView();
 		this.depthTexture = this.createDepthTarget();
 		this.depthTextureView = this.depthTexture.createView();
-
+		this.settings = {
+			clearColor: signal({ r: 135 / 255, g: 206 / 255, b: 235 / 255, a: 1.0 }),
+		};
+		this.settings.clearColor.subscribe(() => this.flags.rerender = true);
 		this.aspectRatio = signal(canvas.width / canvas.height);
-		this.chart = new Chart(this.aspectRatio, canvasUI, this.device, provider, this.flags);
 
-		new ResizeObserver(debounce(this.onResizeWebGPU.bind(this))).observe(canvas);
+		this.scene = new TestScene(this); // Init last
+
 		new ResizeObserver(debounce(this.onResize.bind(this))).observe(canvasUI);
 	}
 
-	onResize(entries: ResizeObserverEntry[]) {
-		const entry = entries[0];
-		const canvas = entry.target as HTMLCanvasElement;
-		const width = entry.contentBoxSize[0].inlineSize;
-		const height = entry.contentBoxSize[0].blockSize;
-		canvas.width = Math.max(1, Math.min(width, this.device.limits.maxTextureDimension2D));
-		canvas.height = Math.max(1, Math.min(height, this.device.limits.maxTextureDimension2D));
-	}
-
-	onResizeWebGPU(entries: ResizeObserverEntry[]) {
-		this.onResize(entries);
+	onResize() {
+		growCanvas(this.canvas);
+		growCanvas(this.canvasUI);
 		this.renderTarget.destroy();
 		this.renderTarget = this.createRenderTarget();
 		this.renderTargetView = this.renderTarget.createView();
@@ -91,12 +105,10 @@ export class Renderer {
 	}
 
 	frame(time: DOMHighResTimeStamp): void {
-		const dt = time - this.lastTime;
+		this.scene.update(time - this.lastTime);
 		this.lastTime = time;
 
-		this.chart.update(dt);
-		// Save CPU
-		if (!this.flags.rerender) {
+		if (!this.flags.rerender) { // Save GPU + CPU a lot of work
 			requestAnimationFrame(this.frame.bind(this));
 			return;
 		}
@@ -107,7 +119,7 @@ export class Renderer {
 				{
 					view: this.renderTargetView,
 					resolveTarget: this.context.getCurrentTexture().createView(),
-					clearValue: this.clearColor.value,
+					clearValue: this.settings.clearColor.value,
 					loadOp: 'clear',
 					storeOp: 'store',
 				},
@@ -119,45 +131,41 @@ export class Renderer {
 				depthStoreOp: 'store',
 			},
 		};
+
 		const pass = commandEncoder.beginRenderPass(renderPassDescriptor);
-		this.chart.render(pass);
+		this.scene.render(pass);
 		pass.end();
+
 		this.device.queue.submit([commandEncoder.finish()]);
-
 		this.flags.rerender = false;
+
 		requestAnimationFrame(this.frame.bind(this));
 	}
 
-	render() {
+	run() {
 		requestAnimationFrame(this.frame.bind(this));
 	}
 
-	static error(canvas: HTMLCanvasElement, msg: string) {
-		canvas.innerText = msg;
-		return new Error(msg);
-	}
+	static async init(canvas: HTMLCanvasElement, canvasUI: HTMLCanvasElement) {
+		// Init takes a while. Let's show a nice loading screen...
+		growCanvas(canvas);
+		growCanvas(canvasUI);
+		drawMessage(canvasUI, 'initializing renderer...');
+		try {
+			if (navigator.gpu === undefined)
+				throw new Error('WebGPU is not supported by your browser');
 
-	static async init(
-		canvas: HTMLCanvasElement,
-		canvasUI: HTMLCanvasElement,
-		provider: Provider,
-	) {
-		if (navigator.gpu === undefined)
-			throw Renderer.error(canvas, 'WebGPU is not supported/enabled in your browser');
+			var adapter = await navigator.gpu.requestAdapter();
+			if (adapter === null) throw new Error('No WebGPU adapter available');
+			var device = await adapter.requestDevice();
+			var context = canvas.getContext('webgpu');
+			if (context === null) throw new Error('No WebGPU context available');
+			context.configure({ device, format: presentationFormat });
 
-		var adapter = await navigator.gpu.requestAdapter();
-		if (adapter === null) throw Renderer.error(canvas, 'No WebGPU adapter');
-		var device = await adapter.requestDevice();
-		var context = canvas.getContext('webgpu');
-		if (context === null) throw Renderer.error(canvas, 'No WebGPU context');
-		context.configure({ device, format: presentationFormat });
-
-		return new Renderer(canvas, canvasUI, device, context, provider);
-	}
-
-	toggleWireframe() {
-		this.chart.toggleWireframe();
-		this.flags.rerender = true;
+			return new Renderer(canvas, canvasUI, device, context);
+		} catch (error) {
+			drawMessage(canvasUI, '' + error);
+		}
 	}
 };
 

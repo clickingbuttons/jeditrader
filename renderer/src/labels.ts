@@ -1,5 +1,6 @@
 import { Vec3, Vec4 } from '@jeditrader/linalg';
 import { signal, effect } from '@preact/signals-core';
+import { Scene } from './scene.js';
 
 export interface Label {
 	text: string;
@@ -25,17 +26,19 @@ function intersects(r1: Rectangle, r2: Rectangle) {
 }
 
 export class Labels {
-	sceneToClip: SceneToClip;
+	scene: Scene;
 
 	ctx: CanvasRenderingContext2D;
 	labels: Label[] = [];
 
-	font = signal('14px sans');
-	paddingPx = signal(2);
+	settings = {
+		font: signal('14px sans'),
+		paddingPx: signal(2),
+	};
 
-	constructor(canvas: HTMLCanvasElement, sceneToClip: SceneToClip) {
-		this.sceneToClip = sceneToClip;
-		const ctx = canvas.getContext('2d');
+	constructor(scene: Scene) {
+		this.scene = scene;
+		const ctx = scene.canvasUI.getContext('2d');
 		if (!ctx) throw new Error('cannot get canvas 2d context');
 		this.ctx = ctx;
 
@@ -50,8 +53,8 @@ export class Labels {
 		const ctx = this.ctx;
 		ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-		const padding = this.paddingPx.value;
-		ctx.font = `${this.font.value}`;
+		const padding = this.settings.paddingPx.value;
+		ctx.font = `${this.settings.font.value}`;
 		ctx.textBaseline = 'middle';
 		ctx.textAlign = 'center';
 		ctx.fillStyle = 'white';
@@ -66,7 +69,7 @@ export class Labels {
 			bottom: 0,
 		};
 		this.labels.forEach(l => {
-			const clipPos = this.sceneToClip(l.pos);
+			const clipPos = this.scene.sceneToClip(l.pos);
 			if (clipPos.z < 0) return;
 			const x = (1 + clipPos.x) / 2 * ctx.canvas.width;
 			const y = (1 - clipPos.y) / 2 * ctx.canvas.height;

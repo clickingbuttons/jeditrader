@@ -1,8 +1,9 @@
-import { Mesh, BufferBinding } from './mesh.js';
+import { Mesh } from './mesh.js';
+import { BufferBinding } from './shader-binding.js';
 import { Vec3 } from '@jeditrader/linalg';
 import { createBuffer } from './util.js';
 import { getNext, Period } from '@jeditrader/providers';
-import { Labels, SceneToClip } from './labels.js';
+import { Labels } from './labels.js';
 import { toymd } from './helpers.js';
 import { Signal, effect, signal } from '@preact/signals-core';
 import { Range } from './util.js';
@@ -19,7 +20,7 @@ const wgslStruct = `struct Axes {
 }`;
 const vertCode = `
 	let p = pos(arg);
-	return VertexOutput(chart.proj * chart.view * p, p.xy);
+	return VertexOutput(scene.proj * scene.view * p, p.xy);
 `;
 // If replacing this with quads, use:
 // https://github.com/m-schuetz/webgpu_wireframe_thicklines/blob/master/renderWireframeThick.js
@@ -106,22 +107,28 @@ function toLabel(period: Period, ms: number): string {
 }
 
 export class Axes extends Mesh {
+/*
+	eye: Signal<Vec3>;
 	scale = signal(new Vec3([1, 1, 1]));
+	scaleOffset?: Vec3;
 
 	uniform: GPUBuffer;
 	horizontalLines: GPUBuffer;
 	verticalLines: GPUBuffer;
 
+	settings;
 	labels: Labels;
 
-	constructor(
-		ctx: ChartContext,
-		canvas: HTMLCanvasElement,
-		sceneToClip: SceneToClip,
-		aspectRatio: Signal<number>,
-	) {
+	constructor(ctx: ChartContext) {
+		const scene = ctx.scene;
+		const device = ctx.scene.device;
+		const sceneUniform = ctx.scene.uniform;
+		const aspectRatio = ctx.scene.aspectRatio;
+		const eye = ctx.scene.camera.eye;
+		const range = ctx.range;
+
 		const uniform = createBuffer({
-			device: ctx.device,
+			device,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 			data: new Float32Array([
 				0.2, 0.2, 0.2, 1, // backgroundColor
@@ -132,17 +139,16 @@ export class Axes extends Mesh {
 			])
 		});
 		const horizontalLines = createBuffer({
-			device: ctx.device,
+			device,
 			data: new Float32Array(maxLines)
 		});
 		const verticalLines = createBuffer({
-			device: ctx.device,
+			device,
 			data: new Float32Array(maxLines)
 		});
 
 		super(
-			ctx.device,
-			ctx.uniform,
+			device,
 			new Array(nVertices * 3).fill(0),
 			indices,
 			{
@@ -174,15 +180,19 @@ export class Axes extends Mesh {
 		this.uniform = uniform;
 		this.horizontalLines = horizontalLines;
 		this.verticalLines = verticalLines;
-		this.labels = new Labels(canvas, sceneToClip);
+		this.labels = new Labels(scene);
+		this.eye = eye;
+		this.settings = {
+			labels: this.labels.settings,
+		};
 		effect(() => {
-			const len = ctx.range.value.max.sub(ctx.range.value.min);
+			const len = range.value.max.sub(range.value.min);
 			const desiredHeight = len.x / aspectRatio.value;
 			this.scale.value = new Vec3([1, desiredHeight / len.y, 1]);
 		});
 
-		effect(() => this.updatePositions(this.getGeometry(ctx.eye.value, ctx.range.value)));
-		effect(() => this.updateLabels(ctx.eye.value, ctx.range.value));
+		effect(() => this.updatePositions(this.getGeometry(this.eye.value, range.value)));
+		effect(() => this.updateLabels(this.eye.value, range.value));
 	}
 
 	getGeometry(eye: Vec3, range: Range<Vec3>) {
@@ -271,7 +281,10 @@ export class Axes extends Mesh {
 			const newVal = this.scale.value.clone();
 			// newVal.x += input.movementX;
 			newVal.y -= input.movementY * 100e6;
+			if (!this.scaleOffset) this.scaleOffset = new Vec3([new Date(2010, 1).getTime(), 10, 0]);
 			this.scale.value = newVal;
+		} else {
+			this.scaleOffset = undefined;
 		}
 	}
 
@@ -279,4 +292,5 @@ export class Axes extends Mesh {
 		super.render(pass);
 		this.labels.render();
 	}
+*/
 }

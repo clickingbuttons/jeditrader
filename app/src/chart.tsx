@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'preact/hooks';
 import { Toolbar } from './toolbar.js';
-import { Renderer } from '@jeditrader/renderer';
+import { Renderer, Chart as RenderChart } from '@jeditrader/renderer';
 import { getCookie, setCookie } from './cookies.js';
 import { Provider, Clickhouse, Polygon } from '@jeditrader/providers';
 import { Split, SplitItem } from './split.js';
@@ -108,22 +108,6 @@ function ProviderSelect({ setProvider }: { setProvider(p: Provider): void }) {
 	);
 }
 
-function drawLoading(canvas: HTMLCanvasElement) {
-	const ctx = canvas.getContext('2d');
-	if (!ctx) return;
-
-	const { width, height } = canvas.getBoundingClientRect();
-	canvas.width = width;
-	canvas.height = height;
-
-	ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-	ctx.font = '64px sans';
-	ctx.textBaseline = 'middle';
-	ctx.textAlign = 'center';
-	ctx.fillStyle = 'white';
-	ctx.fillText('initializing renderer...', ctx.canvas.width / 2, ctx.canvas.height / 2);
-}
-
 export function Chart() {
 	const canvas = useRef<HTMLCanvasElement | null>(null);
 	const canvasUI = useRef<HTMLCanvasElement | null>(null);
@@ -131,47 +115,56 @@ export function Chart() {
 	const [provider, setProvider] = useState<Provider | null>(null);
 	const [renderer, setRenderer] = useState<Renderer | null>(null);
 	const [showSettings, setShowSettings] = useState(true);
+	const [chart, setChart] = useState<RenderChart | null>(null);
+
 	useEffect(() => {
 		if (!renderer) return;
 		return dark.subscribe(() => {
-			renderer.clearColor.value = getBgColor();
+			renderer.settings.clearColor.value = getBgColor();
 			renderer.flags.rerender = true;
 		});
 	}, [renderer]);
 
 	useEffect(() => {
-		if (provider) {
-			if (canvas.current && canvasUI.current) {
-				// Init takes a while. Let's show a nice loading screen...
-				drawLoading(canvasUI.current);
+		// if (!provider) return;
+		if (canvas.current && canvasUI.current) {
+			Renderer.init(canvas.current, canvasUI.current).then(r => {
+				if (!r) return;
 
-				Renderer.init(canvas.current, canvasUI.current, provider).then(r => {
-					r.clearColor.value = getBgColor();
-					setRenderer(r);
-					r.render();
-				});
-			} else console.error("useRef couldn't find canvases");
-		}
-	}, [provider]);
+				// const chart = new RenderChart(r.scene, provider);
+				// r.scene.root = chart;
+				// setChart(chart);
 
-	if (!provider) return <ProviderSelect setProvider={setProvider} />;
+				r.settings.clearColor.value = getBgColor();
+				setRenderer(r);
+				r.run();
+			});
+		} else console.error("useRef couldn't find canvases");
+	}, []);
+
+	// if (!provider) return <ProviderSelect setProvider={setProvider} />;
 
 	return (
 		<div class="canvases">
 			<canvas ref={canvas} />
-			<canvas ref={canvasUI} />
+			<canvas ref={canvasUI} tabIndex={0} />
 			<Split style={{ pointerEvents: 'none' }}>
 				<SplitItem>
 					<Toolbar
 						style={{ pointerEvents: 'all' }}
-						renderer={renderer}
+						scene={renderer?.scene}
 						showSettings={showSettings}
 						setShowSettings={setShowSettings}
 						dark={dark}
 					/>
 				</SplitItem>
 				<SplitItem>
-					{showSettings && <Settings renderer={renderer} style={{ pointerEvents: 'all' }} />}
+					{showSettings &&
+						<Settings
+							renderer={renderer}
+							style={{ pointerEvents: 'all' }}
+						/>
+					}
 				</SplitItem>
 			</Split>
 		</div>

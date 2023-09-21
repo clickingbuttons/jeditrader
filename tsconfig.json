@@ -4,6 +4,7 @@
 		{"path": "./linalg/tsconfig.json"},
 		{"path": "./providers/tsconfig.json"},
 		{"path": "./renderer/tsconfig.json"},
-		{"path": "./geometry/tsconfig.json"}
+		{"path": "./geometry/tsconfig.json"},
+		{"path": "./app/tsconfig.json"}
 	]
 }

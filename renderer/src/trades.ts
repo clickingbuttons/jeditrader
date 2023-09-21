@@ -1,5 +1,6 @@
 import { Vec3 } from '@jeditrader/linalg';
-import { Mesh, BufferBinding } from './mesh.js';
+import { Mesh } from './mesh.js';
+import { BufferBinding } from './shader-binding.js';
 import { Trade } from '@jeditrader/providers';
 import { createBuffer } from './util.js';
 import { Range } from './util.js';
@@ -52,6 +53,7 @@ function toCube(range: Range<Vec3>): number[] {
 }
 
 export class Trades extends Mesh {
+	/*
 	colors: GPUBuffer;
 	opacity: GPUBuffer;
 
@@ -72,7 +74,6 @@ export class Trades extends Mesh {
 		});
 		super(
 			device,
-			chart,
 			new Array(3 * maxTrades).fill(0),
 			indices,
 			{
@@ -166,4 +167,5 @@ export class Trades extends Mesh {
 
 		this.nInstances += positions.length / instanceStride;
 	}
+ */
 }

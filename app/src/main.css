@@ -4,8 +4,9 @@
 	--color-3: 3, 64, 120;
 	--color-4: 0, 31, 84;
 	--color-5: 10, 17, 40;
+	--color-6: 45, 47, 52;
 	--bg: var(--color-1);
-	--bg-overlay: var(--color-1), 0.5;
+	--bg-overlay: var(--color-2), 0.5;
 	--fg: var(--color-5);
 	--border-color: 221, 221, 221;
 
@@ -13,8 +14,8 @@
 }
 
 .dark {
-	--bg: var(--color-5);
-	--bg-overlay: var(--color-5), 0.5;
+	--bg: var(--color-6);
+	--bg-overlay: var(--color-4), 0.5;
 	--fg: var(--color-1);
 	--border-color: 133, 133, 133;
 	--horz-line-color: 54, 60, 78;

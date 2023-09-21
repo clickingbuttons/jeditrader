@@ -1,16 +1,15 @@
 import { JSX } from 'preact';
 import { SymbolPicker } from './select.js';
 import { LightMode, DarkMode, Settings, Debug } from './icons/index.js';
-import { Renderer, lods, Lod } from '@jeditrader/renderer';
+import { Scene, lods, Lod, Chart as RenderChart } from '@jeditrader/renderer';
 import { Signal } from '@preact/signals';
 import './toolbar.css';
 
-function LodSelect({ renderer }: { renderer: Renderer | null }) {
-	const chart = renderer?.chart;
+/*
+function LodSelect({ chart }: { chart: RenderChart }) {
 	return (
 		<select
-			value={chart?.getLod()}
-			disabled={!chart}
+			value={chart.getLod()}
 			onChange={ev => {
 				if (!chart) return;
 				chart.setLod(ev.currentTarget.value as Lod);
@@ -18,38 +17,41 @@ function LodSelect({ renderer }: { renderer: Renderer | null }) {
 		>
 			{lods.map(l =>
 				<option value={l}>
-					{l === 'auto' ? `auto (${chart ? chart.autoLod.value : 'loading'})` : l}
+					{l === 'auto' ? `auto (${chart.autoLod.value})` : l}
 				</option>
 			)}
 		</select>
 	);
 }
+*/
 
 interface ToolbarProps extends JSX.HTMLAttributes<HTMLDivElement> {
-	renderer: Renderer | null;
+	scene: Scene | undefined;
 	showSettings: boolean;
 	setShowSettings: (b: boolean) => void;
 	dark: Signal<boolean>;
 }
 
-export function Toolbar({ renderer, showSettings, setShowSettings, dark, style }: ToolbarProps) {
+export function Toolbar({ scene, showSettings, setShowSettings, dark, style }: ToolbarProps) {
 	return (
 		<div class="toolbar" style={style}>
-			<SymbolPicker
-				value={renderer?.chart.tickers[0].ticker}
-				onChange={newTicker => renderer && (renderer.chart.tickers[0].ticker.value = newTicker)}
-				disabled={!renderer}
-			/>
+			{/*chart &&
+				<SymbolPicker
+					value={chart.tickers[0].ticker}
+					onChange={newTicker => renderer && (chart.tickers[0].ticker.value = newTicker)}
+					disabled={!renderer}
+				/>
+			*/}
 
 			<div class="toolbar-spacer" />
 
-			<LodSelect renderer={renderer} />
+			{/*chart && <LodSelect chart={chart} />*/}
 
 			<div class="toolbar-buttons" >
 				<button
 					title="Toggle wireframe"
-					onClick={() => renderer?.toggleWireframe()}
-					disabled={!renderer}
+					onClick={() => scene?.toggleWireframe()}
+					disabled={!scene}
 				>
 					<Debug />
 				</button>

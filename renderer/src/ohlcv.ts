@@ -1,5 +1,6 @@
 import { Vec3 } from '@jeditrader/linalg';
-import { Mesh, BufferBinding } from './mesh.js';
+import { Mesh } from './mesh.js';
+import { BufferBinding } from './shader-binding.js';
 import { Aggregate, Period, getNext } from '@jeditrader/providers';
 import { createBuffer } from './util.js';
 import { Range } from './util.js';
@@ -58,6 +59,7 @@ function toCube(range: Range<Vec3>): number[] {
 }
 
 export class OHLCV extends Mesh {
+	/*
 	colors: GPUBuffer;
 	opacity: GPUBuffer;
 
@@ -78,7 +80,6 @@ export class OHLCV extends Mesh {
 		});
 		super(
 			device,
-			chart,
 			new Array(3 * maxCandles).fill(0),
 			indices,
 			{
@@ -101,7 +102,7 @@ export class OHLCV extends Mesh {
 				],
 				depthWriteEnabled: false,
 				vertOutputFields: ['@interpolate(flat) instance: u32'],
-				vertCode: 'return VertexOutput(chart.proj * chart.view * pos(arg), arg.instance);',
+				vertCode: 'return VertexOutput(scene.proj * scene.view * pos(arg), arg.instance);',
 				fragCode: `return vec4f(
 	colors[arg.instance * 3 + 0],
 	colors[arg.instance * 3 + 1],
@@ -189,4 +190,5 @@ export class OHLCV extends Mesh {
 
 		this.nInstances += positions.length / instanceStride;
 	}
+ */
 }
