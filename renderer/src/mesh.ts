@@ -6,6 +6,13 @@ function f32Low(n: number) {
 	return n - Math.fround(n);
 }
 
+function toF64(nums: number[]): number[] {
+	return nums.reduce((acc, cur) => {
+		acc.push(cur, f32Low(cur));
+		return acc;
+	}, [] as number[]);
+}
+
 export interface MeshInstanceOptions {
 	count: number;
 	stride: number;
@@ -36,15 +43,13 @@ export class Mesh {
 			instance: u32,
 			vertex: u32,
 		}`}),
-		new BufferBinding('positions', null),
-		new BufferBinding('positionsLow', null),
+		new BufferBinding('positions', null, { wgslType: 'array<f64>' }),
 		new BufferBinding('indices', null, { wgslType: 'array<u32>' }),
-		new BufferBinding('models', null, { wgslType: 'array<mat4x4f>' }),
+		new BufferBinding('models', null, { wgslType: 'array<array<f64, 16>>' }),
 		new BufferBinding('colors', null, { wgslType: 'array<vec4f>' }),
 	];
 	strides: GPUBuffer;
 	positions: GPUBuffer;
-	positionsLow: GPUBuffer;
 	indices: GPUBuffer;
 
 	// instances
@@ -64,23 +69,20 @@ export class Mesh {
 		this.device = device;
 
 		this.strides = createBuffer({ device, data: new Uint32Array(strides) });
-		this.positions = createBuffer({ device, data: new Float32Array(positions) });
-		this.positionsLow = createBuffer({ device, data: new Float32Array(positions.map(f32Low)) });
+		this.positions = createBuffer({ device, data: new Float32Array(toF64(positions)) });
 		this.indices = createBuffer({ device, data: new Uint32Array(indices) });
-		this.models = createBuffer({ device, data: new Float32Array(instanceOpts.models) });
+		this.models = createBuffer({ device, data: new Float32Array(toF64(instanceOpts.models)) });
 		this.colors = createBuffer({ device, data: new Float32Array(instanceOpts.colors) });
 
 		this.nInstances = instanceOpts.count;
 	}
 
 	updatePositions(positions: number[], offset: number = 0) {
-		this.device.queue.writeBuffer(this.positions, offset, new Float32Array(positions));
-		this.device.queue.writeBuffer(this.positionsLow, offset, new Float32Array(positions.map(f32Low)));
+		this.device.queue.writeBuffer(this.positions, offset, new Float32Array(toF64(positions)));
 	}
 
 	destroy() {
 		this.positions.destroy();
-		this.positionsLow.destroy();
 		this.indices.destroy();
 		this.strides.destroy();
 	}

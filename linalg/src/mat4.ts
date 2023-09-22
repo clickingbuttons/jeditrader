@@ -105,14 +105,6 @@ export class Mat4 extends Float64Array {
 		return Mat4.scale(new Vec3([1, 1, 1]));
 	}
 
-	f32() {
-		return new Float32Array(this);
-	}
-
-	f32Low() {
-		return new Float32Array(this.map(v => v - Math.fround(v)));
-	}
-
 	inverse(): Mat4 {
 		return new Mat4([
 			this[ 0], this[ 4], this[ 8], this[12],

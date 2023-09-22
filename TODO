@@ -1,12 +1,8 @@
-- extract settings
-- abstract scene + node
-- model matrices
 - auto y ticks
 - best volume scale
 - x/y hover
 	- box select
 
-- blur when cursor enters chart
 - ticker select
 
 - scatter plot

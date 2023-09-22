@@ -72,6 +72,7 @@ export class Scene {
 			proj: mat4x4f,
 			eye: vec3f,
 			eyeLow: vec3f,
+			one: f32
 		}`
 	});
 	uniformData() {
@@ -86,7 +87,7 @@ export class Scene {
 			...viewRel,
 			...this.camera.proj.value,
 			...this.camera.eye.value, 0,
-			...this.camera.eye.value.f32Low(), 0,
+			...this.camera.eye.value.f32Low(), 1
 		]);
 	}
 

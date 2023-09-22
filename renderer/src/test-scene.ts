@@ -63,7 +63,7 @@ export class TestScene extends Scene {
 			const indexed = new Cube().toIndexedTriangles();
 			const mesh1 = new Mesh(this.device, indexed.positions, indexed.indices, {
 				instances: {
-					count: mss.length,
+					count: nInstances,
 					models,
 					colors: [0, 1, 0, 1],
 				}

@@ -2,6 +2,7 @@ import { presentationFormat, sampleCount, depthFormat } from './util.js';
 import { ShaderBinding } from './shader-binding.js';
 import { Scene } from './scene.js';
 import { Mesh } from './mesh.js';
+import { fp64 } from './shaders/fp64.js';
 
 export interface MaterialOptions {
 	bindings: ShaderBinding[];
@@ -50,16 +51,7 @@ struct VertexOutput {
 	${options.vertOutputFields.map((s, i) => `@location(${i}) ${s},`).join('\n	')}
 }
 
-// Emulated double precision subtraction from Knuth.
-// https://prideout.net/emulating-double-precision
-fn subCamPos64(position: vec3f, positionLow: vec3f) -> vec3f {
-	let t1 = positionLow - scene.eyeLow;
-	let e = t1 - positionLow;
-	let t2 = ((-scene.eyeLow - e) + (positionLow - (t1 - e))) + position - scene.eye;
-	let highDifference = t1 + t2;
-	let lowDifference = t2 - (highDifference - t1);
-	return highDifference + lowDifference;
-}
+${fp64('scene.one')}
 
 fn pos(arg: VertexInput) -> vec4f {
 	var vertIndex = indices[arg.vertex];
@@ -75,22 +67,39 @@ fn pos(arg: VertexInput) -> vec4f {
 
 	let index = arg.instance * strides.instance + vertIndex * strides.vertex;
 
-	var pos = vec3f(0.0);
-	var posLow = vec3f(0.0);
+	let eye = array<f64, 4>(
+		f64(scene.eye.x, scene.eyeLow.x),
+		f64(scene.eye.y, scene.eyeLow.y),
+		f64(scene.eye.z, scene.eyeLow.z),
+		f64(0.0, 0.0)
+	);
+	var pos = array<f64, 4>(
+		f64(0.0, 0.0),
+		f64(0.0, 0.0),
+		f64(0.0, 0.0),
+		f64(1.0, 0.0)
+	);
 	for (var i: u32 = 0; i < min(3u, strides.vertex); i += 1) {
 		pos[i] = positions[index + i];
-		posLow[i] = positionsLow[index + i];
 	}
 
 	var modelIndex = 0u;
-	if (arg.instance < arrayLength(&models)) {
+	if (arg.instance <= arrayLength(&models)) {
 		modelIndex = arg.instance;
 	}
 
-	let model = models[modelIndex];
-	pos = (model * vec4f(pos, 1.0)).xyz;
+	var model = models[modelIndex];
+	model[12] = sub64(model[12], eye[0]);
+	model[13] = sub64(model[13], eye[1]);
+	model[14] = sub64(model[14], eye[2]);
+	pos = mat4_vec4_mul64(model, pos);
 
-	return vec4f(subCamPos64(pos, posLow), 1.0);
+	return vec4f(
+		pos[0].high + pos[0].low,
+		pos[1].high + pos[1].low,
+		pos[2].high + pos[2].low,
+		1.0
+	);
 }
 
 fn color(arg: VertexInput) -> vec4f {
@@ -200,7 +209,7 @@ export class Material {
 				label: 'material bind',
 				layout: this.pipeline.getBindGroupLayout(1),
 				entries: Mesh.bindGroups.map((group, i) => {
-					group.buffer = mesh[group.name as 'positions' | 'positionsLow' | 'indices'];
+					group.buffer = mesh[group.name as 'strides' | 'positions' | 'models' | 'indices' | 'colors'];
 					return group.entry(i);
 				}),
 			})
