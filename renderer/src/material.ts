@@ -20,7 +20,7 @@ const defaultOptions: MaterialOptions = {
 	depthWriteEnabled: true,
 	cullMode: 'back',
 	vertOutputFields: ['color: vec4f'],
-	vertCode: 'return VertexOutput(scene.proj * scene.view * pos(arg), color(arg));',
+	vertCode: 'return VertexOutput(scene.proj * scene.view * toVec4(pos(arg)), color(arg));',
 	fragCode: 'return arg.color;',
 };
 
@@ -53,7 +53,7 @@ struct VertexOutput {
 
 ${fp64('scene.one')}
 
-fn pos(arg: VertexInput) -> vec4f {
+fn pos(arg: VertexInput) -> array<f64, 4> {
 	var vertIndex = indices[arg.vertex];
 	${wireframe ? `
 	let triangleIndex = arg.vertex / 6u;
@@ -84,7 +84,7 @@ fn pos(arg: VertexInput) -> vec4f {
 	}
 
 	var modelIndex = 0u;
-	if (arg.instance <= arrayLength(&models)) {
+	if (arg.instance < arrayLength(&models)) {
 		modelIndex = arg.instance;
 	}
 
@@ -94,11 +94,15 @@ fn pos(arg: VertexInput) -> vec4f {
 	model[14] = sub64(model[14], eye[2]);
 	pos = mat4_vec4_mul64(model, pos);
 
+	return pos;
+}
+
+fn toVec4(v: array<f64, 4>) -> vec4f {
 	return vec4f(
-		pos[0].high + pos[0].low,
-		pos[1].high + pos[1].low,
-		pos[2].high + pos[2].low,
-		1.0
+		v[0].high + v[0].low,
+		v[1].high + v[1].low,
+		v[2].high + v[2].low,
+		v[3].high + v[3].low,
 	);
 }
 

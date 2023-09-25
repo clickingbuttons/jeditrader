@@ -25,6 +25,7 @@ function InputVec3({ value, onChange }: { value: Vec3, onChange: (v: Vec3) => vo
 }
 
 function rgbaNormToHex(r: number, g: number, b: number, a: number) {
+	if (r > 1 || g > 1 || b > 1 || a < 0 || a > 1) return;
   return '#'
 		+ Math.round(r * 255 * a).toString(16).padStart(2, '0')
 		+ Math.round(g * 255 * a).toString(16).padStart(2, '0')
@@ -68,6 +69,14 @@ function SettingInput({ signal }: { signal: Signal<any> }) {
 			onChange={ev => signal.value = hexToRGBNorm(ev.currentTarget.value)}
 		/>
 	);
+	if (typeof signal.value === 'boolean') return (
+		<input
+			type="checkbox"
+			checked={signal.value}
+			onChange={ev => signal.value = ev.currentTarget.checked}
+		/>
+	);
+
 	const num = +signal.value;
 	if (!isNaN(num)) return (
 		<input

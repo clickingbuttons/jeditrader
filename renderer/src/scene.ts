@@ -9,6 +9,7 @@ import { Material } from './material.js';
 
 export interface Materials {
 	'default': Material,
+	[key: string]: Material,
 }
 
 export class Scene {

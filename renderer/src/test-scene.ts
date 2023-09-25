@@ -5,7 +5,8 @@ import { Cube } from '@jeditrader/geometry';
 import { Vec3, Mat4 } from '@jeditrader/linalg';
 import { Scene } from './scene.js';
 import { Renderer } from './renderer.js';
-import { signal } from '@preact/signals-core';
+import { signal, effect } from '@preact/signals-core';
+import { Material } from './material.js';
 
 export class TestScene extends Scene {
 	constructor(renderer: Renderer) {
@@ -21,59 +22,77 @@ export class TestScene extends Scene {
 		this.camera.pitch.value = -1.3;
 		this.camera.yaw.value = 0.018;
 		this.settings.milliseconds = milliseconds;
+		this.settings.geometry = signal(true);
+		this.settings.transform = signal(true);
 
-		milliseconds.subscribe(mss => {
-			const allPositions: number[] = [];
-			const allIndices: number[] = [];
-			let nInstances = 0;
-			let instanceStride = 0;
+		this.materials.errorMaterial = new Material(this.device, {
+			vertCode: `
+let p = pos(arg);
+let c = toVec4(p);
+return VertexOutput(scene.proj * scene.view * toVec4(p), c);
+			`
+		});
+		const material = this.materials.errorMaterial;
 
-			mss.forEach(ms => {
-				const radius = ms / 2;
-				const rad3 = new Vec3([radius, radius, radius]);
+		effect(() => {
+			const mss: number[] = this.settings.milliseconds.value;
+			const meshes: Mesh[] = [];
 
-				[
-					new Cube(new Vec3([0, 0, 0]), rad3),
-					new Cube(new Vec3([new Date(2010, 1, 1).getTime(), 0, 0]), rad3)
-				].forEach(csg => {
-					const { positions, indices } = csg.toIndexedTriangles();
-					allPositions.push(...positions);
-					allIndices.push(...indices);
-					instanceStride = positions.length;
-					nInstances += 1;
+			if (this.settings.geometry.value) {
+				const allPositions: number[] = [];
+				const allIndices: number[] = [];
+				let nInstances = 0;
+				let instanceStride = 0;
+
+				mss.forEach(ms => {
+					const radius = ms / 2;
+					const rad3 = new Vec3([radius, radius, radius]);
+
+					[
+						new Cube(new Vec3([0, 0, 0]), rad3),
+						new Cube(new Vec3([new Date(2010, 1, 1).getTime(), 0, 0]), rad3),
+					].forEach(csg => {
+						const { positions, indices } = csg.toIndexedTriangles();
+						allPositions.push(...positions);
+						allIndices.push(...indices);
+						instanceStride = positions.length;
+						nInstances += 1;
+					});
 				});
-			});
 
-			const mesh0 = new Mesh(this.device, allPositions, allIndices, {
-				instances: {
-					count: nInstances,
-					stride: instanceStride,
-				}
-			});
+				meshes.push(new Mesh(this.device, allPositions, allIndices, {
+					instances: {
+						count: nInstances,
+						stride: instanceStride,
+					}
+				}));
+			}
 
-			const models = mss.map(ms => {
-				const radius = ms / 2;
+			if (this.settings.transform.value) {
+				const models = mss.map(ms => {
+					const radius = ms / 2;
 
-				const scale = Mat4.scale(new Vec3([radius, radius, radius]))
-				const translate = Mat4.translate(new Vec3([new Date(2010, 1, 1).getTime(), 0, 0]))
+					const scale = Mat4.scale(new Vec3([radius, radius, radius]))
+					const translate = Mat4.translate(new Vec3([new Date(2010, 1, 1).getTime(), 0, 0]))
 
-				return [...scale, ...translate.mul(scale)];
-			}).flat();
+					return [...scale, ...translate.mul(scale)];
+				}).flat();
 
-			const indexed = new Cube().toIndexedTriangles();
-			const mesh1 = new Mesh(this.device, indexed.positions, indexed.indices, {
-				instances: {
-					count: nInstances,
-					models,
-					colors: [0, 1, 0, 1],
-				}
-			});
+				const indexed = new Cube().toIndexedTriangles();
+				meshes.push(new Mesh(this.device, indexed.positions, indexed.indices, {
+					instances: {
+						count: models.length / 16,
+						models,
+						colors: [0, 1, 0, 1],
+					}
+				}));
+			}
 
-			this.materials.default.destroy();
-			this.materials.default.bind([mesh1, mesh0]);
+			material.destroy();
+			material.bind(meshes);
 			this.flags.rerender = true;
 		});
 
-		this.materials.default.toggleWireframe();
+		material.toggleWireframe();
 	}
 };
