@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'preact/hooks';
 import { Toolbar } from './toolbar.js';
-import { Renderer, Chart as RenderChart } from '@jeditrader/renderer';
+import { Renderer, Chart as ChartScene } from '@jeditrader/renderer';
 import { getCookie, setCookie } from './cookies.js';
 import { Provider, Clickhouse, Polygon } from '@jeditrader/providers';
 import { Split, SplitItem } from './split.js';
@@ -14,8 +14,9 @@ dark.subscribe(dark => {
 	if (dark) document.body.classList.replace('light', 'dark');
 	else document.body.classList.replace('dark', 'light');
 });
+
 function parseColor(input: string) {
-	if (input.substr(0,1)=="#") {
+	if (input.substr(0,1) == "#") {
 		var collen=(input.length-1)/3;
 		var fact=[17,1,0.062272][collen-1];
 		return {
@@ -115,7 +116,7 @@ export function Chart() {
 	const [provider, setProvider] = useState<Provider | null>(null);
 	const [renderer, setRenderer] = useState<Renderer | null>(null);
 	const [showSettings, setShowSettings] = useState(true);
-	const [chart, setChart] = useState<RenderChart | null>(null);
+	const [chart, setChart] = useState<ChartScene | null>(null);
 
 	useEffect(() => {
 		if (!renderer) return;
@@ -127,32 +128,33 @@ export function Chart() {
 
 	useEffect(() => {
 		// if (!provider) return;
-		if (canvas.current && canvasUI.current) {
-			Renderer.init(canvas.current, canvasUI.current).then(r => {
-				if (!r) return;
-
-				// const chart = new RenderChart(r.scene, provider);
-				// r.scene.root = chart;
-				// setChart(chart);
-
-				r.settings.clearColor.value = getBgColor();
-				setRenderer(r);
-				r.run();
-			});
-		} else console.error("useRef couldn't find canvases");
+		if (!canvas.current || !canvasUI.current) return console.error("useRef couldn't find canvases");
+		Renderer.init(canvas.current, canvasUI.current).then(r => {
+			if (!r) return;
+			r.settings.clearColor.value = getBgColor();
+			setRenderer(r);
+			r.run();
+		});
 	}, []);
 
-	// if (!provider) return <ProviderSelect setProvider={setProvider} />;
+	useEffect(() => {
+		if (!provider || !renderer) return;
+
+		const chart = new ChartScene(renderer, provider);
+		renderer.scene = chart;
+		setChart(chart);
+	}, [provider, renderer]);
 
 	return (
 		<div class="canvases">
 			<canvas ref={canvas} />
 			<canvas ref={canvasUI} tabIndex={0} />
+			{!provider && <ProviderSelect setProvider={setProvider} />}
 			<Split style={{ pointerEvents: 'none' }}>
 				<SplitItem>
 					<Toolbar
 						style={{ pointerEvents: 'all' }}
-						scene={renderer?.scene}
+						renderer={renderer}
 						showSettings={showSettings}
 						setShowSettings={setShowSettings}
 						dark={dark}

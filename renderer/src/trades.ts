@@ -53,61 +53,13 @@ function toCube(range: Range<Vec3>): number[] {
 }
 
 export class Trades extends Mesh {
-	/*
-	colors: GPUBuffer;
-	opacity: GPUBuffer;
-
 	from?: Date;
 	to?: Date;
 
-	constructor(device: GPUDevice, chart: GPUBuffer) {
+	constructor(device: GPUDevice) {
 		// TODO: verify maxTrades
 		const maxTrades = 1e6;
-		const colors = createBuffer({
-			device,
-			data: new Float32Array(3 * maxTrades),
-		});
-		const opacity = createBuffer({
-			device,
-			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-			data: new Float32Array([1])
-		});
-		super(
-			device,
-			new Array(3 * maxTrades).fill(0),
-			indices,
-			{
-				instanceStride,
-				bindings: [
-					new BufferBinding(
-						'colors',
-						colors,
-						{ visibility: GPUShaderStage.FRAGMENT }
-					),
-					new BufferBinding(
-						'opacity',
-						opacity,
-						{
-							type: 'uniform',
-							visibility: GPUShaderStage.FRAGMENT,
-							wgslType: 'f32'
-						}
-					),
-				],
-				depthWriteEnabled: false,
-				vertOutputFields: ['@interpolate(flat) instance: u32'],
-				vertCode: 'return VertexOutput(chart.proj * chart.view * pos(arg), arg.instance);',
-				fragCode: `return vec4f(
-					colors[arg.instance * 3 + 0],
-					colors[arg.instance * 3 + 1],
-					colors[arg.instance * 3 + 2],
-					opacity
-				);`,
-			}
-		);
-		this.colors = colors;
-		this.opacity = opacity;
-		this.nInstances = 0;
+		super(device, new Array(3 * maxTrades).fill(0), indices);
 	}
 
 	static toBox(trade: Trade, lastPrice: number) {
@@ -163,9 +115,8 @@ export class Trades extends Mesh {
 
 		const offset3 = this.nInstances * Float32Array.BYTES_PER_ELEMENT;
 		this.updatePositions(positions, offset3 * instanceStride);
-		this.device.queue.writeBuffer(this.colors, offset3 * 3, new Float32Array(colors));
+		this.device.queue.writeBuffer(this.buffers.colors, offset3 * 3, new Float32Array(colors));
 
 		this.nInstances += positions.length / instanceStride;
 	}
- */
 }

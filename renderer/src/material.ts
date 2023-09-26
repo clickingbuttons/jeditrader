@@ -20,7 +20,7 @@ const defaultOptions: MaterialOptions = {
 	depthWriteEnabled: true,
 	cullMode: 'back',
 	vertOutputFields: ['color: vec4f'],
-	vertCode: 'return VertexOutput(scene.proj * scene.view * toVec4(pos(arg)), color(arg));',
+	vertCode: 'return VertexOutput(position64(arg).proj, color(arg));',
 	fragCode: 'return arg.color;',
 };
 
@@ -53,7 +53,47 @@ struct VertexOutput {
 
 ${fp64('scene.one')}
 
-fn pos(arg: VertexInput) -> array<f64, 4> {
+fn sceneModel64() -> array<f64, 16> {
+	return array<f64, 16>(
+		f64(scene.model[0][0], scene.modelLow[0][0]),
+		f64(scene.model[0][1], scene.modelLow[0][1]),
+		f64(scene.model[0][2], scene.modelLow[0][2]),
+		f64(scene.model[0][3], scene.modelLow[0][3]),
+
+		f64(scene.model[1][0], scene.modelLow[1][0]),
+		f64(scene.model[1][1], scene.modelLow[1][1]),
+		f64(scene.model[1][2], scene.modelLow[1][2]),
+		f64(scene.model[1][3], scene.modelLow[1][3]),
+
+		f64(scene.model[2][0], scene.modelLow[2][0]),
+		f64(scene.model[2][1], scene.modelLow[2][1]),
+		f64(scene.model[2][2], scene.modelLow[2][2]),
+		f64(scene.model[2][3], scene.modelLow[2][3]),
+
+		f64(scene.model[3][0], scene.modelLow[3][0]),
+		f64(scene.model[3][1], scene.modelLow[3][1]),
+		f64(scene.model[3][2], scene.modelLow[3][2]),
+		f64(scene.model[3][3], scene.modelLow[3][3]),
+	);
+}
+
+fn model64(arg: VertexInput) -> array<f64, 16> {
+	var modelIndex = 0u;
+	if (arg.instance < arrayLength(&models)) {
+		modelIndex = arg.instance;
+	}
+
+	return models[modelIndex];
+}
+
+struct Position {
+	model: array<f64, 4>,
+	scene: array<f64, 4>,
+	view: vec4f,
+	proj: vec4f,
+}
+
+fn position64(arg: VertexInput) -> Position {
 	var vertIndex = indices[arg.vertex];
 	${wireframe ? `
 	let triangleIndex = arg.vertex / 6u;
@@ -67,12 +107,6 @@ fn pos(arg: VertexInput) -> array<f64, 4> {
 
 	let index = arg.instance * strides.instance + vertIndex * strides.vertex;
 
-	let eye = array<f64, 4>(
-		f64(scene.eye.x, scene.eyeLow.x),
-		f64(scene.eye.y, scene.eyeLow.y),
-		f64(scene.eye.z, scene.eyeLow.z),
-		f64(0.0, 0.0)
-	);
 	var pos = array<f64, 4>(
 		f64(0.0, 0.0),
 		f64(0.0, 0.0),
@@ -83,27 +117,14 @@ fn pos(arg: VertexInput) -> array<f64, 4> {
 		pos[i] = positions[index + i];
 	}
 
-	var modelIndex = 0u;
-	if (arg.instance < arrayLength(&models)) {
-		modelIndex = arg.instance;
-	}
+	var res = Position();
 
-	var model = models[modelIndex];
-	model[12] = sub64(model[12], eye[0]);
-	model[13] = sub64(model[13], eye[1]);
-	model[14] = sub64(model[14], eye[2]);
-	pos = mat4_vec4_mul64(model, pos);
+	res.model = mat4_vec4_mul64(model64(arg), pos);
+	res.scene = mat4_vec4_mul64(sceneModel64(), res.model);
+	res.view = scene.view * toVec4(res.scene);
+	res.proj = scene.proj * res.view;
 
-	return pos;
-}
-
-fn toVec4(v: array<f64, 4>) -> vec4f {
-	return vec4f(
-		v[0].high + v[0].low,
-		v[1].high + v[1].low,
-		v[2].high + v[2].low,
-		v[3].high + v[3].low,
-	);
+	return res;
 }
 
 fn color(arg: VertexInput) -> vec4f {
@@ -190,9 +211,8 @@ export class Material {
 		const opts = { ...defaultOptions, ...options };
 		this.device = device;
 		this.bindGroups = {
-			scene: [Scene.Uniform],
-			mesh: Mesh.bindGroups,
-			// user: opts.bindings
+			scene: [Scene.uniform],
+			...(opts.bindings.length === 0 ? {} : { user: opts.bindings })
 		};
 		const layout = device.createPipelineLayout({
 			bindGroupLayouts: Object.entries(this.bindGroups).map(([label, group]) =>
@@ -207,15 +227,16 @@ export class Material {
 	}
 
 	bind(meshes: Mesh[]) {
+		if (!this.bindGroups.user) return;
 		this.meshes.push(...meshes.map(mesh => ({
 			mesh,
 			bindGroup: this.device.createBindGroup({
-				label: 'material bind',
 				layout: this.pipeline.getBindGroupLayout(1),
-				entries: Mesh.bindGroups.map((group, i) => {
-					group.buffer = mesh[group.name as 'strides' | 'positions' | 'models' | 'indices' | 'colors'];
-					return group.entry(i);
-				}),
+				entries: this.bindGroups.user!
+					.map((binding, i) => {
+						if (!(binding.name in mesh.buffers)) throw new Error(`expected ${binding.name} in mesh.buffers`);
+						return binding.entry(i, mesh.buffers[binding.name as keyof typeof mesh.buffers]);
+					})
 			})
 		})));
 	}
@@ -223,10 +244,10 @@ export class Material {
 	render(pass: GPURenderPassEncoder): void {
 		pass.setPipeline(this.wireframe ? this.pipelineWireframe : this.pipeline);
 		this.meshes.forEach(({ bindGroup, mesh }) => {
-			pass.setBindGroup(1, bindGroup);
+			if (mesh.nIndices === 0 || mesh.nInstances === 0) return;
 
-			const nIndices = mesh.indices.size / Float32Array.BYTES_PER_ELEMENT;
-			pass.draw(this.wireframe ? nIndices * 2 : nIndices, mesh.nInstances);
+			pass.setBindGroup(1, bindGroup);
+			pass.draw(this.wireframe ? mesh.nIndices * 2 : mesh.nIndices, mesh.nInstances);
 		});
 	}
 

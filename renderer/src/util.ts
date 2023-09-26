@@ -104,3 +104,12 @@ export function align(n: number, alignment: number) {
 	return (n + alignment - 1) & ~(alignment - 1);
 }
 
+export function toF64(nums: Float64Array | number[]): Float32Array {
+	const res = new Float32Array(nums.length * 2);
+	for (let i = 0; i < nums.length; i++) {
+		res[i * 2] = nums[i];
+		res[i * 2 + 1] = nums[i] - Math.fround(nums[i]);
+	}
+	return res;
+}
+

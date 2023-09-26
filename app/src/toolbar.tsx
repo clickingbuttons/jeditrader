@@ -1,7 +1,7 @@
 import { JSX } from 'preact';
 import { SymbolPicker } from './select.js';
 import { LightMode, DarkMode, Settings, Debug } from './icons/index.js';
-import { Scene, lods, Lod, Chart as RenderChart } from '@jeditrader/renderer';
+import { Scene, lods, Lod, Chart as RenderChart, Renderer } from '@jeditrader/renderer';
 import { Signal } from '@preact/signals';
 import './toolbar.css';
 
@@ -26,13 +26,14 @@ function LodSelect({ chart }: { chart: RenderChart }) {
 */
 
 interface ToolbarProps extends JSX.HTMLAttributes<HTMLDivElement> {
-	scene: Scene | undefined;
+	renderer: Renderer | null;
 	showSettings: boolean;
 	setShowSettings: (b: boolean) => void;
 	dark: Signal<boolean>;
 }
 
-export function Toolbar({ scene, showSettings, setShowSettings, dark, style }: ToolbarProps) {
+export function Toolbar({ renderer, showSettings, setShowSettings, dark, style }: ToolbarProps) {
+	const scene = renderer?.scene;
 	return (
 		<div class="toolbar" style={style}>
 			{/*chart &&
@@ -47,6 +48,7 @@ export function Toolbar({ scene, showSettings, setShowSettings, dark, style }: T
 
 			{/*chart && <LodSelect chart={chart} />*/}
 
+			{renderer && <span>{(1 / (renderer.dt.value / 1000)).toFixed(2)} FPS</span>}
 			<div class="toolbar-buttons" >
 				<button
 					title="Toggle wireframe"

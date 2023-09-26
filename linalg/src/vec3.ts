@@ -70,10 +70,6 @@ export class Vec3 extends Float64Array {
 		]);
 	}
 
-	f32() {
-		return new Float32Array(this);
-	}
-
 	f32Low() {
 		return new Float32Array(this.map(v => v - Math.fround(v)));
 	}

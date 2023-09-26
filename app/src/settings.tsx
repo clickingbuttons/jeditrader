@@ -1,27 +1,60 @@
 import { h, JSX } from 'preact';
 import { Renderer } from '@jeditrader/renderer';
-import { Vec3 } from '@jeditrader/linalg';
+import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
 import { Signal, signal as newSignal } from '@preact/signals';
 import './settings.css';
 
-function InputVec3({ value, onChange }: { value: Vec3, onChange: (v: Vec3) => void }) {
+interface InputNumberProps extends Omit<JSX.HTMLAttributes<HTMLInputElement>, 'onChange'> {
+	value: number;
+	onChange: (v: number) => void;
+}
+
+function InputNumber({ value, onChange, ...props }: InputNumberProps) {
+	return (
+		<input
+			class="vec3"
+			value={value.toExponential(2).replace('e+', 'e').replace('e0', '')}
+			onChange={ev => onChange(+ev.currentTarget.value)}
+			{...props}
+		/>
+	);
+}
+
+interface InputNumbersProps<T> {
+	value: T;
+	onChange: (v: T) => void;
+	Ty: {
+		new(t: T): T
+	};
+}
+
+function InputNumbers<T extends Float64Array>({ value, onChange, Ty }: InputNumbersProps<T>) {
 	return (
 		<>
-			{(['x', 'y', 'z'] as ('x' | 'y' | 'z')[]).map(v =>
-				<span>
-					<input
-						class="vec3"
-						value={value[v].toExponential(2).replace('e+', 'e').replace('e0', '')}
-						onChange={ev => {
-							const newVal = new Vec3(value);
-							newVal[v] = +ev.currentTarget.value;
-							onChange(newVal);
-						}}
-					/>
-				</span>
+			{[...value].map((v, i) =>
+				<InputNumber
+					value={v}
+					onChange={n => {
+						const newVal = new Ty(value);
+						newVal[i] = n;
+						onChange(newVal);
+					}}
+				/>
 			)}
 		</>
 	);
+}
+
+function InputVec3({ value, onChange }: { value: Vec3, onChange: (v: Vec3) => void }) {
+	return <InputNumbers value={value} onChange={onChange} Ty={Vec3} />;
+}
+
+function InputVec4({ value, onChange }: { value: Vec4, onChange: (v: Vec4) => void }) {
+	return <InputNumbers value={value} onChange={onChange} Ty={Vec4} />;
+}
+
+function InputMat4({ value, onChange }: { value: Mat4, onChange: (v: Mat4) => void }) {
+	return <InputNumbers value={value} onChange={onChange} Ty={Mat4} />;
 }
 
 function rgbaNormToHex(r: number, g: number, b: number, a: number) {
@@ -87,6 +120,12 @@ function SettingInput({ signal }: { signal: Signal<any> }) {
 	);
 	if (signal.value instanceof Vec3) return (
 		<InputVec3 value={signal.value} onChange={v => signal.value = v} />
+	);
+	if (signal.value instanceof Vec4) return (
+		<InputVec4 value={signal.value} onChange={v => signal.value = v} />
+	);
+	if (signal.value instanceof Mat4) return (
+		<InputMat4 value={signal.value} onChange={v => signal.value = v} />
 	);
 	if (typeof signal.value === 'string') return (
 		<input

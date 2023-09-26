@@ -9,6 +9,8 @@ import { signal, effect } from '@preact/signals-core';
 import { Material } from './material.js';
 
 export class TestScene extends Scene {
+	declare settings;
+
 	constructor(renderer: Renderer) {
 		super(renderer);
 		const origin = new Date(0);
@@ -21,15 +23,19 @@ export class TestScene extends Scene {
 		]);
 		this.camera.pitch.value = -1.3;
 		this.camera.yaw.value = 0.018;
-		this.settings.milliseconds = milliseconds;
-		this.settings.geometry = signal(true);
-		this.settings.transform = signal(true);
+		const superSettings = this.settings as Scene['settings'];
+		this.settings = {
+			...superSettings,
+			milliseconds,
+			geometry: signal(true),
+			transform: signal(true),
+		};
 
 		this.materials.errorMaterial = new Material(this.device, {
+			bindings: Object.values(Mesh.bindGroup),
 			vertCode: `
-let p = pos(arg);
-let c = toVec4(p);
-return VertexOutput(scene.proj * scene.view * toVec4(p), c);
+let pos = position64(arg);
+return VertexOutput(pos.proj, toVec4(pos.scene));
 			`
 		});
 		const material = this.materials.errorMaterial;

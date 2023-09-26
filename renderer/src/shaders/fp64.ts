@@ -89,6 +89,15 @@ fn mul64(a: f64, b: f64) -> f64 {
 	return p;
 }
 
+fn vec4_sub64(a: array<f64, 4>, b: array<f64, 4>) -> array<f64, 4> {
+	return array<f64, 4>(
+		sub64(a[0], b[0]),
+		sub64(a[1], b[1]),
+		sub64(a[2], b[2]),
+		sub64(a[3], b[3]),
+	);
+}
+
 fn vec4_dot64(a: array<f64, 4>, b: array<f64, 4>) -> f64 {
 	var v = array<f64, 4>();
 
@@ -112,6 +121,33 @@ fn mat4_vec4_mul64(b: array<f64, 16>, a: array<f64, 4>) -> array<f64, 4> {
 	}
 
 	return res;
+}
+
+fn toVec4(v: array<f64, 4>) -> vec4f {
+	return vec4f(
+		v[0].high + v[0].low,
+		v[1].high + v[1].low,
+		v[2].high + v[2].low,
+		v[3].high + v[3].low,
+	);
+}
+
+fn toVec4High(v: array<f64, 4>) -> vec4f {
+	return vec4f(
+		v[0].high,
+		v[1].high,
+		v[2].high,
+		v[3].high,
+	);
+}
+
+fn toVec4Low(v: array<f64, 4>) -> vec4f {
+	return vec4f(
+		v[0].low,
+		v[1].low,
+		v[2].low,
+		v[3].low,
+	);
 }
 `;
 }

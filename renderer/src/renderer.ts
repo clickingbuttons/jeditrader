@@ -38,6 +38,7 @@ export class Renderer {
 	depthTextureView: GPUTextureView;
 
 	lastTime = performance.now();
+	dt = signal(1);
 	flags: RendererFlags = {
 		rerender: true,
 	};
@@ -105,7 +106,8 @@ export class Renderer {
 	}
 
 	frame(time: DOMHighResTimeStamp): void {
-		this.scene.update(time - this.lastTime);
+		this.dt.value = time - this.lastTime;
+		this.scene.update(this.dt.value);
 		this.lastTime = time;
 
 		if (!this.flags.rerender) { // Save GPU + CPU a lot of work
@@ -165,6 +167,7 @@ export class Renderer {
 			return new Renderer(canvas, canvasUI, device, context);
 		} catch (error) {
 			drawMessage(canvasUI, '' + error);
+			throw error;
 		}
 	}
 };

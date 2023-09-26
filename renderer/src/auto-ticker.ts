@@ -6,7 +6,7 @@ import { Trades } from './trades.js';
 import { Range } from './util.js';
 import { RendererFlags } from './renderer.js';
 import { lodKeys, getLodIndex } from './lod.js';
-import { ChartContext } from './chart.js';
+import { Scene } from './scene.js';
 import { Node } from './node.js';
 
 function toBounds(aggs: Aggregate[], period: Exclude<Period, 'trade'>): Range<Vec3> {
@@ -42,7 +42,6 @@ function toBounds(aggs: Aggregate[], period: Exclude<Period, 'trade'>): Range<Ve
 }
 
 export class AutoTicker extends Node {
-	/*
 	device: GPUDevice;
 	provider: Provider;
 
@@ -57,27 +56,29 @@ export class AutoTicker extends Node {
 	flags: RendererFlags;
 
 	constructor(
-		ctx: ChartContext,
+		scene: Scene,
+		range: Signal<Range<Vec3>>,
+		autoLod: Signal<Period>,
 		provider: Provider,
 	) {
 		super();
-		this.device = ctx.scene.device;
+		this.device = scene.device;
 		this.provider = provider;
-		this.range = ctx.range;
-		this.flags = ctx.scene.flags;
+		this.range = range;
+		this.flags = scene.flags;
 
-		const { device, uniform } = ctx.scene;
+		const { device } = scene;
 		this.lods = {
-			'year': new OHLCV(device, uniform),
-			'month': new OHLCV(device, uniform),
-			'week': new OHLCV(device, uniform),
-			'day': new OHLCV(device, uniform),
-			'hour4': new OHLCV(device, uniform),
-			'hour': new OHLCV(device, uniform),
-			'minute5': new OHLCV(device, uniform),
-			'minute': new OHLCV(device, uniform),
-			'second': new OHLCV(device, uniform),
-			'trade': new Trades(device, uniform),
+			'year': new OHLCV(device),
+			'month': new OHLCV(device),
+			'week': new OHLCV(device),
+			'day': new OHLCV(device),
+			'hour4': new OHLCV(device),
+			'hour': new OHLCV(device),
+			'minute5': new OHLCV(device),
+			'minute': new OHLCV(device),
+			'second': new OHLCV(device),
+			'trade': new Trades(device),
 		};
 		// Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === this.lod.value);
 
@@ -94,18 +95,18 @@ export class AutoTicker extends Node {
 			// Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === period);
 			this.flags.rerender = true;
 		});
-		ctx.autoLod.subscribe((newLod: Period) => {
+		autoLod.subscribe((newLod: Period) => {
 			if (this.autoLodEnabled.value) this.lod.value = newLod;
 		});
 		effect(() => {
-			if (lodKeys.indexOf(this.lod.value) >= lodKeys.indexOf('hour4')) this.fetchPage(ctx.scene.camera.eye.value);
+			if (lodKeys.indexOf(this.lod.value) >= lodKeys.indexOf('hour4')) this.fetchPage(scene.camera.eye.value);
 		});
 	}
 
 	onAggs(lod: Exclude<Period, 'trade'>, data: Aggregate[]) {
 		if (data.length == 0) return;
 
-		this.lods[lod].updateGeometry(data, lod);
+		this.lods[lod].appendGeometry(data, lod);
 		if (lod === 'year') this.range.value = toBounds(data, lod);
 		if (lod === this.lod.value) this.flags.rerender = true;
 	}
@@ -140,6 +141,5 @@ export class AutoTicker extends Node {
 			else this.provider[lod](ticker, from, to, data => this.onAggs(lod, data));
 		}
 	}
-*/
 }
 

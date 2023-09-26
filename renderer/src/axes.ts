@@ -1,52 +1,16 @@
 import { Mesh } from './mesh.js';
 import { BufferBinding } from './shader-binding.js';
-import { Vec3 } from '@jeditrader/linalg';
+import { Vec3, Mat4 } from '@jeditrader/linalg';
 import { createBuffer } from './util.js';
 import { getNext, Period } from '@jeditrader/providers';
 import { Labels } from './labels.js';
 import { toymd } from './helpers.js';
-import { Signal, effect, signal } from '@preact/signals-core';
+import { Signal, computed, effect, signal } from '@preact/signals-core';
 import { Range } from './util.js';
 import { lodKeys, getLodIndex } from './lod.js';
-import { ChartContext } from './chart.js';
 import { Input } from './input.js';
-
-const wgslStruct = `struct Axes {
-	backgroundColor: vec4f,
-	lineColor: vec4f,
-	lineThickness: f32,
-	horizontalLinesLen: u32,
-	verticalLinesLen: u32,
-}`;
-const vertCode = `
-	let p = pos(arg);
-	return VertexOutput(scene.proj * scene.view * p, p.xy);
-`;
-// If replacing this with quads, use:
-// https://github.com/m-schuetz/webgpu_wireframe_thicklines/blob/master/renderWireframeThick.js
-const fragCode = `
-	let uv = arg.uv;
-	var dudv = vec2(
-		length(vec2(dpdx(uv.x), dpdy(uv.x))),
-		length(vec2(dpdx(uv.y), dpdy(uv.y)))
-	);
-	dudv *= axes.lineThickness;
-
-	for (var i: u32 = 0; i < axes.horizontalLinesLen; i++) {
-		let xVal = horizontalLines[i];
-		if (uv.y > -dudv.y + xVal && uv.y < dudv.y + xVal) {
-			return axes.lineColor;
-		}
-	}
-	for (var i: u32 = 0; i < axes.verticalLinesLen; i++) {
-		let yVal = verticalLines[i];
-		if (uv.x > -dudv.x + yVal && uv.x < dudv.x + yVal) {
-			return axes.lineColor;
-		}
-	}
-
-	return axes.backgroundColor;
-`;
+import { Material } from './material.js';
+import { Scene } from './scene.js';
 
 // Unfortunately this is needed to prevent jitter when the camera is at z < 1000
 //  8┌─────────┐9
@@ -99,6 +63,7 @@ function toLabel(period: Period, ms: number): string {
 	case 'minute5':
 	case 'minute':
 		return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+	case 'second':
 	case 'trade':
 		return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
 	default:
@@ -107,111 +72,123 @@ function toLabel(period: Period, ms: number): string {
 }
 
 export class Axes extends Mesh {
-/*
 	eye: Signal<Vec3>;
-	scale = signal(new Vec3([1, 1, 1]));
 	scaleOffset?: Vec3;
 
-	uniform: GPUBuffer;
-	horizontalLines: GPUBuffer;
-	verticalLines: GPUBuffer;
+	static bindGroup = {
+		...Mesh.bindGroup,
+		axes: new BufferBinding('axes', {
+			type: 'uniform',
+			visibility: GPUShaderStage.FRAGMENT,
+			wgslStruct: `struct Axes {
+	backgroundColor: vec4f,
+	lineColor: vec4f,
+	lineThickness: f32,
+	horizontalLinesLen: u32,
+	verticalLinesLen: u32,
+}`,
+			wgslType: 'Axes',
+		}),
+		horizontalLines: new BufferBinding('horizontalLines', { visibility: GPUShaderStage.FRAGMENT }),
+		verticalLines: new BufferBinding('verticalLines', { visibility: GPUShaderStage.FRAGMENT }),
+	};
 
 	settings;
 	labels: Labels;
 
-	constructor(ctx: ChartContext) {
-		const scene = ctx.scene;
-		const device = ctx.scene.device;
-		const sceneUniform = ctx.scene.uniform;
-		const aspectRatio = ctx.scene.aspectRatio;
-		const eye = ctx.scene.camera.eye;
-		const range = ctx.range;
+	static material(device: GPUDevice) {
+		return new Material(device, {
+			bindings: Object.values(Axes.bindGroup),
+			// depthWriteEnabled: false,
+			cullMode: 'none',
+			vertOutputFields: [ 'uv: vec2f' ],
+			vertCode: `
+let pos = position64(arg);
+return VertexOutput(pos.proj, toVec4(pos.model).xy);
+			`,
+			// If replacing this with quads, use:
+			// https://github.com/m-schuetz/webgpu_wireframe_thicklines/blob/master/renderWireframeThick.js
+			fragCode: `
+let uv = arg.uv;
+var dudv = vec2(
+	length(vec2(dpdx(uv.x), dpdy(uv.x))),
+	length(vec2(dpdx(uv.y), dpdy(uv.y)))
+);
+dudv *= axes.lineThickness;
 
-		const uniform = createBuffer({
+for (var i: u32 = 0; i < axes.horizontalLinesLen; i++) {
+	let xVal = horizontalLines[i];
+	if (uv.y > -dudv.y + xVal && uv.y < dudv.y + xVal) {
+		return axes.lineColor;
+	}
+}
+for (var i: u32 = 0; i < axes.verticalLinesLen; i++) {
+	let yVal = verticalLines[i];
+	if (uv.x > -dudv.x + yVal && uv.x < dudv.x + yVal) {
+		return axes.lineColor;
+	}
+}
+
+return axes.backgroundColor;
+			`,
+		});
+	}
+
+	constructor(scene: Scene, range: Signal<Range<Vec3>>) {
+		const { device, aspectRatio, camera } = scene;
+		const { eye } = camera;
+		super(device, new Array(nVertices * 3).fill(0), indices);
+		this.buffers.axes = createBuffer({
 			device,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 			data: new Float32Array([
-				0.2, 0.2, 0.2, 1, // backgroundColor
+				0.3, 0.3, 0.3, 1, // backgroundColor
 				0, 0, 0, 1, // lineColor
 				2, // lineThickness
 				0, // horizontalLinesLen (u32)
 				0, // verticalLinesLen (u32)
 			])
 		});
-		const horizontalLines = createBuffer({
+		this.buffers.horizontalLines = createBuffer({
 			device,
 			data: new Float32Array(maxLines)
 		});
-		const verticalLines = createBuffer({
+		this.buffers.verticalLines = createBuffer({
 			device,
 			data: new Float32Array(maxLines)
 		});
-
-		super(
-			device,
-			new Array(nVertices * 3).fill(0),
-			indices,
-			{
-				bindings: [
-					new BufferBinding('axes', uniform, {
-						type: 'uniform',
-						visibility: GPUShaderStage.FRAGMENT,
-						wgslStruct,
-						wgslType: 'Axes',
-					}),
-					new BufferBinding(
-						'horizontalLines',
-						horizontalLines,
-						{ visibility: GPUShaderStage.FRAGMENT }
-					),
-					new BufferBinding(
-						'verticalLines',
-						verticalLines,
-						{ visibility: GPUShaderStage.FRAGMENT }
-					),
-				],
-				depthWriteEnabled: false,
-				cullMode: 'none',
-				vertOutputFields: [ 'uv: vec2f' ],
-				vertCode,
-				fragCode,
-			}
-		);
-		this.uniform = uniform;
-		this.horizontalLines = horizontalLines;
-		this.verticalLines = verticalLines;
 		this.labels = new Labels(scene);
 		this.eye = eye;
 		this.settings = {
 			labels: this.labels.settings,
 		};
-		effect(() => {
-			const len = range.value.max.sub(range.value.min);
-			const desiredHeight = len.x / aspectRatio.value;
-			this.scale.value = new Vec3([1, desiredHeight / len.y, 1]);
-		});
+		range.subscribe(console.log)
+		// range.subscribe(r => {
+		// 	const len = r.max.sub(r.min);
+		// 	const desiredHeight = len.x / aspectRatio.value;
+		// 	this.scaleY.value = desiredHeight / len.y;
+		// });
 
 		effect(() => this.updatePositions(this.getGeometry(this.eye.value, range.value)));
 		effect(() => this.updateLabels(this.eye.value, range.value));
 	}
 
 	getGeometry(eye: Vec3, range: Range<Vec3>) {
-		const scale = this.scale.value;
-		const camPos = eye.div(scale);
+		const camPos = eye;
 		const cameraZ = camPos.z;
 		const lod0 = cameraZ / 16;
 		const lod1 = cameraZ;
 
 		const points = [
-			new Vec3([camPos.x - lod0 / scale.x, camPos.y + lod0 / scale.y, 0]),
-			new Vec3([camPos.x + lod0 / scale.x, camPos.y + lod0 / scale.y, 0]),
-			new Vec3([camPos.x + lod0 / scale.x, camPos.y - lod0 / scale.y, 0]),
-			new Vec3([camPos.x - lod0 / scale.x, camPos.y - lod0 / scale.y, 0]),
+			new Vec3([camPos.x - lod0, camPos.y + lod0, 0]),
+			new Vec3([camPos.x + lod0, camPos.y + lod0, 0]),
+			new Vec3([camPos.x + lod0, camPos.y - lod0, 0]),
+			new Vec3([camPos.x - lod0, camPos.y - lod0, 0]),
 
-			new Vec3([camPos.x - lod1 / scale.x, camPos.y + lod1 / scale.y, 0]),
-			new Vec3([camPos.x + lod1 / scale.x, camPos.y + lod1 / scale.y, 0]),
-			new Vec3([camPos.x + lod1 / scale.x, camPos.y - lod1 / scale.y, 0]),
-			new Vec3([camPos.x - lod1 / scale.x, camPos.y - lod1 / scale.y, 0]),
+			new Vec3([camPos.x - lod1, camPos.y + lod1, 0]),
+			new Vec3([camPos.x + lod1, camPos.y + lod1, 0]),
+			new Vec3([camPos.x + lod1, camPos.y - lod1, 0]),
+			new Vec3([camPos.x - lod1, camPos.y - lod1, 0]),
 		];
 
 		return points
@@ -229,10 +206,9 @@ export class Axes extends Mesh {
 		const lodIndex = getLodIndex(eye.z);
 		const period = lodKeys[Math.max(0, lodIndex - 1)];
 
-		const scale = this.scale.value;
 		// Only render lines around camera.
-		const start = getNext(new Date(eye.x / scale.x), period, -maxLines / 2, true);
-		const end = getNext(new Date(eye.x / scale.x), period, maxLines / 2 - 1, true);
+		const start = getNext(new Date(eye.x), period, -maxLines / 2, true);
+		const end = getNext(new Date(eye.x), period, maxLines / 2 - 1, true);
 
 		const verticalLines: number[] = [];
 		for (
@@ -242,28 +218,25 @@ export class Axes extends Mesh {
 		) {
 			if (epochMs > range.min.x && epochMs < range.max.x) verticalLines.push(epochMs);
 		}
-		this.device.queue.writeBuffer(this.verticalLines, 0, new Float32Array(
-			verticalLines.map(v => v * scale.x - eye.x)
-		));
+		this.device.queue.writeBuffer(this.buffers.verticalLines, 0, new Float32Array(verticalLines));
 
 		const yLen = range.max.y - range.min.y;
-		const yStep = 10 ** Math.floor(Math.log10(yLen));
+		let yStep = 10 ** Math.floor(Math.log10(yLen));
+		if ((range.max.y - range.min.y) / yStep <= 2) yStep /= 10;
 		const horizontalLines: number[] = [];
 		for (let i = Math.ceil(range.min.y / yStep) * yStep; i <= range.max.y; i += yStep) {
 			horizontalLines.push(i);
 		}
-		this.device.queue.writeBuffer(this.horizontalLines, 0, new Float32Array(
-			horizontalLines.map(v => v * scale.y - eye.y)
-		));
+		this.device.queue.writeBuffer(this.buffers.horizontalLines, 0, new Float32Array(horizontalLines));
 
-		this.device.queue.writeBuffer(this.uniform, 9 * 4, new Uint32Array([
+		this.device.queue.writeBuffer(this.buffers.axes, 9 * 4, new Uint32Array([
 			horizontalLines.length, verticalLines.length,
 		]));
 
 		this.labels.setLabels(
 			horizontalLines
 				.map(l => ({
-					text: '$' + l,
+					text: '$' + l.toFixed(2),
 					pos: new Vec3([range.min.x, l, 0])
 				}))
 				.concat(
@@ -275,22 +248,20 @@ export class Axes extends Mesh {
 		);
 	}
 
-	update(input: Input) {
-		document.body.style.cursor = input.buttons.shift ? 'ns-resize' : 'auto';
-		if (input.buttons.mouse0 && input.buttons.shift) {
-			const newVal = this.scale.value.clone();
-			// newVal.x += input.movementX;
-			newVal.y -= input.movementY * 100e6;
-			if (!this.scaleOffset) this.scaleOffset = new Vec3([new Date(2010, 1).getTime(), 10, 0]);
-			this.scale.value = newVal;
-		} else {
-			this.scaleOffset = undefined;
-		}
-	}
+	// update(input: Input) {
+	// 	document.body.style.cursor = input.buttons.shift ? 'ns-resize' : 'auto';
+	// 	if (input.buttons.mouse0 && input.buttons.shift) {
+	// 		const newVal = this.scale.value.clone();
+	// 		// newVal.x += input.movementX;
+	// 		newVal.y -= input.movementY * 100e6;
+	// 		if (!this.scaleOffset) this.scaleOffset = new Vec3([new Date(2010, 1).getTime(), 10, 0]);
+	// 		this.scale.value = newVal;
+	// 	} else {
+	// 		this.scaleOffset = undefined;
+	// 	}
+	// }
 
-	render(pass: GPURenderPassEncoder) {
-		super.render(pass);
+	render() {
 		this.labels.render();
 	}
-*/
 }

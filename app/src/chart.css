@@ -13,5 +13,9 @@
 }
 
 .providerForm {
+	width: unset;
+	height: unset;
 	align-self: center;
+	justify-content: center;
+	background: rgba(var(--bg-overlay));
 }

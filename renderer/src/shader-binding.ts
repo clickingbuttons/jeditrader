@@ -38,12 +38,10 @@ function extractType(struct: string): string {
 }
 
 export class BufferBinding extends ShaderBindingBase {
-	buffer: GPUBuffer | null;
 	type: GPUBufferBindingType;
 
 	constructor(
 		name: string,
-		buffer: GPUBuffer | null,
 		{
 			type = 'read-only-storage',
 			visibility = GPUShaderStage.VERTEX,
@@ -63,7 +61,6 @@ export class BufferBinding extends ShaderBindingBase {
 	) {
 		if (wgslStruct && wgslType === 'array<f32>') wgslType = extractType(wgslStruct);
 		super(name, wgslType, wgslStruct, visibility);
-		this.buffer = buffer;
 		this.type = type;
 	}
 
@@ -88,23 +85,11 @@ export class BufferBinding extends ShaderBindingBase {
 		};
 	}
 
-	entry(binding: number): GPUBindGroupEntry {
-		if (!this.buffer) throw new Error('attempting to bind empty buffer');
+	entry(binding: number, buffer: GPUBuffer): GPUBindGroupEntry {
 		return {
 			binding,
-			resource: {
-				buffer: this.buffer
-			}
+			resource: { buffer }
 		};
-	}
-
-	clone(newBuffer?: GPUBuffer): BufferBinding {
-		return new BufferBinding(this.name, newBuffer ?? this.buffer, {
-			type: this.type,
-			visibility: this.visibility,
-			wgslType: this.wgslType,
-			wgslStruct: this.wgslStruct,
-		});
 	}
 }
 

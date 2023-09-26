@@ -1,14 +1,15 @@
-import { Vec3, Vec4 } from '@jeditrader/linalg';
+import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
 import { Input } from './input.js';
 import { createBuffer } from './util.js';
-import { effect, Signal } from '@preact/signals-core';
+import { effect, Signal, signal, computed } from '@preact/signals-core';
 import { Renderer, RendererFlags } from './renderer.js';
 import { BufferBinding } from './shader-binding.js';
 import { Material } from './material.js';
+import { Mesh } from './mesh.js';
 
 export interface Materials {
-	'default': Material,
+	'mesh': Material,
 	[key: string]: Material,
 }
 
@@ -26,37 +27,40 @@ export class Scene {
 
 	materials: Materials;
 
-	// Type is { any: { nested: { objects: { value: Signal<any> } } } }
-	settings: any;
+	model: Signal<Mat4>;
+	modelInv: Signal<Mat4>;
+	settings;
 
 	constructor(renderer: Renderer) {
 		this.aspectRatio = renderer.aspectRatio;
 		this.device = renderer.device;
 		this.canvasUI = renderer.canvasUI;
 		this.flags = renderer.flags;
-		this.materials = {
-			'default': new Material(this.device),
-		};
 		this.input = new Input(this.canvasUI);
 		this.camera = new Camera(this.aspectRatio);
-		this.uniform = createBuffer({
-			device: this.device,
-			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-			data: this.uniformData(),
-		});
-		const binding = Scene.Uniform.clone(this.uniform);
-		const layout = this.device.createBindGroupLayout({ entries: [binding.layoutEntry(0)] });
-		this.bindGroup = this.device.createBindGroup({
-			layout,
-			entries: [binding.entry(0)],
-		});
-
+		this.model = signal(Mat4.identity());
+		this.modelInv = computed(() => this.model.value.inverse());
 		this.settings = {
 			camera: {
 				eye: this.camera.eye,
 				pitch: this.camera.pitch,
 				yaw: this.camera.yaw,
 			},
+			model: this.model,
+		};
+		this.uniform = createBuffer({
+			device: this.device,
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+			data: this.uniformData(),
+		});
+		const binding = Scene.uniform;
+		const layout = this.device.createBindGroupLayout({ entries: [binding.layoutEntry(0)] });
+		this.bindGroup = this.device.createBindGroup({
+			layout,
+			entries: [binding.entry(0, this.uniform)],
+		});
+		this.materials = {
+			'mesh': new Material(this.device, { bindings: Object.values(Mesh.bindGroup) })
 		};
 
 		effect(() => {
@@ -65,30 +69,33 @@ export class Scene {
 		});
 	}
 
-	static Uniform = new BufferBinding('scene', null, {
+	static uniform = new BufferBinding('scene', {
 		type: 'uniform',
 		visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
 		wgslStruct: `struct Scene {
+			model: mat4x4f,
+			modelLow: mat4x4f,
 			view: mat4x4f,
 			proj: mat4x4f,
-			eye: vec3f,
-			eyeLow: vec3f,
-			one: f32
+			one: f32,
 		}`
 	});
 	uniformData() {
+		// Move camera translation from view to model.
 		const viewRel = this.camera.view.value.clone();
-		// The eye translation can be numbers larger than f32 can handle precisely.
-		// Instead we calculate relative to eye in the vertex shader.
+		const model: Mat4 =
+			Mat4.translate(this.camera.eye.value.mulScalar(-1))
+				.mul(this.model.value.clone());
 		viewRel[12] = 0;
 		viewRel[13] = 0;
 		viewRel[14] = 0;
 
 		return new Float32Array([
+			...model,
+			...model.f32Low(),
 			...viewRel,
 			...this.camera.proj.value,
-			...this.camera.eye.value, 0,
-			...this.camera.eye.value.f32Low(), 1
+			1,
 		]);
 	}
 
@@ -105,7 +112,7 @@ export class Scene {
 	sceneToClip(pos: Vec3): Vec4 {
 		let mvp = this.camera.proj.value
 			.mul(this.camera.view.value)
-			// .mul(this.root.model);
+			.mul(this.model.value);
 
 		let res = new Vec4([...pos, 1.0]).transform(mvp);
 		// divide X and Y by W just like the GPU does
@@ -117,7 +124,6 @@ export class Scene {
 
 	update(dt: DOMHighResTimeStamp) {
 		this.camera.update(dt, this.input);
-		// this.root.update(dt, this.input);
 		this.input.update();
 	}
 
