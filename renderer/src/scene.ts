@@ -52,6 +52,7 @@ export class Scene {
 				yaw: this.camera.yaw,
 			},
 			model: this.model,
+			modelInv: this.modelInv,
 		};
 		this.uniform = createBuffer({
 			device: this.device,

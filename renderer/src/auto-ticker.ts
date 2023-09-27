@@ -117,7 +117,7 @@ export class AutoTicker {
 	}
 
 	fetchPage(eye: Vec3) {
-		const lodIndex = getLodIndex(eye.z);
+		const lodIndex = lodKeys.indexOf(this.lod.value);
 		const lod = lodKeys[lodIndex];
 		const period = lodKeys[Math.max(0, lodIndex - 1)];
 		const ticker = this.ticker.value;

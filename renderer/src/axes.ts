@@ -70,6 +70,37 @@ function toLabel(period: Period, ms: number): string {
 	}
 }
 
+function getVerticalLines(eye: Vec3, range: Range<Vec3>, period: Period): number[] {
+	// Only render lines around camera.
+	const start = getNext(new Date(eye.x), period, -maxLines / 2, true);
+	const end = getNext(new Date(eye.x), period, maxLines / 2 - 1, true);
+
+	const res: number[] = [];
+	for (let t = start; t < end; t = getNext(t, period)) {
+		const ms = t.getTime();
+		if (ms > range.min.x && ms < range.max.x) res.push(ms);
+	}
+
+	return res;
+}
+
+function getHorizontalLines(eye: Vec3, range: Range<Vec3>, modelInv: Mat4): number[] {
+	// Only render lines around camera.
+	const sceneY = new Vec4([0, eye.y, 0, 1]).transform(modelInv).y;
+
+	const sceneZ = Math.abs(new Vec3(new Vec4([0, eye.z, 0, 1]).transform(modelInv)).y);
+	const step = Math.min(sceneZ, range.max.y - range.min.y);
+	let yStep = 10 ** Math.floor(Math.log10(step));
+
+	const start = Math.max(sceneY - yStep * maxLines / 2, range.min.y);
+	const end = Math.min(sceneY + yStep * maxLines / 2, range.max.y);
+
+	const res: number[] = [];
+	const evenStart = Math.ceil(start / yStep) * yStep;
+	for (let i = evenStart; i < end; i += yStep) res.push(i);
+	return res;
+}
+
 export class Axes extends Mesh {
 	static bindGroup = {
 		...Mesh.bindGroup,
@@ -165,7 +196,12 @@ return axes.backgroundColor;
 			scale.value,
 			scene.modelInv.value
 		)));
-		effect(() => this.updateLabels(eye.value, range.value, scene.camModel.value));
+		effect(() => this.updateLabels(
+			eye.value,
+			range.value,
+			scene.camModel.value,
+			scene.modelInv.value,
+		));
 	}
 
 	getGeometry(eye: Vec3, range: Range<Vec3>, scale: Vec3, modelInv: Mat4) {
@@ -197,40 +233,23 @@ return axes.backgroundColor;
 			.reduce((acc, cur) => acc.concat([...cur]), [] as number[]);
 	}
 
-	updateLabels(eye: Vec3, range: Range<Vec3>, model: Mat4) {
+	updateLabels(eye: Vec3, range: Range<Vec3>, model: Mat4, modelInv: Mat4) {
 		const lodIndex = getLodIndex(eye.z);
 		const period = lodKeys[Math.max(0, lodIndex - 1)];
-
-		// Only render lines around camera.
-		const start = getNext(new Date(eye.x), period, -maxLines / 2, true);
-		const end = getNext(new Date(eye.x), period, maxLines / 2 - 1, true);
-
-		const verticalLines: number[] = [];
-		for (
-			let epochMs = start.getTime();
-			epochMs < end.getTime();
-			epochMs = getNext(new Date(epochMs), period).getTime()
-		) {
-			if (epochMs > range.min.x && epochMs < range.max.x) verticalLines.push(epochMs);
-		}
-		this.device.queue.writeBuffer(this.buffers.verticalLines, 0, new Float32Array(
-			verticalLines.map(v => new Vec4([v, 0, 0, 1]).transform(model).x)
-		));
-
-		const yLen = range.max.y - range.min.y;
-		let yStep = 10 ** Math.floor(Math.log10(yLen));
-		if ((range.max.y - range.min.y) / yStep <= 2) yStep /= 10;
-		const horizontalLines: number[] = [];
-		for (let i = Math.ceil(range.min.y / yStep) * yStep; i <= range.max.y; i += yStep) {
-			horizontalLines.push(i);
-		}
-		this.device.queue.writeBuffer(this.buffers.horizontalLines, 0, new Float32Array(
-			horizontalLines.map(v => new Vec4([0, v, 0, 1]).transform(model).y)
-		));
-
+		const verticalLines = getVerticalLines(eye, range, period);
+		verticalLines.length = maxLines;
+		const horizontalLines = getHorizontalLines(eye, range, modelInv);
+		horizontalLines.length = maxLines;
 		this.device.queue.writeBuffer(this.buffers.axes, 9 * 4, new Uint32Array([
 			horizontalLines.length, verticalLines.length,
 		]));
+
+		this.device.queue.writeBuffer(this.buffers.verticalLines, 0, new Float32Array(
+			verticalLines.map(v => new Vec4([v, 0, 0, 1]).transform(model).x)
+		));
+		this.device.queue.writeBuffer(this.buffers.horizontalLines, 0, new Float32Array(
+			horizontalLines.map(v => new Vec4([0, v, 0, 1]).transform(model).y)
+		));
 
 		this.labels.setLabels(
 			horizontalLines

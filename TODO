@@ -1,6 +1,7 @@
-- auto y ticks
-- best volume scale
+- scale only chart
+
 - x/y hover
+	- scale relative to cursor
 	- box select
 
 - ticker select
