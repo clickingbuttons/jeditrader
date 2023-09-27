@@ -3,6 +3,7 @@ import { Scene } from './scene.js';
 import { debounce } from './helpers.js';
 import { Signal, signal } from '@preact/signals-core';
 import { TestScene } from './test-scene.js';
+import { Input } from './input.js';
 
 export interface RendererFlags {
 	rerender: boolean;
@@ -29,6 +30,7 @@ export function drawMessage(canvas: HTMLCanvasElement, msg: string, font = '64px
 export class Renderer {
 	canvas: HTMLCanvasElement;
 	canvasUI: HTMLCanvasElement;
+	input: Input;
 	device: GPUDevice;
 	context: GPUCanvasContext;
 
@@ -58,6 +60,7 @@ export class Renderer {
 		this.canvasUI = canvasUI;
 		this.device = device;
 		this.context = context;
+		this.input = new Input(canvasUI);
 		this.renderTarget = this.createRenderTarget();
 		this.renderTargetView = this.renderTarget.createView();
 		this.depthTexture = this.createDepthTarget();
@@ -106,14 +109,15 @@ export class Renderer {
 	}
 
 	frame(time: DOMHighResTimeStamp): void {
-		this.dt.value = time - this.lastTime;
-		this.scene.update(this.dt.value);
+		const dt = time - this.lastTime;
+		this.scene.update(dt);
 		this.lastTime = time;
 
 		if (!this.flags.rerender) { // Save GPU + CPU a lot of work
 			requestAnimationFrame(this.frame.bind(this));
 			return;
 		}
+		this.dt.value = dt;
 
 		const commandEncoder = this.device.createCommandEncoder();
 		const renderPassDescriptor: GPURenderPassDescriptor = {

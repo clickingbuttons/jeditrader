@@ -41,6 +41,7 @@ export class Mesh {
 
 	nIndices: number;
 	nInstances: number;
+	visible = true;
 
 	constructor(
 		device: GPUDevice,

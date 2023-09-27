@@ -1,122 +1,76 @@
-import { Vec3 } from '@jeditrader/linalg';
+import { Vec3, Mat4 } from '@jeditrader/linalg';
 import { Mesh } from './mesh.js';
-import { BufferBinding } from './shader-binding.js';
 import { Trade } from '@jeditrader/providers';
-import { createBuffer } from './util.js';
-import { Range } from './util.js';
-
-const indices = [
-	//    5---6
-	//   /   /
-	//  4---7
-	//    1---2
-	//   /   /
-	//  0---3
-	// bottom face
-	0, 3, 2,
-	2, 1, 0,
-
-	// top face
-	4, 7, 6,
-	6, 5, 4,
-
-	// left face
-	0, 4, 5,
-	5, 1, 0,
-
-	// right face
-	2, 6, 7,
-	7, 3, 2,
-
-	// front face
-	0, 3, 7,
-	7, 4, 0,
-
-	// back face
-	1, 5, 2,
-	2, 5, 6,
-];
-
-const instanceStride = 24;
-function toCube(range: Range<Vec3>): number[] {
-	return [
-		range.min.x, range.min.y, range.min.z,
-		range.min.x, range.max.y, range.min.z,
-		range.max.x, range.max.y, range.min.z,
-		range.max.x, range.min.y, range.min.z,
-
-		range.min.x, range.min.y, range.max.z,
-		range.min.x, range.max.y, range.max.z,
-		range.max.x, range.max.y, range.max.z,
-		range.max.x, range.min.y, range.max.z,
-	];
-}
+import { Cube } from '@jeditrader/geometry';
 
 export class Trades extends Mesh {
+	maxTrades: number;
+
+	// Used by parent
 	from?: Date;
 	to?: Date;
 
-	constructor(device: GPUDevice) {
-		// TODO: verify maxTrades
-		const maxTrades = 1e6;
-		super(device, new Array(3 * maxTrades).fill(0), indices);
+	constructor(device: GPUDevice, maxTrades: number) {
+		const { positions, indices } = new Cube(new Vec3([0, 0, 1])).toIndexedTriangles();
+
+		super(device, positions, indices, {
+			instances: {
+				count: 0,
+				models: new Float64Array(maxTrades * 16),
+				colors: new Float32Array(maxTrades * 4),
+			},
+		});
+		this.nInstances = 0;
+		this.maxTrades = maxTrades;
 	}
 
 	static toBox(trade: Trade, lastPrice: number) {
-		const minCellSize = 0.001;
-		const bodyMin = new Vec3([
+		const scale = new Vec3([1, 0.01, trade.size]);
+		const translate = new Vec3([
 			trade.epochNS / 1e6,
 			trade.price,
-			Math.log(trade.size)
+			0
 		]);
-		const bodyMax = new Vec3([
-			(trade.epochNS / 1e6 + 1e3),
-			trade.price + minCellSize,
-			Math.log(trade.size) + minCellSize * 1e3,
-		]);
+		const model = Mat4.translate(translate).scale(scale);
 
-		let color = new Vec3([1, 1, 1]);
-		if (trade.price > lastPrice) color = new Vec3([0, 1, 0]);
-		else if (trade.price < lastPrice) color = new Vec3([1, 0, 0]);
+		let color = new Vec3([1, 1, 1, 1]);
+		if (trade.price > lastPrice) color = new Vec3([0, 1, 0, 1]);
+		else if (trade.price < lastPrice) color = new Vec3([1, 0, 0, 1]);
 
-		return {
-			body: {
-				min: bodyMin,
-				max: bodyMax,
-			},
-			color: color,
-		};
+		return { model, color };
 	}
 
 	static getGeometry(trades: Trade[]) {
-		const positions = [];
+		const models = [];
 		const colors = [];
 
 		var trade;
 		var lastPrice = trades[0].price;
 		for (let i = 0; i < trades.length; i++) {
 			trade = trades[i];
+			const { model, color } = Trades.toBox(trade, lastPrice);
 
-			const { body, color } = Trades.toBox(trade, lastPrice);
-
-			positions.push(...toCube(body));
+			models.push(...model);
 			colors.push(...color);
 			lastPrice = trade.price;
 		}
 
 		return {
-			positions,
+			models,
 			colors
 		};
 	}
 
 	updateGeometry(trades: Trade[]) {
-		const { positions, colors } = Trades.getGeometry(trades);
+		const { models, colors } = Trades.getGeometry(trades);
+		const nInstances = models.length / 16;
 
-		const offset3 = this.nInstances * Float32Array.BYTES_PER_ELEMENT;
-		this.updatePositions(positions, offset3 * instanceStride);
-		this.device.queue.writeBuffer(this.buffers.colors, offset3 * 3, new Float32Array(colors));
+		if (this.nInstances + nInstances > this.maxTrades) {
+			throw new Error('trades full');
+		}
 
-		this.nInstances += positions.length / instanceStride;
+		this.updateModels(models, this.nInstances);
+		this.updateColors(colors, this.nInstances);
+		this.nInstances += nInstances;
 	}
 }

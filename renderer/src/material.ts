@@ -234,7 +234,8 @@ export class Material {
 				layout: this.pipeline.getBindGroupLayout(1),
 				entries: this.bindGroups.user!
 					.map((binding, i) => {
-						if (!(binding.name in mesh.buffers)) throw new Error(`expected ${binding.name} in mesh.buffers`);
+						if (!(binding.name in mesh.buffers))
+							throw new Error(`expected ${binding.name} in mesh.buffers`);
 						return binding.entry(i, mesh.buffers[binding.name as keyof typeof mesh.buffers]);
 					})
 			})
@@ -244,7 +245,7 @@ export class Material {
 	render(pass: GPURenderPassEncoder): void {
 		pass.setPipeline(this.wireframe ? this.pipelineWireframe : this.pipeline);
 		this.meshes.forEach(({ bindGroup, mesh }) => {
-			if (mesh.nIndices === 0 || mesh.nInstances === 0) return;
+			if (mesh.nIndices === 0 || mesh.nInstances === 0 || !mesh.visible) return;
 
 			pass.setBindGroup(1, bindGroup);
 			pass.draw(this.wireframe ? mesh.nIndices * 2 : mesh.nIndices, mesh.nInstances);

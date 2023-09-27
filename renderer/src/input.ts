@@ -15,9 +15,9 @@ const defaultButtons = {
 
 function keyMap(key: string): keyof Input['buttons'] | undefined {
 	if (['w', 'W', 'ArrowUp'].includes(key)) return 'up';
-	if (['a', 'A', 'ArrowUp'].includes(key)) return 'left';
-	if (['s', 'S', 'ArrowUp'].includes(key)) return 'down';
-	if (['d', 'D', 'ArrowUp'].includes(key)) return 'right';
+	if (['a', 'A', 'ArrowLeft'].includes(key)) return 'left';
+	if (['s', 'S', 'ArrowDown'].includes(key)) return 'down';
+	if (['d', 'D', 'ArrowRight'].includes(key)) return 'right';
 	if (key === ' ') return 'space';
 	return undefined;
 }

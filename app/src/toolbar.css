@@ -19,3 +19,7 @@
   fill: rgb(var(--fg));
 }
 
+.toolbar > span {
+	background: rgba(var(--bg-overlay));
+	width: 5em;
+}

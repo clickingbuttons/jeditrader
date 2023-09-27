@@ -28,6 +28,7 @@ export class Scene {
 	materials: Materials;
 
 	model: Signal<Mat4>;
+	camModel: Signal<Mat4>;
 	modelInv: Signal<Mat4>;
 	settings;
 
@@ -36,9 +37,13 @@ export class Scene {
 		this.device = renderer.device;
 		this.canvasUI = renderer.canvasUI;
 		this.flags = renderer.flags;
-		this.input = new Input(this.canvasUI);
+		this.input = renderer.input;
 		this.camera = new Camera(this.aspectRatio);
 		this.model = signal(Mat4.identity());
+		this.camModel = computed(() => Mat4
+			.translate(this.camera.eye.value.mulScalar(-1))
+			.mul(this.model.value)
+		);
 		this.modelInv = computed(() => this.model.value.inverse());
 		this.settings = {
 			camera: {
@@ -62,6 +67,7 @@ export class Scene {
 		this.materials = {
 			'mesh': new Material(this.device, { bindings: Object.values(Mesh.bindGroup) })
 		};
+		this.flags.rerender = true;
 
 		effect(() => {
 			this.device.queue.writeBuffer(this.uniform, 0, this.uniformData());
@@ -83,9 +89,7 @@ export class Scene {
 	uniformData() {
 		// Move camera translation from view to model.
 		const viewRel = this.camera.view.value.clone();
-		const model: Mat4 =
-			Mat4.translate(this.camera.eye.value.mulScalar(-1))
-				.mul(this.model.value.clone());
+		const model: Mat4 = this.camModel.value;
 		viewRel[12] = 0;
 		viewRel[13] = 0;
 		viewRel[14] = 0;

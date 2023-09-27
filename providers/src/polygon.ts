@@ -125,7 +125,7 @@ export class Polygon implements Provider {
 	}
 
 	second(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		console.error('polygon has no second aggs and fetching trades takes forever :)')
+		return this.agg(ticker, 1, 'second', from, to, onData);
 	}
 
 	trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void) {

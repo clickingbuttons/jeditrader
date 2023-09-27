@@ -57,8 +57,7 @@ export class Camera {
 
 		const absZ = Math.abs(this.eye.value.z);
 		let cameraSpeed = dt * Math.max(absZ, 0.001) / 200;
-		if (input.buttons.shift) cameraSpeed *= 8;
-		else if (input.buttons.alt) cameraSpeed *= 4;
+		if (input.buttons.shift) cameraSpeed *= 2;
 
 		let newEye = this.eye.value.clone();
 		const direction = this.direction.value;

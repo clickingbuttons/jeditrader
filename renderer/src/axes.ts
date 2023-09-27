@@ -1,14 +1,13 @@
 import { Mesh } from './mesh.js';
 import { BufferBinding } from './shader-binding.js';
-import { Vec3, Mat4 } from '@jeditrader/linalg';
+import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
 import { createBuffer } from './util.js';
 import { getNext, Period } from '@jeditrader/providers';
 import { Labels } from './labels.js';
 import { toymd } from './helpers.js';
-import { Signal, computed, effect, signal } from '@preact/signals-core';
+import { Signal, effect} from '@preact/signals-core';
 import { Range } from './util.js';
 import { lodKeys, getLodIndex } from './lod.js';
-import { Input } from './input.js';
 import { Material } from './material.js';
 import { Scene } from './scene.js';
 
@@ -72,9 +71,6 @@ function toLabel(period: Period, ms: number): string {
 }
 
 export class Axes extends Mesh {
-	eye: Signal<Vec3>;
-	scaleOffset?: Vec3;
-
 	static bindGroup = {
 		...Mesh.bindGroup,
 		axes: new BufferBinding('axes', {
@@ -99,12 +95,12 @@ export class Axes extends Mesh {
 	static material(device: GPUDevice) {
 		return new Material(device, {
 			bindings: Object.values(Axes.bindGroup),
-			// depthWriteEnabled: false,
+			depthWriteEnabled: false,
 			cullMode: 'none',
 			vertOutputFields: [ 'uv: vec2f' ],
 			vertCode: `
 let pos = position64(arg);
-return VertexOutput(pos.proj, toVec4(pos.model).xy);
+return VertexOutput(pos.proj, toVec4(pos.scene).xy);
 			`,
 			// If replacing this with quads, use:
 			// https://github.com/m-schuetz/webgpu_wireframe_thicklines/blob/master/renderWireframeThick.js
@@ -134,9 +130,10 @@ return axes.backgroundColor;
 		});
 	}
 
-	constructor(scene: Scene, range: Signal<Range<Vec3>>) {
-		const { device, aspectRatio, camera } = scene;
+	constructor(scene: Scene, range: Signal<Range<Vec3>>, scale: Signal<Vec3>) {
+		const { device, camera } = scene;
 		const { eye } = camera;
+
 		super(device, new Array(nVertices * 3).fill(0), indices);
 		this.buffers.axes = createBuffer({
 			device,
@@ -158,37 +155,35 @@ return axes.backgroundColor;
 			data: new Float32Array(maxLines)
 		});
 		this.labels = new Labels(scene);
-		this.eye = eye;
 		this.settings = {
 			labels: this.labels.settings,
 		};
-		range.subscribe(console.log)
-		// range.subscribe(r => {
-		// 	const len = r.max.sub(r.min);
-		// 	const desiredHeight = len.x / aspectRatio.value;
-		// 	this.scaleY.value = desiredHeight / len.y;
-		// });
 
-		effect(() => this.updatePositions(this.getGeometry(this.eye.value, range.value)));
-		effect(() => this.updateLabels(this.eye.value, range.value));
+		effect(() => this.updatePositions(this.getGeometry(
+			eye.value,
+			range.value,
+			scale.value,
+			scene.modelInv.value
+		)));
+		effect(() => this.updateLabels(eye.value, range.value, scene.camModel.value));
 	}
 
-	getGeometry(eye: Vec3, range: Range<Vec3>) {
-		const camPos = eye;
+	getGeometry(eye: Vec3, range: Range<Vec3>, scale: Vec3, modelInv: Mat4) {
+		const camPos = new Vec4([...eye, 1.0]).transform(modelInv);
 		const cameraZ = camPos.z;
-		const lod0 = cameraZ / 16;
-		const lod1 = cameraZ;
+		const lod0 = cameraZ;
+		const lod1 = cameraZ * 16;
 
 		const points = [
-			new Vec3([camPos.x - lod0, camPos.y + lod0, 0]),
-			new Vec3([camPos.x + lod0, camPos.y + lod0, 0]),
-			new Vec3([camPos.x + lod0, camPos.y - lod0, 0]),
-			new Vec3([camPos.x - lod0, camPos.y - lod0, 0]),
+			new Vec3([camPos.x - lod0, camPos.y + lod0 / scale.y, 0]),
+			new Vec3([camPos.x + lod0, camPos.y + lod0 / scale.y, 0]),
+			new Vec3([camPos.x + lod0, camPos.y - lod0 / scale.y, 0]),
+			new Vec3([camPos.x - lod0, camPos.y - lod0 / scale.y, 0]),
 
-			new Vec3([camPos.x - lod1, camPos.y + lod1, 0]),
-			new Vec3([camPos.x + lod1, camPos.y + lod1, 0]),
-			new Vec3([camPos.x + lod1, camPos.y - lod1, 0]),
-			new Vec3([camPos.x - lod1, camPos.y - lod1, 0]),
+			new Vec3([camPos.x - lod1, camPos.y + lod1 / scale.y, 0]),
+			new Vec3([camPos.x + lod1, camPos.y + lod1 / scale.y, 0]),
+			new Vec3([camPos.x + lod1, camPos.y - lod1 / scale.y, 0]),
+			new Vec3([camPos.x - lod1, camPos.y - lod1 / scale.y, 0]),
 		];
 
 		return points
@@ -202,7 +197,7 @@ return axes.backgroundColor;
 			.reduce((acc, cur) => acc.concat([...cur]), [] as number[]);
 	}
 
-	updateLabels(eye: Vec3, range: Range<Vec3>) {
+	updateLabels(eye: Vec3, range: Range<Vec3>, model: Mat4) {
 		const lodIndex = getLodIndex(eye.z);
 		const period = lodKeys[Math.max(0, lodIndex - 1)];
 
@@ -218,7 +213,9 @@ return axes.backgroundColor;
 		) {
 			if (epochMs > range.min.x && epochMs < range.max.x) verticalLines.push(epochMs);
 		}
-		this.device.queue.writeBuffer(this.buffers.verticalLines, 0, new Float32Array(verticalLines));
+		this.device.queue.writeBuffer(this.buffers.verticalLines, 0, new Float32Array(
+			verticalLines.map(v => new Vec4([v, 0, 0, 1]).transform(model).x)
+		));
 
 		const yLen = range.max.y - range.min.y;
 		let yStep = 10 ** Math.floor(Math.log10(yLen));
@@ -227,7 +224,9 @@ return axes.backgroundColor;
 		for (let i = Math.ceil(range.min.y / yStep) * yStep; i <= range.max.y; i += yStep) {
 			horizontalLines.push(i);
 		}
-		this.device.queue.writeBuffer(this.buffers.horizontalLines, 0, new Float32Array(horizontalLines));
+		this.device.queue.writeBuffer(this.buffers.horizontalLines, 0, new Float32Array(
+			horizontalLines.map(v => new Vec4([0, v, 0, 1]).transform(model).y)
+		));
 
 		this.device.queue.writeBuffer(this.buffers.axes, 9 * 4, new Uint32Array([
 			horizontalLines.length, verticalLines.length,
@@ -247,19 +246,6 @@ return axes.backgroundColor;
 				)
 		);
 	}
-
-	// update(input: Input) {
-	// 	document.body.style.cursor = input.buttons.shift ? 'ns-resize' : 'auto';
-	// 	if (input.buttons.mouse0 && input.buttons.shift) {
-	// 		const newVal = this.scale.value.clone();
-	// 		// newVal.x += input.movementX;
-	// 		newVal.y -= input.movementY * 100e6;
-	// 		if (!this.scaleOffset) this.scaleOffset = new Vec3([new Date(2010, 1).getTime(), 10, 0]);
-	// 		this.scale.value = newVal;
-	// 	} else {
-	// 		this.scaleOffset = undefined;
-	// 	}
-	// }
 
 	render() {
 		this.labels.render();

@@ -4,15 +4,14 @@ import { Aggregate, Period, getNext } from '@jeditrader/providers';
 import { Cube } from '@jeditrader/geometry';
 
 export class OHLCV extends Mesh {
+	maxCandles: number;
+
+	// Used by parent
 	from?: Date;
 	to?: Date;
 
-	constructor(device: GPUDevice) {
-		// TODO: verify maxCandles
-		const maxCandles = 1e5;
-		const { positions, indices } = new Cube(
-			new Vec3([0, 0, 1]),
-		).toIndexedTriangles();
+	constructor(device: GPUDevice, maxCandles: number) {
+		const { positions, indices } = new Cube(new Vec3([0, 0, 1])).toIndexedTriangles();
 
 		super(device, positions, indices, {
 			instances: {
@@ -22,6 +21,7 @@ export class OHLCV extends Mesh {
 			},
 		});
 		this.nInstances = 0;
+		this.maxCandles = maxCandles;
 	}
 
 	static toCandle(agg: Aggregate, period: Period) {
@@ -36,7 +36,7 @@ export class OHLCV extends Mesh {
 			(agg.close + agg.open) / 2,
 			0
 		]);
-		const transform = Mat4.translate(translate).scale(scale);
+		const model = Mat4.translate(translate).scale(scale);
 
 		const wickScale = new Vec3([
 			scale.x / 8,
@@ -55,7 +55,7 @@ export class OHLCV extends Mesh {
 		else if (agg.close < agg.open) color = new Vec3([1, 0, 0, 1]);
 
 		return {
-			body: transform,
+			body: model,
 			color: color,
 			wick: wickTransform,
 		};
@@ -68,7 +68,6 @@ export class OHLCV extends Mesh {
 		var agg;
 		for (let i = 0; i < aggs.length; i++) {
 			agg = aggs[i];
-
 			const { body, wick, color } = OHLCV.toCandle(agg, period);
 
 			if (wick) {
@@ -87,10 +86,14 @@ export class OHLCV extends Mesh {
 
 	appendGeometry(aggs: Aggregate[], period: Period) {
 		const { models, colors } = OHLCV.getGeometry(aggs, period);
+		const nInstances = models.length / 16;
+
+		if (this.nInstances + nInstances > this.maxCandles) {
+			throw new Error('candles full');
+		}
 
 		this.updateModels(models, this.nInstances);
 		this.updateColors(colors, this.nInstances);
-
-		this.nInstances += models.length / 16;
+		this.nInstances += nInstances;
 	}
 }

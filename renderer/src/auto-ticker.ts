@@ -7,7 +7,6 @@ import { Range } from './util.js';
 import { RendererFlags } from './renderer.js';
 import { lodKeys, getLodIndex } from './lod.js';
 import { Scene } from './scene.js';
-import { Node } from './node.js';
 
 function toBounds(aggs: Aggregate[], period: Exclude<Period, 'trade'>): Range<Vec3> {
 	let minTime = maxDate;
@@ -41,7 +40,7 @@ function toBounds(aggs: Aggregate[], period: Exclude<Period, 'trade'>): Range<Ve
 	return { min, max };
 }
 
-export class AutoTicker extends Node {
+export class AutoTicker {
 	device: GPUDevice;
 	provider: Provider;
 
@@ -61,7 +60,6 @@ export class AutoTicker extends Node {
 		autoLod: Signal<Period>,
 		provider: Provider,
 	) {
-		super();
 		this.device = scene.device;
 		this.provider = provider;
 		this.range = range;
@@ -69,21 +67,21 @@ export class AutoTicker extends Node {
 
 		const { device } = scene;
 		this.lods = {
-			'year': new OHLCV(device),
-			'month': new OHLCV(device),
-			'week': new OHLCV(device),
-			'day': new OHLCV(device),
-			'hour4': new OHLCV(device),
-			'hour': new OHLCV(device),
-			'minute5': new OHLCV(device),
-			'minute': new OHLCV(device),
-			'second': new OHLCV(device),
-			'trade': new Trades(device),
+			'year': new OHLCV(device, 100),
+			'month': new OHLCV(device, 100 * 12),
+			'week': new OHLCV(device, 100 * 52),
+			'day': new OHLCV(device, 100 * 365),
+			'hour4': new OHLCV(device, 1e5),
+			'hour': new OHLCV(device, 1e5),
+			'minute5': new OHLCV(device, 1e5),
+			'minute': new OHLCV(device, 1e5),
+			'second': new OHLCV(device, 1e6),
+			'trade': new Trades(device, 1e6),
 		};
-		// Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === this.lod.value);
+		Object.entries(this.lods).forEach(([p, m]) => m.visible = p === this.lod.value);
 
 		this.ticker.subscribe(ticker => {
-			// Object.values(this.meshes).forEach(m => m.nInstances = 0);
+			Object.values(this.lods).forEach(m => m.nInstances = 0);
 			// Even 100 years of daily aggs are only ~1MB.
 			// Because of this, just cache everything that's daily or above.
 			(['year', 'month', 'week', 'day'] as Exclude<Period, 'trade'>[]).forEach(period => {
@@ -92,14 +90,14 @@ export class AutoTicker extends Node {
 			this.flags.rerender = true;
 		});
 		this.lod.subscribe((period: Period) => {
-			// Object.entries(this.meshes).forEach(([p, m]) => m.visible = p === period);
+			Object.entries(this.lods).forEach(([p, m]) => m.visible = p === period);
 			this.flags.rerender = true;
 		});
 		autoLod.subscribe((newLod: Period) => {
 			if (this.autoLodEnabled.value) this.lod.value = newLod;
 		});
-		effect(() => {
-			if (lodKeys.indexOf(this.lod.value) >= lodKeys.indexOf('hour4')) this.fetchPage(scene.camera.eye.value);
+		scene.camera.eye.subscribe(eye => {
+			if (lodKeys.indexOf(this.lod.value) >= lodKeys.indexOf('hour4')) this.fetchPage(eye);
 		});
 	}
 
