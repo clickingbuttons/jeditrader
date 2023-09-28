@@ -11,6 +11,7 @@ export interface MaterialOptions {
 	vertOutputFields: string[];
 	vertCode: string;
 	fragCode: string;
+	code: string;
 }
 
 type BindGroups = { [key: string] : ShaderBinding[] };
@@ -20,8 +21,9 @@ const defaultOptions: MaterialOptions = {
 	depthWriteEnabled: true,
 	cullMode: 'back',
 	vertOutputFields: ['color: vec4f'],
-	vertCode: 'return VertexOutput(position64(arg).proj, color(arg));',
+	vertCode: 'return VertexOutput(projected(arg).proj, color(arg));',
 	fragCode: 'return arg.color;',
+	code: '',
 };
 
 function bindGroupCode(shaderBindings: ShaderBinding[], group: number, label: string): string {
@@ -53,47 +55,35 @@ struct VertexOutput {
 
 ${fp64('scene.one')}
 
-fn sceneModel64() -> array<f64, 16> {
-	return array<f64, 16>(
-		f64(scene.model[0][0], scene.modelLow[0][0]),
-		f64(scene.model[0][1], scene.modelLow[0][1]),
-		f64(scene.model[0][2], scene.modelLow[0][2]),
-		f64(scene.model[0][3], scene.modelLow[0][3]),
+fn view() -> mat4x4f {
+	// Eye position should already be subtracted out.
+	var res = mat4x4f(scene.view);
+	res[3][0] = 0.0;
+	res[3][1] = 0.0;
+	res[3][2] = 0.0;
 
-		f64(scene.model[1][0], scene.modelLow[1][0]),
-		f64(scene.model[1][1], scene.modelLow[1][1]),
-		f64(scene.model[1][2], scene.modelLow[1][2]),
-		f64(scene.model[1][3], scene.modelLow[1][3]),
-
-		f64(scene.model[2][0], scene.modelLow[2][0]),
-		f64(scene.model[2][1], scene.modelLow[2][1]),
-		f64(scene.model[2][2], scene.modelLow[2][2]),
-		f64(scene.model[2][3], scene.modelLow[2][3]),
-
-		f64(scene.model[3][0], scene.modelLow[3][0]),
-		f64(scene.model[3][1], scene.modelLow[3][1]),
-		f64(scene.model[3][2], scene.modelLow[3][2]),
-		f64(scene.model[3][3], scene.modelLow[3][3]),
-	);
+	return res;
 }
 
 fn model64(arg: VertexInput) -> array<f64, 16> {
-	var modelIndex = 0u;
+	var index = 0u;
 	if (arg.instance < arrayLength(&models)) {
-		modelIndex = arg.instance;
+		index = arg.instance;
 	}
 
-	return models[modelIndex];
+	return models[index];
 }
 
-struct Position {
-	model: array<f64, 4>,
-	scene: array<f64, 4>,
-	view: vec4f,
-	proj: vec4f,
+fn color(arg: VertexInput) -> vec4f {
+	var index = 0u;
+	if (arg.instance < arrayLength(&colors)) {
+		index = arg.instance;
+	}
+
+	return colors[index];
 }
 
-fn position64(arg: VertexInput) -> Position {
+fn position64(arg: VertexInput) -> array<f64, 4> {
 	var vertIndex = indices[arg.vertex];
 	${wireframe ? `
 	let triangleIndex = arg.vertex / 6u;
@@ -107,34 +97,39 @@ fn position64(arg: VertexInput) -> Position {
 
 	let index = arg.instance * strides.instance + vertIndex * strides.vertex;
 
-	var pos = array<f64, 4>(
+	var res = array<f64, 4>(
 		f64(0.0, 0.0),
 		f64(0.0, 0.0),
 		f64(0.0, 0.0),
 		f64(1.0, 0.0)
 	);
 	for (var i: u32 = 0; i < min(3u, strides.vertex); i += 1) {
-		pos[i] = positions[index + i];
+		res[i] = positions[index + i];
 	}
 
+	return res;
+}
+
+struct Position {
+	model: array<f64, 4>,
+	eye: array<f64, 4>,
+	view: vec4f,
+	proj: vec4f,
+}
+
+fn projected(arg: VertexInput) -> Position {
 	var res = Position();
 
-	res.model = mat4_vec4_mul64(model64(arg), pos);
-	res.scene = mat4_vec4_mul64(sceneModel64(), res.model);
-	res.view = scene.view * toVec4(res.scene);
+	res.model = mat4_vec4_mul64(model64(arg), position64(arg));
+	// Eye takes on values more precise than f32 can handle. Apply before view.
+	res.eye = vec4_sub64(res.model, vec4_64(scene.eye, scene.eyeLow));
+	res.view = view() * toVec4(res.eye);
 	res.proj = scene.proj * res.view;
 
 	return res;
 }
 
-fn color(arg: VertexInput) -> vec4f {
-	var colorIndex = 0u;
-	if (arg.instance < arrayLength(&colors)) {
-		colorIndex = arg.instance;
-	}
-
-	return colors[colorIndex];
-}
+${options.code}
 
 @vertex fn vertMain(arg: VertexInput) -> VertexOutput {
 	${options.vertCode}
@@ -226,7 +221,7 @@ export class Material {
 		this.pipelineWireframe = createPipeline(device, layout, this.bindGroups, opts, true);
 	}
 
-	bind(meshes: Mesh[]) {
+	bind(...meshes: Mesh[]) {
 		if (!this.bindGroups.user) return;
 		this.meshes.push(...meshes.map(mesh => ({
 			mesh,

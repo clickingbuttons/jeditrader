@@ -66,7 +66,7 @@ export class Renderer {
 		this.depthTexture = this.createDepthTarget();
 		this.depthTextureView = this.depthTexture.createView();
 		this.settings = {
-			clearColor: signal({ r: 135 / 255, g: 206 / 255, b: 235 / 255, a: 1.0 }),
+			clearColor: signal([135 / 255, 206 / 255, 235 / 255, 1.0]),
 		};
 		this.settings.clearColor.subscribe(() => this.flags.rerender = true);
 		this.aspectRatio = signal(canvas.width / canvas.height);

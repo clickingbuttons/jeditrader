@@ -10,19 +10,13 @@ import { Material } from './material.js';
 
 export class TestScene extends Scene {
 	declare settings;
+	declare materials;
 
 	constructor(renderer: Renderer) {
 		super(renderer);
 		const origin = new Date(0);
 		const milliseconds = signal(lodKeys.map(name => getNext(origin, name).getTime()));
 
-		this.camera.eye.value = new Vec3([
-			649252057699.8112,
-			-196524753900.5597,
-			589981060393.1589,
-		]);
-		this.camera.pitch.value = -1.3;
-		this.camera.yaw.value = 0.018;
 		const superSettings = this.settings as Scene['settings'];
 		this.settings = {
 			...superSettings,
@@ -31,14 +25,20 @@ export class TestScene extends Scene {
 			transform: signal(true),
 		};
 
-		this.materials.errorMaterial = new Material(this.device, {
-			bindings: Object.values(Mesh.bindGroup),
-			vertCode: `
-let pos = position64(arg);
-return VertexOutput(pos.proj, toVec4(pos.scene));
-			`
-		});
+		const superMaterials = this.materials as Scene['materials'];
+		this.materials = {
+			...superMaterials,
+			errorMaterial: new Material(this.device, {
+				bindings: Object.values(Mesh.bindGroup),
+				vertCode: `
+let pos = projected(arg);
+return VertexOutput(pos.proj, pos.view);
+				`
+			})
+		};
 		const material = this.materials.errorMaterial;
+
+		const offset = new Date(2020, 1).getTime();
 
 		effect(() => {
 			const mss: number[] = this.settings.milliseconds.value;
@@ -56,7 +56,7 @@ return VertexOutput(pos.proj, toVec4(pos.scene));
 
 					[
 						new Cube(new Vec3([0, 0, 0]), rad3),
-						new Cube(new Vec3([new Date(2010, 1, 1).getTime(), 0, 0]), rad3),
+						new Cube(new Vec3([offset, 0, 0]), rad3),
 					].forEach(csg => {
 						const { positions, indices } = csg.toIndexedTriangles();
 						allPositions.push(...positions);
@@ -79,7 +79,7 @@ return VertexOutput(pos.proj, toVec4(pos.scene));
 					const radius = ms / 2;
 
 					const scale = Mat4.scale(new Vec3([radius, radius, radius]))
-					const translate = Mat4.translate(new Vec3([new Date(2010, 1, 1).getTime(), 0, 0]))
+					const translate = Mat4.translate(new Vec3([offset, 0, 0]))
 
 					return [...scale, ...translate.mul(scale)];
 				}).flat();
@@ -95,7 +95,7 @@ return VertexOutput(pos.proj, toVec4(pos.scene));
 			}
 
 			material.destroy();
-			material.bind(meshes);
+			material.bind(...meshes);
 			this.flags.rerender = true;
 		});
 

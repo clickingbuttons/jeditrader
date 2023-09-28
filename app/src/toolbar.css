@@ -19,7 +19,7 @@
   fill: rgb(var(--fg));
 }
 
-.toolbar > span {
+.toolbar-fps {
 	background: rgba(var(--bg-overlay));
 	width: 5em;
 }

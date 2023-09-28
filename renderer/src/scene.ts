@@ -2,16 +2,11 @@ import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
 import { Input } from './input.js';
 import { createBuffer } from './util.js';
-import { effect, Signal, signal, computed } from '@preact/signals-core';
+import { effect, Signal } from '@preact/signals-core';
 import { Renderer, RendererFlags } from './renderer.js';
 import { BufferBinding } from './shader-binding.js';
 import { Material } from './material.js';
 import { Mesh } from './mesh.js';
-
-export interface Materials {
-	'mesh': Material,
-	[key: string]: Material,
-}
 
 export class Scene {
 	aspectRatio: Signal<number>;
@@ -25,11 +20,7 @@ export class Scene {
 	bindGroup: GPUBindGroup;
 	uniform: GPUBuffer;
 
-	materials: Materials;
-
-	model: Signal<Mat4>;
-	camModel: Signal<Mat4>;
-	modelInv: Signal<Mat4>;
+	materials;
 	settings;
 
 	constructor(renderer: Renderer) {
@@ -39,20 +30,12 @@ export class Scene {
 		this.flags = renderer.flags;
 		this.input = renderer.input;
 		this.camera = new Camera(this.aspectRatio);
-		this.model = signal(Mat4.identity());
-		this.camModel = computed(() => Mat4
-			.translate(this.camera.eye.value.mulScalar(-1))
-			.mul(this.model.value)
-		);
-		this.modelInv = computed(() => this.model.value.inverse());
 		this.settings = {
 			camera: {
 				eye: this.camera.eye,
 				pitch: this.camera.pitch,
 				yaw: this.camera.yaw,
 			},
-			model: this.model,
-			modelInv: this.modelInv,
 		};
 		this.uniform = createBuffer({
 			device: this.device,
@@ -66,7 +49,7 @@ export class Scene {
 			entries: [binding.entry(0, this.uniform)],
 		});
 		this.materials = {
-			'mesh': new Material(this.device, { bindings: Object.values(Mesh.bindGroup) })
+			default: new Material(this.device, { bindings: Object.values(Mesh.bindGroup) })
 		};
 		this.flags.rerender = true;
 
@@ -80,26 +63,19 @@ export class Scene {
 		type: 'uniform',
 		visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
 		wgslStruct: `struct Scene {
-			model: mat4x4f,
-			modelLow: mat4x4f,
 			view: mat4x4f,
 			proj: mat4x4f,
+			eye: vec4f,
+			eyeLow: vec4f,
 			one: f32,
 		}`
 	});
 	uniformData() {
-		// Move camera translation from view to model.
-		const viewRel = this.camera.view.value.clone();
-		const model: Mat4 = this.camModel.value;
-		viewRel[12] = 0;
-		viewRel[13] = 0;
-		viewRel[14] = 0;
-
 		return new Float32Array([
-			...model,
-			...model.f32Low(),
-			...viewRel,
+			...this.camera.view.value,
 			...this.camera.proj.value,
+			...this.camera.eye.value, 0,
+			...this.camera.eye.value.f32Low(), 0,
 			1,
 		]);
 	}
@@ -114,10 +90,10 @@ export class Scene {
 		this.flags.rerender = true;
 	}
 
-	sceneToClip(pos: Vec3): Vec4 {
+	sceneToClip(pos: Vec3, model: Mat4): Vec4 {
 		let mvp = this.camera.proj.value
 			.mul(this.camera.view.value)
-			.mul(this.model.value);
+			.mul(model);
 
 		let res = new Vec4([...pos, 1.0]).transform(mvp);
 		// divide X and Y by W just like the GPU does

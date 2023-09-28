@@ -1,16 +1,43 @@
 import { Vec3, Mat4 } from '@jeditrader/linalg';
+import { Material } from './material.js';
+import { BufferBinding } from './shader-binding.js';
 import { Mesh } from './mesh.js';
 import { Aggregate, Period, getNext } from '@jeditrader/providers';
 import { Cube } from '@jeditrader/geometry';
+import { Signal } from '@preact/signals-core';
+
+const vertCode = `
+	let model = mat4_vec4_mul64(model64(arg), position64(arg));
+	let model2 = mat4_vec4_mul64(axes, model);
+	let eye = vec4_sub64(model2, vec4_64(scene.eye, scene.eyeLow));
+	let view = view() * toVec4(eye);
+	let proj = scene.proj * view;
+	return VertexOutput(proj, color(arg));
+`;
 
 export class OHLCV extends Mesh {
+	static bindGroup = {
+		...Mesh.bindGroup,
+		axes: new BufferBinding('axes', {
+			visibility: GPUShaderStage.VERTEX,
+			wgslType: 'array<f64, 16>'
+		}),
+	};
+
+	static material(device: GPUDevice) {
+		return new Material(device, {
+			bindings: Object.values(OHLCV.bindGroup),
+			vertCode,
+		});
+	}
+
 	maxCandles: number;
 
 	// Used by parent
 	from?: Date;
 	to?: Date;
 
-	constructor(device: GPUDevice, maxCandles: number) {
+	constructor(device: GPUDevice, model: Signal<Mat4>, modelBuffer: GPUBuffer, maxCandles: number) {
 		const { positions, indices } = new Cube(new Vec3([0, 0, 1])).toIndexedTriangles();
 
 		super(device, positions, indices, {
@@ -22,6 +49,15 @@ export class OHLCV extends Mesh {
 		});
 		this.nInstances = 0;
 		this.maxCandles = maxCandles;
+
+		this.buffers.axes = modelBuffer;
+	}
+
+	uniformData(model: Mat4) {
+		return new Float32Array([
+			...model,
+			...model.f32Low(),
+		]);
 	}
 
 	static toCandle(agg: Aggregate, period: Period) {

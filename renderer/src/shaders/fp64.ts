@@ -10,19 +10,12 @@ struct f64 {
 }
 
 // Divide float number to high and low floats to extend fraction bits
-fn split(a: f32) -> f64 {
+fn split64(a: f32) -> f64 {
 	let c = ((1 << 12) + 1) * a;
 	let a_big = c - a;
 	let a_hi = c ${oneMul} - a_big;
 	let a_lo = a ${oneMul} - a_hi;
 	return f64(a_hi, a_lo);
-}
-
-// Divide float number again when high float uses too many fraction bits
-fn split2(a: f64) -> f64 {
-  var b = split(a.high);
-  b.low += a.low;
-  return b;
 }
 
 // Special sum operation when a > b
@@ -52,8 +45,8 @@ fn twoSub(a: f32, b: f32) -> f64 {
 
 fn twoProd(a: f32, b: f32) -> f64 {
 	let x = a * b;
-	let a2 = split(a);
-	let b2 = split(b);
+	let a2 = split64(a);
+	let b2 = split64(b);
 	let err1 = x - (a2.high * b2.high ${oneMul}) ${oneMul};
 	let err2 = err1 - (a2.low * b2.high ${oneMul}) ${oneMul};
 	let err3 = err2 - (a2.high * b2.low ${oneMul}) ${oneMul};
@@ -132,21 +125,36 @@ fn toVec4(v: array<f64, 4>) -> vec4f {
 	);
 }
 
-fn toVec4High(v: array<f64, 4>) -> vec4f {
-	return vec4f(
-		v[0].high,
-		v[1].high,
-		v[2].high,
-		v[3].high,
+fn mat64(high: mat4x4f, low: mat4x4f) -> array<f64, 16> {
+	return array<f64, 16>(
+		f64(high[0][0], low[0][0]),
+		f64(high[0][1], low[0][1]),
+		f64(high[0][2], low[0][2]),
+		f64(high[0][3], low[0][3]),
+
+		f64(high[1][0], low[1][0]),
+		f64(high[1][1], low[1][1]),
+		f64(high[1][2], low[1][2]),
+		f64(high[1][3], low[1][3]),
+
+		f64(high[2][0], low[2][0]),
+		f64(high[2][1], low[2][1]),
+		f64(high[2][2], low[2][2]),
+		f64(high[2][3], low[2][3]),
+
+		f64(high[3][0], low[3][0]),
+		f64(high[3][1], low[3][1]),
+		f64(high[3][2], low[3][2]),
+		f64(high[3][3], low[3][3]),
 	);
 }
 
-fn toVec4Low(v: array<f64, 4>) -> vec4f {
-	return vec4f(
-		v[0].low,
-		v[1].low,
-		v[2].low,
-		v[3].low,
+fn vec4_64(high: vec4f, low: vec4f) -> array<f64, 4> {
+	return array<f64, 4>(
+		f64(high[0], low[0]),
+		f64(high[1], low[1]),
+		f64(high[2], low[2]),
+		f64(high[3], low[3]),
 	);
 }
 `;

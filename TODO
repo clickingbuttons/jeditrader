@@ -1,8 +1,9 @@
-- scale only chart
-
+- fix trades
+- fit in view
 - x/y hover
 	- scale relative to cursor
 	- box select
+- labels always in view
 
 - ticker select
 

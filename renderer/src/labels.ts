@@ -1,5 +1,5 @@
-import { Vec3, Vec4 } from '@jeditrader/linalg';
-import { signal, effect } from '@preact/signals-core';
+import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
+import { signal, effect, Signal } from '@preact/signals-core';
 import { Scene } from './scene.js';
 
 export interface Label {
@@ -27,6 +27,7 @@ function intersects(r1: Rectangle, r2: Rectangle) {
 
 export class Labels {
 	scene: Scene;
+	model: Signal<Mat4>;
 
 	ctx: CanvasRenderingContext2D;
 	labels: Label[] = [];
@@ -36,8 +37,9 @@ export class Labels {
 		paddingPx: signal(2),
 	};
 
-	constructor(scene: Scene) {
+	constructor(scene: Scene, model: Signal<Mat4>) {
 		this.scene = scene;
+		this.model = model;
 		const ctx = scene.canvasUI.getContext('2d');
 		if (!ctx) throw new Error('cannot get canvas 2d context');
 		this.ctx = ctx;
@@ -69,7 +71,7 @@ export class Labels {
 			bottom: 0,
 		};
 		this.labels.forEach(l => {
-			const clipPos = this.scene.sceneToClip(l.pos);
+			const clipPos = this.scene.sceneToClip(l.pos, this.model.value);
 			if (clipPos.z < 0) return;
 			const x = (1 + clipPos.x) / 2 * ctx.canvas.width;
 			const y = (1 - clipPos.y) / 2 * ctx.canvas.height;
@@ -88,6 +90,7 @@ export class Labels {
 
 			ctx.strokeText(l.text, x, y);
 			ctx.fillText(l.text, x, y);
+			// ctx.fillRect(rect.left, rect.top, rect.right - rect.left, rect.top - rect.bottom);
 		});
 	}
 }
