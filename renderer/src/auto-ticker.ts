@@ -1,4 +1,4 @@
-import { Vec3, Mat4 } from '@jeditrader/linalg';
+import { Vec3 } from '@jeditrader/linalg';
 import { signal, Signal } from '@preact/signals-core';
 import { Period, Aggregate, Trade, Provider, minDate, maxDate, getNext } from '@jeditrader/providers';
 import { OHLCV } from './ohlcv.js';
@@ -58,7 +58,6 @@ export class AutoTicker {
 		scene: Scene,
 		range: Signal<Range<Vec3>>,
 		autoLod: Signal<Period>,
-		model: Signal<Mat4>,
 		modelBuffer: GPUBuffer,
 		provider: Provider,
 	) {
@@ -69,16 +68,16 @@ export class AutoTicker {
 
 		const { device } = scene;
 		this.lods = {
-			'year': new OHLCV(device, model, modelBuffer, 100),
-			'month': new OHLCV(device, model, modelBuffer, 100 * 12),
-			'week': new OHLCV(device, model, modelBuffer, 100 * 52),
-			'day': new OHLCV(device, model, modelBuffer, 100 * 365),
-			'hour4': new OHLCV(device, model, modelBuffer, 1e5),
-			'hour': new OHLCV(device, model, modelBuffer, 1e5),
-			'minute5': new OHLCV(device, model, modelBuffer, 1e5),
-			'minute': new OHLCV(device, model, modelBuffer, 1e5),
-			'second': new OHLCV(device, model, modelBuffer, 1e6),
-			// 'trade': new Trades(device, 1e6),
+			'year': new OHLCV(device, modelBuffer, 100),
+			'month': new OHLCV(device, modelBuffer, 100 * 12),
+			'week': new OHLCV(device, modelBuffer, 100 * 52),
+			'day': new OHLCV(device, modelBuffer, 100 * 365),
+			'hour4': new OHLCV(device, modelBuffer, 1e5),
+			'hour': new OHLCV(device, modelBuffer, 1e5),
+			'minute5': new OHLCV(device, modelBuffer, 1e5),
+			'minute': new OHLCV(device, modelBuffer, 1e5),
+			'second': new OHLCV(device, modelBuffer, 1e6),
+			'trade': new Trades(device, modelBuffer, 1e6),
 		};
 		Object.entries(this.lods).forEach(([p, m]) => m.visible = p === this.lod.value);
 
@@ -114,13 +113,13 @@ export class AutoTicker {
 	onTrades(data: Trade[]) {
 		if (data.length == 0) return;
 
-		// this.lods.trade.updateGeometry(data);
+		this.lods.trade.updateGeometry(data);
 		if ('trade' === this.lod.value) this.flags.rerender = true;
 	}
 
 	fetchPage(eye: Vec3) {
 		const lodIndex = lodKeys.indexOf(this.lod.value);
-		const lod = lodKeys[lodIndex] as Exclude<Period, 'trade'>;
+		const lod = lodKeys[lodIndex];
 		const period = lodKeys[Math.max(0, lodIndex - 1)];
 		const ticker = this.ticker.value;
 
@@ -137,9 +136,8 @@ export class AutoTicker {
 			if (mesh.from && from < mesh.from) to = new Date(mesh.from);
 			else if (mesh.to && to > mesh.to) from = new Date(mesh.to);
 
-			// if (lod === 'trade') this.provider.trade(ticker, from, to, data => this.onTrades(data));
-			// else
-				this.provider[lod](ticker, from, to, data => this.onAggs(lod, data));
+			if (lod === 'trade') this.provider.trade(ticker, from, to, data => this.onTrades(data));
+			else this.provider[lod](ticker, from, to, data => this.onAggs(lod, data));
 		}
 	}
 }

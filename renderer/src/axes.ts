@@ -120,6 +120,7 @@ export class Axes extends Mesh {
 		horizontalLines: new BufferBinding('horizontalLines', { visibility: GPUShaderStage.FRAGMENT }),
 		verticalLines: new BufferBinding('verticalLines', { visibility: GPUShaderStage.FRAGMENT }),
 	};
+	declare buffers: { [s in keyof typeof Axes.bindGroup]: GPUBuffer };
 
 	uniformData() {
 		return new Float32Array([
@@ -182,11 +183,6 @@ export class Axes extends Mesh {
 			device,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 			data: this.uniformData(),
-		});
-		this.buffers.model = createBuffer({
-			device,
-			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-			data: new Float32Array(16 * 2)
 		});
 		this.buffers.horizontalLines = createBuffer({
 			device,

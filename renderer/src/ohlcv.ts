@@ -4,7 +4,6 @@ import { BufferBinding } from './shader-binding.js';
 import { Mesh } from './mesh.js';
 import { Aggregate, Period, getNext } from '@jeditrader/providers';
 import { Cube } from '@jeditrader/geometry';
-import { Signal } from '@preact/signals-core';
 
 const vertCode = `
 	let model = mat4_vec4_mul64(model64(arg), position64(arg));
@@ -23,6 +22,7 @@ export class OHLCV extends Mesh {
 			wgslType: 'array<f64, 16>'
 		}),
 	};
+	declare buffers: { [s in keyof typeof OHLCV.bindGroup]: GPUBuffer };
 
 	static material(device: GPUDevice) {
 		return new Material(device, {
@@ -37,7 +37,7 @@ export class OHLCV extends Mesh {
 	from?: Date;
 	to?: Date;
 
-	constructor(device: GPUDevice, model: Signal<Mat4>, modelBuffer: GPUBuffer, maxCandles: number) {
+	constructor(device: GPUDevice, model: GPUBuffer, maxCandles: number) {
 		const { positions, indices } = new Cube(new Vec3([0, 0, 1])).toIndexedTriangles();
 
 		super(device, positions, indices, {
@@ -50,7 +50,7 @@ export class OHLCV extends Mesh {
 		this.nInstances = 0;
 		this.maxCandles = maxCandles;
 
-		this.buffers.axes = modelBuffer;
+		this.buffers.axes = model;
 	}
 
 	uniformData(model: Mat4) {

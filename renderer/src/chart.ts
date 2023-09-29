@@ -1,10 +1,10 @@
 import { Axes } from './axes.js';
-import { Mat4, Vec3, Vec4 } from '@jeditrader/linalg';
+import { Mat4, Vec3 } from '@jeditrader/linalg';
 import { Provider, Period } from '@jeditrader/providers';
 import { AutoTicker } from './auto-ticker.js';
 import { Scene } from './scene.js';
 import { Range } from './util.js';
-import { signal, Signal, computed, effect } from '@preact/signals-core';
+import { Signal, computed } from '@preact/signals-core';
 import { getLod, Lod } from './lod.js';
 import { Renderer } from './renderer.js';
 import { Cube } from '@jeditrader/geometry';
@@ -52,7 +52,7 @@ export class Chart extends Scene {
 		this.axes = new Axes(this);
 		this.materials.axes.bind(this.axes);
 		this.tickers = [
-			new AutoTicker(this, this.axes.range, this.autoLod, this.axes.model, this.axes.buffers.models, provider),
+			new AutoTicker(this, this.axes.range, this.autoLod, this.axes.buffers.models, provider),
 		];
 		this.materials.ohlcv.bind(...Object.values(this.tickers[0].lods));
 

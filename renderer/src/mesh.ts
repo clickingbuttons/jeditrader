@@ -37,7 +37,7 @@ export class Mesh {
 		models: new BufferBinding('models', { wgslType: 'array<array<f64, 16>>' }),
 		colors: new BufferBinding('colors', { wgslType: 'array<vec4f>' }),
 	};
-	buffers: { [s: string]: GPUBuffer };
+	buffers: { [s in keyof typeof Mesh.bindGroup]: GPUBuffer };
 
 	nIndices: number;
 	nInstances: number;
