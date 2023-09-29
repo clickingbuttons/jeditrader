@@ -18,7 +18,7 @@ export class Mat4 extends Float64Array {
 	}
 
 	static perspective(fovRad: number, aspect: number, zNear: number, zFar: number): Mat4 {
-		const f = Math.tan(Math.PI * 0.5 - 0.5 * fovRad);
+		const f = Math.tan(Math.PI / 2 - fovRad);
 		const rangeInv = 1 / (zNear - zFar);
 
 		return new Mat4([

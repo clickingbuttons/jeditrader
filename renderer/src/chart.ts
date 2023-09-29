@@ -1,5 +1,5 @@
 import { Axes } from './axes.js';
-import { Mat4, Vec3 } from '@jeditrader/linalg';
+import { Mat4, Vec3, Vec4, degToRad } from '@jeditrader/linalg';
 import { Provider, Period } from '@jeditrader/providers';
 import { AutoTicker } from './auto-ticker.js';
 import { Scene } from './scene.js';
@@ -51,8 +51,29 @@ export class Chart extends Scene {
 
 		this.axes = new Axes(this);
 		this.materials.axes.bind(this.axes);
+
+		this.axes.range.subscribe(range => {
+			// Center on sphere to make math easy.
+			// https://stackoverflow.com/questions/2866350/move-camera-to-fit-3d-scene
+			let center = new Vec4([...range.max.add(range.min).divScalar(2), 1.0]);
+			// The effect may not have run yet, so get it manually
+			const model = this.axes.getModel();
+			// Take longest dimension as radius.
+			let dims = new Vec4([...range.max.sub(range.min), 1.0]);
+
+			// Move to axes space.
+			center = center.transform(model);
+			dims = dims.transform(model);
+			const radius = Math.max(...dims) / 2;
+
+			const eye = center;
+			eye.y *= 0.8;
+			eye.z = radius / Math.tan(degToRad(this.camera.fov.value / 2));
+			this.camera.eye.value = new Vec3([eye.x, eye.y, eye.z]);
+		});
+
 		this.tickers = [
-			new AutoTicker(this, this.axes.range, this.autoLod, this.axes.buffers.models, provider),
+			new AutoTicker(this, this.autoLod, this.axes.range, this.axes.buffers.models, provider),
 		];
 		this.materials.ohlcv.bind(...Object.values(this.tickers[0].lods));
 

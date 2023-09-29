@@ -92,4 +92,8 @@ export class Vec4 extends Float64Array {
 			m[3] * this.x + m[7] * this.y + m[11] * this.z + m[15] * this.w,
 		]);
 	}
+
+	magnitude(): number {
+		return Math.sqrt(this.reduce((acc, cur) => acc + cur * cur));
+	}
 }

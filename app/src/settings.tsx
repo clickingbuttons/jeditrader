@@ -92,13 +92,16 @@ function getColor(obj: any): string | undefined {
 }
 
 function SettingInput({ signal, isColor }: { signal: Signal<any>, isColor: boolean }) {
-	if (isColor) return (
-		<input
-			type="color"
-			value={getColor(signal.value)}
-			onChange={ev => signal.value = hexToRGBNorm(ev.currentTarget.value)}
-		/>
-	);
+	if (isColor) {
+		const color = getColor(signal.value);
+		if (color) return (
+			<input
+				type="color"
+				value={color}
+				onChange={ev => signal.value = hexToRGBNorm(ev.currentTarget.value)}
+			/>
+		);
+	}
 	if (typeof signal.value === 'boolean') return (
 		<input
 			type="checkbox"
@@ -106,13 +109,10 @@ function SettingInput({ signal, isColor }: { signal: Signal<any>, isColor: boole
 			onChange={ev => signal.value = ev.currentTarget.checked}
 		/>
 	);
-
-	const num = +signal.value;
-	if (!isNaN(num)) return (
-		<input
-			type="number"
-			value={num}
-			onChange={ev => signal.value = +ev.currentTarget.value}
+	if (typeof signal.value === 'number') return (
+		<InputNumber
+			value={+signal.value}
+			onChange={n => signal.value = n}
 		/>
 	);
 	if (signal.value instanceof Vec3) return (

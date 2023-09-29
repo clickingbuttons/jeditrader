@@ -213,7 +213,6 @@ export class Axes extends Mesh {
 			));
 			scene.flags.rerender = true;
 		});
-		effect(() => this.updateModels(this.model.value));
 		effect(() => {
 			const lodIndex = getLodIndex(eye.value.z);
 			const period = lodKeys[Math.max(0, lodIndex - 1)];
@@ -237,15 +236,18 @@ export class Axes extends Mesh {
 		});
 
 		effect(() => {
-			const origin = this.transform.origin ?? new Vec3([0, 0, 0]);
-			this.model.value = Mat4
-				.translate(origin.mul(this.scale.value))
-				.scale(this.scale.value.mul(this.transform.scale.value))
-				.translate(origin.mulScalar(-1));
-
+			this.model.value = this.getModel();
 			this.updateModels(this.model.value);
 			scene.flags.rerender = true;
 		});
+	}
+
+	getModel(): Mat4 {
+		const origin = this.transform.origin ?? new Vec3([0, 0, 0]);
+		return Mat4
+			.translate(origin.mul(this.scale.value))
+			.scale(this.scale.value.mul(this.transform.scale.value))
+			.translate(origin.mulScalar(-1));
 	}
 
 	getGeometry(eye: Vec3) {
@@ -306,7 +308,8 @@ export class Axes extends Mesh {
 
 		const minStep = minTick;
 		const maxStep = (range.max.y - range.min.y) / 5;
-		let step = clamp(10 ** Math.floor(Math.log10(eye.z / scale)), minStep, maxStep);
+		let step = clamp(eye.z / scale, minStep, maxStep);
+		step = 10 ** Math.floor(Math.log10(step));
 
 		const minCenter = range.min.y + maxLines / 2 * step;
 		const maxCenter = range.max.y - maxLines / 2 * step;

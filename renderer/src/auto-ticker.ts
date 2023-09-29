@@ -56,8 +56,8 @@ export class AutoTicker {
 
 	constructor(
 		scene: Scene,
-		range: Signal<Range<Vec3>>,
 		autoLod: Signal<Period>,
+		range: Signal<Range<Vec3>>,
 		modelBuffer: GPUBuffer,
 		provider: Provider,
 	) {

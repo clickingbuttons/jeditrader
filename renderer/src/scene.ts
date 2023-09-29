@@ -31,11 +31,7 @@ export class Scene {
 		this.input = renderer.input;
 		this.camera = new Camera(this.aspectRatio);
 		this.settings = {
-			camera: {
-				eye: this.camera.eye,
-				pitch: this.camera.pitch,
-				yaw: this.camera.yaw,
-			},
+			camera: this.camera.settings,
 		};
 		this.uniform = createBuffer({
 			device: this.device,
