@@ -28,15 +28,15 @@ export class TestScene extends Scene {
 		const superMaterials = this.materials as Scene['materials'];
 		this.materials = {
 			...superMaterials,
-			errorMaterial: new Material(this.device, {
+			error: new Material(this.device, {
 				bindings: Object.values(Mesh.bindGroup),
 				vertCode: `
 let pos = projected(arg);
 return VertexOutput(pos.proj, pos.view);
 				`
-			})
+			}),
 		};
-		const material = this.materials.errorMaterial;
+		const material = this.materials.error;
 
 		const offset = new Date(2020, 1).getTime();
 
@@ -52,11 +52,11 @@ return VertexOutput(pos.proj, pos.view);
 
 				mss.forEach(ms => {
 					const radius = ms / 2;
-					const rad3 = new Vec3([radius, radius, radius]);
+					const rad3 = new Vec3(radius, radius, radius);
 
 					[
-						new Cube(new Vec3([0, 0, 0]), rad3),
-						new Cube(new Vec3([offset, 0, 0]), rad3),
+						new Cube(new Vec3(0, 0, 0), rad3),
+						new Cube(new Vec3(offset, 0, 0), rad3),
 					].forEach(csg => {
 						const { positions, indices } = csg.toIndexedTriangles();
 						allPositions.push(...positions);
@@ -78,8 +78,8 @@ return VertexOutput(pos.proj, pos.view);
 				const models = mss.map(ms => {
 					const radius = ms / 2;
 
-					const scale = Mat4.scale(new Vec3([radius, radius, radius]))
-					const translate = Mat4.translate(new Vec3([offset, 0, 0]))
+					const scale = Mat4.scale(new Vec3(radius, radius, radius))
+					const translate = Mat4.translate(new Vec3(offset, 0, 0))
 
 					return [...scale, ...translate.mul(scale)];
 				}).flat();

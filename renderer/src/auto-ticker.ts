@@ -26,16 +26,16 @@ function toBounds(aggs: Aggregate[], period: Exclude<Period, 'trade'>): Range<Ve
 		if (agg.volume > maxVolume) maxVolume = agg.volume;
 	}
 
-	const min = new Vec3([
+	const min = new Vec3(
 		minTime.getTime(),
 		minPrice,
 		0
-	]);
-	const max = new Vec3([
+	);
+	const max = new Vec3(
 		getNext(maxTime, period).getTime(),
 		maxPrice,
 		Math.sqrt(maxVolume)
-	]);
+	);
 
 	return { min, max };
 }

@@ -1,4 +1,4 @@
-import { Vec3, Mat4 } from '@jeditrader/linalg';
+import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
 import { Mesh } from './mesh.js';
 import { Trade } from '@jeditrader/providers';
 import { Cube } from '@jeditrader/geometry';
@@ -21,7 +21,7 @@ export class Trades extends Mesh {
 	to?: Date;
 
 	constructor(device: GPUDevice, model: GPUBuffer, maxTrades: number) {
-		const { positions, indices } = new Cube(new Vec3([0, 0, 1])).toIndexedTriangles();
+		const { positions, indices } = new Cube(new Vec3(0, 0, 1)).toIndexedTriangles();
 
 		super(device, positions, indices, {
 			instances: {
@@ -37,17 +37,17 @@ export class Trades extends Mesh {
 	}
 
 	static toBox(trade: Trade, lastPrice: number) {
-		const scale = new Vec3([1, 0.01, trade.size]);
-		const translate = new Vec3([
+		const scale = new Vec3(1, 0.01, trade.size);
+		const translate = new Vec3(
 			trade.epochNS / 1e6,
 			trade.price,
 			0
-		]);
+		);
 		const model = Mat4.translate(translate).scale(scale);
 
-		let color = new Vec3([1, 1, 1, 1]);
-		if (trade.price > lastPrice) color = new Vec3([0, 1, 0, 1]);
-		else if (trade.price < lastPrice) color = new Vec3([1, 0, 0, 1]);
+		let color = new Vec4(1, 1, 1, 1);
+		if (trade.price > lastPrice) color = new Vec4(0, 1, 0, 1);
+		else if (trade.price < lastPrice) color = new Vec4(1, 0, 0, 1);
 
 		return { model, color };
 	}

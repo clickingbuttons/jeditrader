@@ -21,6 +21,7 @@ export class Chart extends Scene {
 	declare settings;
 	declare materials;
 
+	test: Mesh;
 	axes: Axes;
 	tickers: AutoTicker[] = [];
 
@@ -40,13 +41,13 @@ export class Chart extends Scene {
 
 		// Test cube.
 		{
-			const { positions, indices } = new Cube().toIndexedTriangles();
-			const mesh = new Mesh(this.device, positions, indices, {
-				instances: {
-					models: Mat4.scale(new Vec3([1e11, 1e11, 1e11]))
-				},
-			});
-			this.materials.default.bind(mesh);
+			const radius = 1e10;
+			const { positions, indices } = new Cube(
+				new Vec3(0, 0, 0),
+				new Vec3(radius, radius, radius)
+			).toIndexedTriangles();
+			this.test = new Mesh(this.device, positions, indices);
+			this.materials.default.bind(this.test);
 		}
 
 		this.axes = new Axes(this);
@@ -55,11 +56,10 @@ export class Chart extends Scene {
 		this.axes.range.subscribe(range => {
 			// Center on sphere to make math easy.
 			// https://stackoverflow.com/questions/2866350/move-camera-to-fit-3d-scene
-			let center = new Vec4([...range.max.add(range.min).divScalar(2), 1.0]);
-			// The effect may not have run yet, so get it manually
-			const model = this.axes.getModel();
+			let center = new Vec4(range.max.add(range.min).divScalar(2));
+			const model = this.axes.model.value;
 			// Take longest dimension as radius.
-			let dims = new Vec4([...range.max.sub(range.min), 1.0]);
+			let dims = new Vec4(range.max.sub(range.min));
 
 			// Move to axes space.
 			center = center.transform(model);
@@ -69,7 +69,7 @@ export class Chart extends Scene {
 			const eye = center;
 			eye.y *= 0.8;
 			eye.z = radius / Math.tan(degToRad(this.camera.fov.value / 2));
-			this.camera.eye.value = new Vec3([eye.x, eye.y, eye.z]);
+			this.camera.eye.value = eye.xyz();
 		});
 
 		this.tickers = [
@@ -84,8 +84,16 @@ export class Chart extends Scene {
 		};
 	}
 
+	viewToWorld(x: number, y: number): Vec3 | undefined {
+		const ray = this.rayCast(x, y);
+		// z + bt = 0
+		// t = -z / b
+		const t = -ray.point.z / ray.dir.z;
+		if (t > 0) return ray.point.add(ray.dir.mulScalar(t));
+	}
+
 	update(dt: DOMHighResTimeStamp) {
-		this.axes.update(this.input);
+		this.axes.update(this.input, this.viewToWorld(this.input.posX, this.input.posY));
 		super.update(dt);
 	}
 

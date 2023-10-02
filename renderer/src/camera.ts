@@ -3,11 +3,11 @@ import { Input } from './input.js';
 import { signal, Signal, computed, batch } from '@preact/signals-core';
 
 function direction(pitch: number, yaw: number): Vec3 {
-	return new Vec3([
+	return new Vec3(
 		Math.sin(yaw) * Math.cos(pitch),
 		Math.cos(yaw) * Math.cos(pitch),
 		Math.sin(pitch)
-	]).normalize()
+	).normalize()
 }
 
 function zNear(eye: Vec3): number {
@@ -20,18 +20,18 @@ function zFar(eye: Vec3): number {
 
 // https://carmencincotti.com/2022-05-02/homogeneous-coordinates-clip-space-ndc/#clip-space
 export class Camera {
-	eye = signal(new Vec3([
+	eye = signal(new Vec3(
 		7.5e11,
 		-2.24e11,
 		8.3e11,
-	]));
+	));
 	pitch = signal(-1.43);
 	yaw = signal(-0.002);
 	fov = signal(90);
 	zNear = signal(zNear(this.eye.value));
 	zFar = signal(zFar(this.eye.value));
 
-	up = new Vec3([0, 0, 1]);
+	up = new Vec3(0, 0, 1);
 	direction: Signal<Vec3>;
 	view: Signal<Mat4>;
 	proj: Signal<Mat4>;

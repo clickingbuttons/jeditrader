@@ -31,6 +31,8 @@ export class Input {
 	posY = -1;
 	movementX = 0;
 	movementY = 0;
+	wheelX = 0;
+	wheelY = 0;
 
 	constructor(canvas: HTMLCanvasElement) {
 		this.canvas = canvas;
@@ -43,6 +45,7 @@ export class Input {
 		canvas.addEventListener('blur', () => this.focused = false);
 		canvas.addEventListener('mouseleave', this.mouseleave.bind(this));
 		canvas.addEventListener('contextmenu', e => e.preventDefault());
+		canvas.addEventListener('wheel', this.wheel.bind(this));
 	}
 
 	handleKey(ev: KeyboardEvent, keydown: boolean) {
@@ -68,6 +71,8 @@ export class Input {
 	update() {
 		this.movementX = 0;
 		this.movementY = 0;
+		this.wheelX = 0;
+		this.wheelY = 0;
 	}
 
 	mousedown(ev: MouseEvent) {
@@ -82,4 +87,9 @@ export class Input {
 	}
 
 	mouseleave() { this.buttons = { ...defaultButtons }; }
+
+	wheel(ev: WheelEvent) {
+		this.wheelX = ev.deltaX;
+		this.wheelY = ev.deltaY;
+	}
 };

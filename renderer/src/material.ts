@@ -12,6 +12,7 @@ export interface MaterialOptions {
 	vertCode: string;
 	fragCode: string;
 	code: string;
+	topology: GPUPrimitiveTopology;
 }
 
 type BindGroups = { [key: string] : ShaderBinding[] };
@@ -24,6 +25,7 @@ const defaultOptions: MaterialOptions = {
 	vertCode: 'return VertexOutput(projected(arg).proj, color(arg));',
 	fragCode: 'return arg.color;',
 	code: '',
+	topology: 'triangle-list',
 };
 
 function bindGroupCode(shaderBindings: ShaderBinding[], group: number, label: string): string {
@@ -144,10 +146,10 @@ function createPipeline(
 	device: GPUDevice,
 	layout: GPUPipelineLayout,
 	bindGroups: BindGroups,
-	options: MaterialOptions,
+	opts: MaterialOptions,
 	wireframe: boolean,
 ): GPURenderPipeline {
-	const code = shaderCode(wireframe, bindGroups, options);
+	const code = shaderCode(wireframe, bindGroups, opts);
 	return device.createRenderPipeline({
 		layout,
 		vertex: {
@@ -175,12 +177,12 @@ function createPipeline(
 		},
 		depthStencil: {
 			format: depthFormat,
-			depthCompare: options.depthWriteEnabled ? 'less' : 'always',
-			depthWriteEnabled: options.depthWriteEnabled,
+			depthCompare: opts.depthWriteEnabled ? 'less' : 'always',
+			depthWriteEnabled: opts.depthWriteEnabled,
 		},
 		primitive: {
-			topology: wireframe ? 'line-list' : 'triangle-list',
-			cullMode: options.cullMode,
+			topology: wireframe ? 'line-list' : opts.topology,
+			cullMode: opts.cullMode,
 		},
 		multisample: { count: sampleCount },
 	});
@@ -218,7 +220,9 @@ export class Material {
 			),
 		});
 		this.pipeline = createPipeline(device, layout, this.bindGroups, opts, false);
-		this.pipelineWireframe = createPipeline(device, layout, this.bindGroups, opts, true);
+		this.pipelineWireframe = opts.topology === 'triangle-list'
+			? createPipeline(device, layout, this.bindGroups, opts, true)
+			: this.pipeline;
 	}
 
 	bind(...meshes: Mesh[]) {

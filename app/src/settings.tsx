@@ -24,19 +24,20 @@ function InputNumber({ value, onChange, ...props }: InputNumberProps) {
 interface InputNumbersProps<T> {
 	value: T;
 	onChange: (v: T) => void;
-	Ty: {
-		new(t: T): T
-	};
 }
 
-function InputNumbers<T extends Float64Array>({ value, onChange, Ty }: InputNumbersProps<T>) {
+interface Vector<T> extends Float64Array {
+	clone(): T;
+}
+
+function InputNumbers<T extends Vector<T>>({ value, onChange }: InputNumbersProps<T>) {
 	return (
 		<>
 			{[...value].map((v, i) =>
 				<InputNumber
 					value={v}
 					onChange={n => {
-						const newVal = new Ty(value);
+						const newVal = value.clone();
 						newVal[i] = n;
 						onChange(newVal);
 					}}
@@ -47,15 +48,15 @@ function InputNumbers<T extends Float64Array>({ value, onChange, Ty }: InputNumb
 }
 
 function InputVec3({ value, onChange }: { value: Vec3, onChange: (v: Vec3) => void }) {
-	return <InputNumbers value={value} onChange={onChange} Ty={Vec3} />;
+	return <InputNumbers value={value} onChange={onChange} />;
 }
 
 function InputVec4({ value, onChange }: { value: Vec4, onChange: (v: Vec4) => void }) {
-	return <InputNumbers value={value} onChange={onChange} Ty={Vec4} />;
+	return <InputNumbers value={value} onChange={onChange} />;
 }
 
 function InputMat4({ value, onChange }: { value: Mat4, onChange: (v: Mat4) => void }) {
-	return <InputNumbers value={value} onChange={onChange} Ty={Mat4} />;
+	return <InputNumbers value={value} onChange={onChange} />;
 }
 
 function rgbaNormToHex(r: number, g: number, b: number, a: number): string | undefined {

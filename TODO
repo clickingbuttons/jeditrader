@@ -1,8 +1,8 @@
-- fit in view
 - x/y hover
 	- scale relative to cursor
 	- box select
 - labels always in view
+- orbit controls
 
 - ticker select
 

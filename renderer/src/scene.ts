@@ -1,14 +1,16 @@
-import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
+import { Vec3, Vec4, Mat4, Ray } from '@jeditrader/linalg';
 import { Camera } from './camera.js';
 import { Input } from './input.js';
 import { createBuffer } from './util.js';
-import { effect, Signal } from '@preact/signals-core';
+import { effect, Signal, computed } from '@preact/signals-core';
 import { Renderer, RendererFlags } from './renderer.js';
 import { BufferBinding } from './shader-binding.js';
 import { Material } from './material.js';
 import { Mesh } from './mesh.js';
 
 export class Scene {
+	width: Signal<number>;
+	height: Signal<number>;
 	aspectRatio: Signal<number>;
 	canvasUI: HTMLCanvasElement;
 	device: GPUDevice;
@@ -16,6 +18,7 @@ export class Scene {
 
 	input: Input;
 	camera: Camera;
+	viewProjInv: Signal<Mat4>;
 
 	bindGroup: GPUBindGroup;
 	uniform: GPUBuffer;
@@ -24,12 +27,15 @@ export class Scene {
 	settings;
 
 	constructor(renderer: Renderer) {
-		this.aspectRatio = renderer.aspectRatio;
+		this.width = renderer.width;
+		this.height = renderer.height;
+		this.aspectRatio = computed(() => renderer.width.value / renderer.height.value);
 		this.device = renderer.device;
 		this.canvasUI = renderer.canvasUI;
 		this.flags = renderer.flags;
 		this.input = renderer.input;
 		this.camera = new Camera(this.aspectRatio);
+		this.viewProjInv = computed(() => this.camera.proj.value.mul(this.camera.view.value).inverse());
 		this.settings = {
 			camera: this.camera.settings,
 		};
@@ -91,7 +97,7 @@ export class Scene {
 			.mul(this.camera.view.value)
 			.mul(model);
 
-		let res = new Vec4([...pos, 1.0]).transform(mvp);
+		let res = new Vec4(pos).transform(mvp);
 		// divide X and Y by W just like the GPU does
 		res.x /= res.w;
 		res.y /= res.w;
@@ -107,5 +113,19 @@ export class Scene {
 	destroy() {
 		this.uniform.destroy();
 		Object.values(this.materials).forEach(m => m.destroy());
+	}
+
+	rayCast(x: number, y: number): Ray {
+		// https://www.w3.org/TR/webgpu/#coordinate-systems
+		// convert to Normalized Device Coordinates: ([-1, -1, 0], [1, 1, 1])
+		x = (x / this.width.value - .5) * 2;
+		y = -(y / this.height.value - .5) * 2;
+
+		let near = new Vec4(x, y, 0, 1).transform(this.viewProjInv.value);
+		near = near.divScalar(near.w);
+		let far = new Vec4(x, y, 1, 1).transform(this.viewProjInv.value);
+		far = far.divScalar(far.w);
+
+		return new Ray(near.xyz(), far.sub(near).normalize().xyz());
 	}
 }

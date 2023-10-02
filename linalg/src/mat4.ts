@@ -102,7 +102,7 @@ export class Mat4 extends Float64Array {
 	}
 
 	static identity() {
-		return Mat4.scale(new Vec3([1, 1, 1]));
+		return Mat4.scale(new Vec3(1, 1, 1));
 	}
 
 	determinant(): number {

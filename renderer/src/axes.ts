@@ -5,7 +5,7 @@ import { createBuffer } from './util.js';
 import { getNext, Period } from '@jeditrader/providers';
 import { Labels } from './labels.js';
 import { toymd } from './helpers.js';
-import { signal, effect, computed, batch } from '@preact/signals-core';
+import { signal, effect, computed, batch, Signal } from '@preact/signals-core';
 import { Range } from './util.js';
 import { lodKeys, getLodIndex } from './lod.js';
 import { Material } from './material.js';
@@ -87,6 +87,12 @@ var dudv = vec2(
 );
 dudv *= axes.lineThickness;
 
+if (
+	(uv.y > -dudv.y + axes.hover.y && uv.y < dudv.y + axes.hover.y) ||
+	(uv.x > -dudv.x + axes.hover.x && uv.x < dudv.x + axes.hover.x)
+) {
+	return axes.hoverColor;
+}
 for (var i: u32 = 0; i < u32(axes.horizontalLinesLen); i++) {
 	let xVal = horizontalLines[i];
 	if (uv.y > -dudv.y + xVal && uv.y < dudv.y + xVal) {
@@ -112,6 +118,8 @@ export class Axes extends Mesh {
 			wgslStruct: `struct Axes {
 				backgroundColor: vec4f,
 				lineColor: vec4f,
+				hoverColor: vec4f,
+				hover: vec2f,
 				lineThickness: f32,
 				horizontalLinesLen: f32,
 				verticalLinesLen: f32,
@@ -126,6 +134,8 @@ export class Axes extends Mesh {
 		return new Float32Array([
 			...this.settings.backgroundColor.value,
 			...this.settings.lineColor.value,
+			...this.settings.hoverColor.value,
+			this.eyeX(this.hoverX.value), this.eyeY(this.hoverY.value),
 			this.settings.lineThickness.value,
 			this.horizontalLines.value.length,
 			this.verticalLines.value.length,
@@ -143,38 +153,37 @@ export class Axes extends Mesh {
 		});
 	}
 
+	eye: Signal<Vec3>;
 	settings;
 
 	verticalLines = signal([] as number[]);
 	horizontalLines = signal([] as number[]);
+	hoverX = signal(new Date(2014, 0).getTime());
+	hoverY = signal(20);
 	labels: Labels;
 
 	range = signal<Range<Vec3>>({
-		min: new Vec3([new Date(0).getTime(), 0, 0]),
-		max: new Vec3([new Date(2010, 1).getTime(), 100, 0])
+		min: new Vec3(new Date(0).getTime(), 0, 0),
+		max: new Vec3(new Date().getTime(), 100, 0)
 	});
-	scale = signal(new Vec3([1, 1, 1]));
+	scale = signal(new Vec3(1, 1, 1));
 	minTick = signal(0.01);
 
 	model = signal(Mat4.scale(this.scale.value));
 	modelInv = computed(() => this.model.value.inverse());
 
-	transform = {
-		origin: undefined as Vec3 | undefined,
-		scale: signal(new Vec3([1, 1, 1]))
-	};
-
 	constructor(scene: Scene) {
-		const { device, camera } = scene;
-		const { eye } = camera;
+		const { device } = scene;
 
 		super(device, new Array(nVertices * 3).fill(0), indices);
 
+		this.eye = scene.camera.eye;
 		this.labels = new Labels(scene, this.model);
 
 		this.settings = {
 			backgroundColor: signal([.3, .3, .3, 1]),
 			lineColor: signal([0, 0, 0, 1]),
+			hoverColor: signal([1, .6, .6, 1]),
 			lineThickness: signal(2),
 			labels: this.labels.settings,
 		};
@@ -196,93 +205,97 @@ export class Axes extends Mesh {
 		this.range.subscribe(r => {
 			const len = r.max.sub(r.min);
 			const desiredHeight = len.x / scene.aspectRatio.value;
-			this.scale.value = new Vec3([1, desiredHeight / len.y, 1]);
-		});
-		effect(() => this.updatePositions(this.getGeometry(eye.value)));
-		effect(() => {
-			const model = this.model.value;
-			const horizontalLines = this.horizontalLines.value;
-			const verticalLines = this.verticalLines.value;
-
-			this.device.queue.writeBuffer(this.buffers.axes, 0, this.uniformData());
-			this.device.queue.writeBuffer(this.buffers.verticalLines, 0, new Float32Array(
-				verticalLines.map(v => new Vec4([v, 0, 0, 1]).transform(model).x - eye.value.x)
-			));
-			this.device.queue.writeBuffer(this.buffers.horizontalLines, 0, new Float32Array(
-				horizontalLines.map(v => new Vec4([0, v, 0, 1]).transform(model).y - eye.value.y)
-			));
-			scene.flags.rerender = true;
-		});
-		effect(() => {
-			const lodIndex = getLodIndex(eye.value.z);
-			const period = lodKeys[Math.max(0, lodIndex - 1)];
-
-			batch(() => {
-				this.verticalLines.value = this.getVerticalLines(eye.value, period);
-				this.horizontalLines.value = this.getHorizontalLines(eye.value);
-			});
-
-			const range = this.range.value;
-			const verticalLabels = this.verticalLines.value.map(l => ({
-				text: toLabel(period, l),
-				pos: new Vec3([l, range.min.y, 0])
-			}));
-			const horizontalLabels = this.horizontalLines.value.map(l => ({
-				text: '$' + l.toFixed(2),
-				pos: new Vec3([range.min.x, l, 0])
-			}));
-
-			this.labels.setLabels(horizontalLabels.concat(verticalLabels));
+			this.scale.value = new Vec3(1, desiredHeight / len.y, 1);
+			this.model.value = Mat4.scale(this.scale.value);
 		});
 
+		effect(() => this.updatePositions(this.getGeometry()));
+		effect(() => this.updateUniform(scene));
+		effect(() => this.updateLines(scene));
 		effect(() => {
-			this.model.value = this.getModel();
 			this.updateModels(this.model.value);
 			scene.flags.rerender = true;
 		});
 	}
 
-	getModel(): Mat4 {
-		const origin = this.transform.origin ?? new Vec3([0, 0, 0]);
-		return Mat4
-			.translate(origin.mul(this.scale.value))
-			.scale(this.scale.value.mul(this.transform.scale.value))
-			.translate(origin.mulScalar(-1));
+	eyeX(x: number) {
+		return new Vec4(x, 0, 0, 1).transform(this.model.value).x - this.eye.value.x;
 	}
 
-	getGeometry(eye: Vec3) {
+	eyeY(y: number) {
+		return new Vec4(0, y, 0, 1).transform(this.model.value).y - this.eye.value.y;
+	}
+
+	updateUniform(scene: Scene) {
+		this.device.queue.writeBuffer(this.buffers.axes, 0, this.uniformData());
+		scene.flags.rerender = true;
+	}
+
+	updateLines(scene: Scene) {
+		const lodIndex = getLodIndex(this.eye.value.z);
+		const period = lodKeys[Math.max(0, lodIndex - 1)];
+
+		batch(() => {
+			this.verticalLines.value = this.getVerticalLines(period);
+			this.horizontalLines.value = this.getHorizontalLines();
+
+			this.device.queue.writeBuffer(this.buffers.verticalLines, 0, new Float32Array(
+				this.verticalLines.value.map(x => this.eyeX(x))
+			));
+			this.device.queue.writeBuffer(this.buffers.horizontalLines, 0, new Float32Array(
+				this.horizontalLines.value.map(y => this.eyeY(y))
+			));
+			scene.flags.rerender = true;
+		});
+
+		const range = this.range.value;
+		const verticalLabels = this.verticalLines.value.map(l => ({
+			text: toLabel(period, l),
+			pos: new Vec3(l, range.min.y, 0)
+		}));
+		const horizontalLabels = this.horizontalLines.value.map(l => ({
+			text: '$' + l.toFixed(2),
+			pos: new Vec3(range.min.x, l, 0)
+		}));
+
+		this.labels.setLabels(horizontalLabels.concat(verticalLabels));
+	}
+
+	getGeometry() {
+		const eye = this.eye.value;
 		const scale = this.scale.value;
 		const range = this.range.value;
 
-		const camPos = new Vec4([...eye, 1.0]).transform(this.modelInv.value);
+		const camPos = new Vec4(eye).transform(this.modelInv.value);
 		const cameraZ = camPos.z;
 		const lod0 = cameraZ;
 		const lod1 = cameraZ * 16;
 
 		const points = [
-			new Vec3([camPos.x - lod0, camPos.y + lod0 / scale.y, 0]),
-			new Vec3([camPos.x + lod0, camPos.y + lod0 / scale.y, 0]),
-			new Vec3([camPos.x + lod0, camPos.y - lod0 / scale.y, 0]),
-			new Vec3([camPos.x - lod0, camPos.y - lod0 / scale.y, 0]),
+			new Vec3(camPos.x - lod0, camPos.y + lod0 / scale.y, 0),
+			new Vec3(camPos.x + lod0, camPos.y + lod0 / scale.y, 0),
+			new Vec3(camPos.x + lod0, camPos.y - lod0 / scale.y, 0),
+			new Vec3(camPos.x - lod0, camPos.y - lod0 / scale.y, 0),
 
-			new Vec3([camPos.x - lod1, camPos.y + lod1 / scale.y, 0]),
-			new Vec3([camPos.x + lod1, camPos.y + lod1 / scale.y, 0]),
-			new Vec3([camPos.x + lod1, camPos.y - lod1 / scale.y, 0]),
-			new Vec3([camPos.x - lod1, camPos.y - lod1 / scale.y, 0]),
+			new Vec3(camPos.x - lod1, camPos.y + lod1 / scale.y, 0),
+			new Vec3(camPos.x + lod1, camPos.y + lod1 / scale.y, 0),
+			new Vec3(camPos.x + lod1, camPos.y - lod1 / scale.y, 0),
+			new Vec3(camPos.x - lod1, camPos.y - lod1 / scale.y, 0),
 		];
 
 		return points
 			.map(p => p.clamp(range.min, range.max))
 			.concat([
-				new Vec3([range.min.x, range.max.y, 0]),
-				new Vec3([range.max.x, range.max.y, 0]),
-				new Vec3([range.max.x, range.min.y, 0]),
-				new Vec3([range.min.x, range.min.y, 0]),
+				new Vec3(range.min.x, range.max.y, 0),
+				new Vec3(range.max.x, range.max.y, 0),
+				new Vec3(range.max.x, range.min.y, 0),
+				new Vec3(range.min.x, range.min.y, 0),
 			])
 			.reduce((acc, cur) => acc.concat([...cur]), [] as number[]);
 	}
 
-	getVerticalLines(eye: Vec3, period: Period): number[] {
+	getVerticalLines(period: Period): number[] {
+		const eye = this.eye.value;
 		const range = this.range.value;
 
 		const minCenter = getNext(new Date(range.min.x), period, maxLines / 2).getTime();
@@ -301,9 +314,10 @@ export class Axes extends Mesh {
 		return res;
 	}
 
-	getHorizontalLines(eye: Vec3): number[] {
+	getHorizontalLines(): number[] {
+		const eye = this.eye.value;
 		const range = this.range.value;
-		const scale = this.scale.value.y * this.transform.scale.value.y;
+		const scale = this.model.value[5];
 		const minTick = this.minTick.value;
 
 		const minStep = minTick;
@@ -314,7 +328,7 @@ export class Axes extends Mesh {
 		const minCenter = range.min.y + maxLines / 2 * step;
 		const maxCenter = range.max.y - maxLines / 2 * step;
 		const center = clamp(
-			new Vec4([0, eye.y, 0, 1]).transform(this.modelInv.value).y,
+			new Vec4(0, eye.y, 0, 1).transform(this.modelInv.value).y,
 			minCenter,
 			maxCenter
 		);
@@ -328,18 +342,31 @@ export class Axes extends Mesh {
 		return res;
 	}
 
-	update(input: Input) {
-		document.body.style.cursor = input.buttons.shift ? 'ns-resize' : 'auto';
-		if (input.buttons.mouse0 && input.buttons.shift) {
-			if (!this.transform.origin) this.transform.origin = new Vec3([0, 10, 0]);
+	update(input: Input, hoverWorldPos: Vec3 | undefined) {
+		if (!hoverWorldPos) return;
 
-			const scale = new Vec3([0, -input.movementY * 2, 0])
-				.mul(this.transform.scale.value)
-				.divScalar(1e3);
+		const hoverAxesPos = new Vec4(hoverWorldPos)
+			.transform(this.modelInv.value)
+			.xyz();
+		batch(() => {
+			this.hoverX.value = hoverAxesPos.x;
+			this.hoverY.value = hoverAxesPos.y;
+		});
 
-			this.transform.scale.value = this.transform.scale.value.add(scale);
-		} else {
-			this.transform.origin = undefined;
+		const range = this.range.value;
+		const hoveringAxes = hoverAxesPos.x > range.min.x && hoverAxesPos.x < range.max.x &&
+			hoverAxesPos.y > range.min.y && hoverAxesPos.y < range.max.y;
+		document.body.style.cursor = (input.buttons.shift && hoveringAxes) ? 'ns-resize' : 'auto';
+		if (input.wheelY) {
+			const origin = hoverAxesPos;
+			console.log(input.wheelY);
+			const scale = new Vec3(1, 1 + input.wheelY / 1e3, 1);
+			const transform = Mat4
+				.translate(origin)
+				.scale(scale)
+				.translate(origin.mulScalar(-1));
+
+			this.model.value = this.model.value.mul(transform);
 		}
 	}
 

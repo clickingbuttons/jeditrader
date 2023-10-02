@@ -1,4 +1,4 @@
-import { Vec3, Mat4 } from '@jeditrader/linalg';
+import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
 import { Material } from './material.js';
 import { BufferBinding } from './shader-binding.js';
 import { Mesh } from './mesh.js';
@@ -38,7 +38,7 @@ export class OHLCV extends Mesh {
 	to?: Date;
 
 	constructor(device: GPUDevice, model: GPUBuffer, maxCandles: number) {
-		const { positions, indices } = new Cube(new Vec3([0, 0, 1])).toIndexedTriangles();
+		const { positions, indices } = new Cube(new Vec3(0, 0, 1)).toIndexedTriangles();
 
 		super(device, positions, indices, {
 			instances: {
@@ -62,33 +62,33 @@ export class OHLCV extends Mesh {
 
 	static toCandle(agg: Aggregate, period: Period) {
 		const width = getNext(agg.time, period).getTime() - agg.time.getTime();
-		const scale = new Vec3([
+		const scale = new Vec3(
 			width / 2,
 			Math.abs(agg.close - agg.open) / 2,
 			agg.volume
-		]);
-		const translate = new Vec3([
+		);
+		const translate = new Vec3(
 			agg.time.getTime() + width / 2,
 			(agg.close + agg.open) / 2,
 			0
-		]);
+		);
 		const model = Mat4.translate(translate).scale(scale);
 
-		const wickScale = new Vec3([
+		const wickScale = new Vec3(
 			scale.x / 8,
 			(agg.high - agg.low) / 2,
 			scale.z / 8,
-		]);
-		const wickTranslate = new Vec3([
+		);
+		const wickTranslate = new Vec3(
 			translate.x,
 			(agg.high + agg.low) / 2,
 			0
-		]);
+		);
 		const wickTransform = Mat4.translate(wickTranslate).scale(wickScale);
 
-		let color = new Vec3([1, 1, 1, 1]);
-		if (agg.close > agg.open) color = new Vec3([0, 1, 0, 1]);
-		else if (agg.close < agg.open) color = new Vec3([1, 0, 0, 1]);
+		let color = new Vec4(1, 1, 1, 1);
+		if (agg.close > agg.open) color = new Vec4(0, 1, 0, 1);
+		else if (agg.close < agg.open) color = new Vec4(1, 0, 0, 1);
 
 		return {
 			body: model,

@@ -47,7 +47,8 @@ export class Renderer {
 
 	settings;
 
-	aspectRatio: Signal<number>;
+	width: Signal<number>;
+	height: Signal<number>;
 	scene: Scene;
 
 	private constructor(
@@ -69,7 +70,8 @@ export class Renderer {
 			clearColor: signal([135 / 255, 206 / 255, 235 / 255, 1.0]),
 		};
 		this.settings.clearColor.subscribe(() => this.flags.rerender = true);
-		this.aspectRatio = signal(canvas.width / canvas.height);
+		this.width = signal(canvas.width);
+		this.height = signal(canvas.height);
 
 		this.scene = new TestScene(this); // Init last
 
@@ -87,7 +89,8 @@ export class Renderer {
 		this.depthTexture = this.createDepthTarget();
 		this.depthTextureView = this.depthTexture.createView();
 
-		this.aspectRatio.value = this.canvas.width / this.canvas.height;
+		this.width.value = this.canvas.width;
+		this.height.value = this.canvas.height;
 	}
 
 	createRenderTarget() {
