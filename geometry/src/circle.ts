@@ -29,7 +29,7 @@ export class Circle extends CSG {
 
 		const vertices: Vertex[] = [...Array(slices).keys()]
 			.map(i => {
-				const dir = circleDirection(i / slices);
+				const dir = circleDirection(-i / slices);
 				const p = center.add(dir.mulScalar(radius));
 				return new Vertex(p);
 			});

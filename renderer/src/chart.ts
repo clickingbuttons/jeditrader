@@ -50,24 +50,7 @@ export class Chart extends Scene {
 		this.axes = new Axes(this);
 		this.materials.axes.bind(this.axes);
 
-		this.axes.range.subscribe(range => {
-			// Center on sphere to make math easy.
-			// https://stackoverflow.com/questions/2866350/move-camera-to-fit-3d-scene
-			let center = new Vec4(range.max.add(range.min).divScalar(2));
-			const model = this.axes.model.value;
-			// Take longest dimension as radius.
-			let dims = new Vec4(range.max.sub(range.min));
-
-			// Move to axes space.
-			center = center.transform(model);
-			dims = dims.transform(model);
-			const radius = Math.max(...dims) / 2;
-
-			const eye = center;
-			eye.y *= 0.8;
-			eye.z = radius / Math.tan(degToRad(this.camera.fov.value / 2));
-			this.camera.eye.value = eye.xyz();
-		});
+		this.axes.range.subscribe(range => this.fitInView(range));
 
 		this.tickers = [
 			new AutoTicker(this, this.autoLod, this.axes.range, this.axes.buffers.models, provider),
@@ -79,6 +62,25 @@ export class Chart extends Scene {
 			...superSettings,
 			axes: this.axes.settings,
 		};
+	}
+
+	fitInView(range: Range<Vec3>) {
+		// Center on sphere to make math easy.
+		// https://stackoverflow.com/questions/2866350/move-camera-to-fit-3d-scene
+		let center = new Vec4(range.max.add(range.min).divScalar(2));
+		const model = this.axes.model.value;
+		// Take longest dimension as radius.
+		let dims = new Vec4(range.max.sub(range.min));
+
+		// Move to axes space.
+		center = center.transform(model);
+		dims = dims.transform(model);
+		const radius = Math.max(...dims) / 2;
+
+		const eye = center;
+		eye.y *= 0.8;
+		eye.z = radius / Math.tan(degToRad(this.camera.fov.value / 2));
+		this.camera.eye.value = eye.xyz();
 	}
 
 	update(dt: DOMHighResTimeStamp) {

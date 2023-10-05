@@ -39,8 +39,8 @@ export function Chart() {
 	useEffect(() => {
 		if (!provider || !renderer) return;
 
-		const scene = new ChartScene(renderer, provider);
-		// const scene = new GeometryViewer(renderer);
+		// const scene = new ChartScene(renderer, provider);
+		const scene = new GeometryViewer(renderer);
 		renderer.scene = scene;
 		setScene(scene);
 	}, [provider, renderer]);

@@ -16,7 +16,7 @@ export class Cone extends CSG {
 	constructor(options: Partial<ConeOptions> = defaultOptions) {
 		const opts: ConeOptions = { ...defaultOptions, ...options };
 		const circle = new Circle(opts);
-		const finalVert = opts.center.add(new Vec3(0, 0, opts.height));
+		const finalVert = opts.center.add(new Vec3(0, 0, -opts.height));
 
 		const circlePoly = circle.polygons[0];
 		const verts = [...circlePoly.vertices];

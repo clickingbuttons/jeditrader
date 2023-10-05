@@ -1,12 +1,9 @@
-import { lodKeys } from './lod.js';
-import { getNext } from '@jeditrader/providers';
 import { Mesh } from './mesh.js';
-import { Cube } from '@jeditrader/geometry';
+import { Cone, Circle } from '@jeditrader/geometry';
 import { Vec3, Mat4 } from '@jeditrader/linalg';
 import { Scene } from './scene.js';
 import { Renderer } from './renderer.js';
 import { signal, effect } from '@preact/signals-core';
-import { Material } from './material.js';
 
 export class GeometryViewer extends Scene {
 	declare settings;
@@ -30,8 +27,9 @@ export class GeometryViewer extends Scene {
 			const opts = {
 				center: this.settings.center.value,
 				radius: this.settings.radius.value,
+				height: this.settings.radius.value,
 			};
-			const { positions, indices } = new Cube(opts).toIndexedTriangles();
+			const { positions, indices } = new Cone(opts).toIndexedTriangles();
 			const mesh = new Mesh(this.device, positions, indices);
 
 			material.destroy();

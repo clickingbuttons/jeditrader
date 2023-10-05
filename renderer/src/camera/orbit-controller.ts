@@ -1,42 +1,58 @@
 import { Camera } from './camera.js';
-import { Vec3, Mat4 } from '@jeditrader/linalg';
+import { Vec3, Mat4, clamp } from '@jeditrader/linalg';
 import { Input } from '../input.js';
-import { signal, batch } from '@preact/signals-core';
+import { signal, batch, Signal } from '@preact/signals-core';
 import { Controller } from './controller.js';
 
 export class OrbitController implements Controller {
 	cam: Camera;
-	center = new Vec3(0, 0, 0);
-	xRot = 0;
-	yRot = 0;
+	radius: number;
+	phi: Signal<number>;
+	theta: Signal<number>;
 
 	constructor(cam: Camera) {
 		this.cam = cam;
+		this.radius = cam.eye.value.magnitude();
+		this.phi = signal(Math.PI + cam.dir.value.x);
+		this.theta = signal(-cam.dir.value.y);
+	}
+
+	getDirection(): Vec3 {
+		const phi = this.phi.value;
+		const theta = this.theta.value;
+		return new Vec3(
+			Math.sin(phi),
+			Math.sin(theta) * Math.cos(phi),
+			Math.cos(theta) * Math.cos(phi),
+		).normalize();
 	}
 
 	update(dt: DOMHighResTimeStamp, input: Input): void {
-		let cameraSpeed = dt / 2e12;
+		let dirChange = false;
+		if (input.buttons.mouse0) {
+			this.phi.value -= input.movementX / 1e3;
+			const epsilon = 0.3;
+			this.theta.value = clamp(
+				this.theta.value - input.movementY / 500,
+				-Math.PI / 2 + epsilon,
+				+Math.PI / 2 - epsilon
+			);
+			dirChange = input.movementX !== 0 || input.movementY !== 0;
+		}
+
+		let cameraSpeed = dt / 100;
 		if (input.buttons.shift) cameraSpeed *= 2;
 
-		const cam = this.cam;
-		let newEye = cam.eye.value.clone();
-		const radius = newEye.sub(this.center).magnitude();
+		if (input.buttons.up) this.radius -= cameraSpeed;
+		if (input.buttons.down) this.radius += cameraSpeed;
 
-		if (input.buttons.left) {
-			const radSpeed = cameraSpeed;
-			this.yRot += radSpeed;
-			console.log(this.yRot);
-			newEye = new Vec3(
-				radius * Math.sin(this.xRot) * Math.cos(this.yRot),
-				radius * Math.cos(this.xRot),
-				radius * Math.sin(this.xRot) * Math.sin(this.yRot),
-			);
-		}
 		// Prevent needless rerenders
 		batch(() => {
-			if (!newEye.eq(cam.eye.value)) {
-				cam.eye.value = newEye;
-				cam.dir.value = newEye.sub(this.center).normalize();
+			const cam = this.cam;
+			const newPos = this.getDirection().mulScalar(this.radius);
+			if (!newPos.eq(cam.eye.value)) {
+				cam.eye.value = newPos;
+				cam.dir.value = cam.eye.value.mulScalar(-1).normalize();
 			};
 		});
 	}

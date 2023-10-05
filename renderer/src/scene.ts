@@ -36,7 +36,7 @@ export class Scene {
 		this.flags = renderer.flags;
 		this.input = renderer.input;
 		this.camera = new Camera(this.aspectRatio);
-		this.cameraController = new FPSController(this.camera);
+		this.cameraController = new OrbitController(this.camera);
 		this.viewProjInv = computed(() => this.camera.proj.value.mul(this.camera.view.value).inverse());
 		this.settings = {
 			camera: this.camera.settings,
@@ -52,12 +52,13 @@ export class Scene {
 			layout,
 			entries: [binding.entry(0, this.uniform)],
 		});
+		const bindings = Object.values(Mesh.bindGroup);
+		const fragCode = `
+
+		`;
 		this.materials = {
-			default: new Material(this.device, { bindings: Object.values(Mesh.bindGroup) }),
-			noCull: new Material(this.device, {
-				bindings: Object.values(Mesh.bindGroup),
-				cullMode: 'none',
-			}),
+			default: new Material(this.device, { bindings }),
+			phong: new Material(this.device, { bindings, fragCode }),
 		};
 		this.flags.rerender = true;
 

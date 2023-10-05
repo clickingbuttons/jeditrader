@@ -53,13 +53,6 @@ export class OHLCV extends Mesh {
 		this.buffers.axes = model;
 	}
 
-	uniformData(model: Mat4) {
-		return new Float32Array([
-			...model,
-			...model.f32Low(),
-		]);
-	}
-
 	static toCandle(agg: Aggregate, period: Period) {
 		const width = getNext(agg.time, period).getTime() - agg.time.getTime();
 		const scale = new Vec3(
