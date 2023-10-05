@@ -52,11 +52,9 @@ return VertexOutput(pos.proj, pos.view);
 
 				mss.forEach(ms => {
 					const radius = ms / 2;
-					const rad3 = new Vec3(radius, radius, radius);
-
 					[
-						new Cube(new Vec3(0, 0, 0), rad3),
-						new Cube(new Vec3(offset, 0, 0), rad3),
+						new Cube({ radius }),
+						new Cube({ center: new Vec3(offset, 0, 0), radius }),
 					].forEach(csg => {
 						const { positions, indices } = csg.toIndexedTriangles();
 						allPositions.push(...positions);
@@ -76,7 +74,7 @@ return VertexOutput(pos.proj, pos.view);
 
 			if (this.settings.transform.value) {
 				const models = mss.map(ms => {
-					const radius = ms / 2;
+					const radius = ms;
 
 					const scale = Mat4.scale(new Vec3(radius, radius, radius))
 					const translate = Mat4.translate(new Vec3(offset, 0, 0))

@@ -17,7 +17,7 @@ export const lods: Lod[] = ['auto', ...lodKeys];
 
 export function getLodIndex(cameraZ: number): number {
 	for (var i = lodKeys.length - 1; i >= 0; i--) {
-		if (cameraZ < cameraZs[lodKeys[i]]) return i;
+		if (Math.abs(cameraZ) < cameraZs[lodKeys[i]]) return i;
 	}
 	return 0;
 }

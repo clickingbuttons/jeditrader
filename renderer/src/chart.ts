@@ -1,5 +1,5 @@
 import { Axes } from './axes.js';
-import { Mat4, Vec3, Vec4, degToRad } from '@jeditrader/linalg';
+import { Vec3, Vec4, degToRad } from '@jeditrader/linalg';
 import { Provider, Period } from '@jeditrader/providers';
 import { AutoTicker } from './auto-ticker.js';
 import { Scene } from './scene.js';
@@ -7,7 +7,7 @@ import { Range } from './util.js';
 import { Signal, computed } from '@preact/signals-core';
 import { getLod, Lod } from './lod.js';
 import { Renderer } from './renderer.js';
-import { Cube } from '@jeditrader/geometry';
+import { Cone, Circle } from '@jeditrader/geometry';
 import { Mesh } from './mesh.js';
 import { OHLCV } from './ohlcv.js';
 
@@ -42,10 +42,7 @@ export class Chart extends Scene {
 		// Test cube.
 		{
 			const radius = 1e10;
-			const { positions, indices } = new Cube(
-				new Vec3(0, 0, 0),
-				new Vec3(radius, radius, radius)
-			).toIndexedTriangles();
+			const { positions, indices } = new Cone({ radius, height: radius }).toIndexedTriangles();
 			this.test = new Mesh(this.device, positions, indices);
 			this.materials.default.bind(this.test);
 		}
@@ -84,16 +81,8 @@ export class Chart extends Scene {
 		};
 	}
 
-	viewToWorld(x: number, y: number): Vec3 | undefined {
-		const ray = this.rayCast(x, y);
-		// z + bt = 0
-		// t = -z / b
-		const t = -ray.point.z / ray.dir.z;
-		if (t > 0) return ray.point.add(ray.dir.mulScalar(t));
-	}
-
 	update(dt: DOMHighResTimeStamp) {
-		this.axes.update(this.input, this.viewToWorld(this.input.posX, this.input.posY));
+		this.axes.update(this);
 		super.update(dt);
 	}
 

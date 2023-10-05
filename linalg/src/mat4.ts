@@ -1,8 +1,8 @@
 import { Vec3 } from './vec3.js';
 
 export class Mat4 extends Float64Array {
-	static lookAt(eye: Vec3, target: Vec3, up: Vec3): Mat4 {
-		const zAxis = eye.sub(target).normalize();
+	static lookAt(eye: Vec3, dir: Vec3, up: Vec3): Mat4 {
+		const zAxis = dir.normalize();
 		const xAxis = up.cross(zAxis).normalize();
 		const yAxis = zAxis.cross(xAxis).normalize();
 
@@ -98,6 +98,35 @@ export class Mat4 extends Float64Array {
 			0.0, v.y, 0.0, 0,
 			0.0, 0.0, v.z, 0,
 			0.0, 0.0, 0.0, 1,
+		]);
+	}
+
+	static rotate(axis: Vec3, angle: number): Mat4 {
+		const n = axis.normalize();
+		const x = n.x;
+		const y = n.y;
+		const z = n.z;
+		const xx = x ** 2;
+		const yy = y ** 2;
+		const zz = z ** 2;
+		const c = Math.cos(angle);
+		const s = Math.sin(angle);
+		const oneMinusCosine = 1 - c;
+
+		return new Mat4([
+			xx + (1 - xx) * c,
+			x * y * oneMinusCosine + z * s,
+			x * z * oneMinusCosine - y * s,
+			0,
+			x * y * oneMinusCosine - z * s,
+			yy + (1 - yy) * c,
+			y * z * oneMinusCosine + x * s,
+			0,
+			x * z * oneMinusCosine + y * s,
+			y * z * oneMinusCosine - x * s,
+			zz + (1 - zz) * c,
+			0,
+			0, 0, 0, 1,
 		]);
 	}
 

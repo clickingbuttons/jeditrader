@@ -1,6 +1,6 @@
 import { Mesh } from './mesh.js';
 import { BufferBinding } from './shader-binding.js';
-import { Vec3, Vec4, Mat4, clamp } from '@jeditrader/linalg';
+import { Vec3, Vec4, Mat4, clamp, Edge } from '@jeditrader/linalg';
 import { createBuffer } from './util.js';
 import { getNext, Period } from '@jeditrader/providers';
 import { Labels } from './labels.js';
@@ -10,7 +10,7 @@ import { Range } from './util.js';
 import { lodKeys, getLodIndex } from './lod.js';
 import { Material } from './material.js';
 import { Scene } from './scene.js';
-import { Input } from './input.js';
+import { Plane, Vertex, Polygon } from '@jeditrader/geometry';
 
 // Unfortunately this is needed to prevent jitter when the camera is at z < 1000
 //  8┌─────────┐9
@@ -178,7 +178,7 @@ export class Axes extends Mesh {
 		super(device, new Array(nVertices * 3).fill(0), indices);
 
 		this.eye = scene.camera.eye;
-		this.labels = new Labels(scene, this.model);
+		this.labels = new Labels(scene);
 
 		this.settings = {
 			backgroundColor: signal([.3, .3, .3, 1]),
@@ -231,9 +231,71 @@ export class Axes extends Mesh {
 		scene.flags.rerender = true;
 	}
 
+	viewPlanes(scene: Scene): Plane[] {
+		const viewBounds = [
+			[-1, -1],
+			[-1, 1],
+			[1, 1],
+			[1, -1]
+		];
+		const rays = viewBounds.map(b => scene.rayCastNDC(b[0], b[1]));
+		const verts = rays.map(r => ({
+			near: new Vertex(r.point),
+			far: new Vertex(r.point.add(r.dir)),
+		}));
+		// front face is ccw
+		// back face is cw
+		return [
+			// near
+			Plane.fromPoints(verts[0].near, verts[1].near, verts[2].near),
+			// far
+			Plane.fromPoints(verts[2].far, verts[1].far, verts[0].far),
+			// top
+			Plane.fromPoints(verts[1].near, verts[1].far, verts[0].far),
+			// right
+			Plane.fromPoints(verts[2].near, verts[2].far, verts[1].far),
+			// bottom
+			Plane.fromPoints(verts[3].near, verts[3].far, verts[2].far),
+			// left
+			Plane.fromPoints(verts[0].near, verts[0].far, verts[3].far),
+		];
+	}
+
+	viewWorldPolygon(scene: Scene): Polygon {
+		const range = this.range.value;
+		const planes = this.viewPlanes(scene);
+		console.log(planes);
+
+		const indices = [
+			[0, 1],
+			[1, 2],
+			[2, 3],
+			[3, 0],
+		];
+		const vertices = [
+			new Vertex(new Vec3(range.min.x, range.min.y, 0)),
+			new Vertex(new Vec3(range.min.x, range.max.y, 0)),
+			new Vertex(new Vec3(range.max.x, range.max.y, 0)),
+			new Vertex(new Vec3(range.max.x, range.min.y, 0)),
+		];
+		const edges: Edge[] = indices
+			.map(i => {
+				let edge: Edge | undefined = new Edge(vertices[i[0]], vertices[i[1]]);
+				planes.forEach(p => { if (edge) edge = p.clip(edge); });
+				return edge;
+			})
+			.filter(Boolean);
+
+		return new Polygon(edges.map(e => [new Vertex(e.a), new Vertex(e.b)]).flat());
+	}
+
 	updateLines(scene: Scene) {
+		const range = this.range.value;
 		const lodIndex = getLodIndex(this.eye.value.z);
 		const period = lodKeys[Math.max(0, lodIndex - 1)];
+
+		// const polygon = this.viewWorldPolygon(scene);
+		// console.log(polygon);
 
 		batch(() => {
 			this.verticalLines.value = this.getVerticalLines(period);
@@ -248,17 +310,31 @@ export class Axes extends Mesh {
 			scene.flags.rerender = true;
 		});
 
-		const range = this.range.value;
-		const verticalLabels = this.verticalLines.value.map(l => ({
-			text: toLabel(period, l),
-			pos: new Vec3(l, range.min.y, 0)
-		}));
-		const horizontalLabels = this.horizontalLines.value.map(l => ({
-			text: '$' + l.toFixed(2),
-			pos: new Vec3(range.min.x, l, 0)
-		}));
+		// Trace from topLeft to topRight
+		const verticalLabels = this.verticalLines.value
+			.concat(clamp(this.hoverX.value, range.min.x, range.max.x))
+			.map((l, i) => {
+				const isHover = i === this.verticalLines.value.length;
+				return {
+					text: toLabel(isHover ? lodKeys[lodIndex] : period, l),
+					pos: scene.sceneToClip(new Vec3(l, range.min.y, 0), this.model.value),
+					isHover,
+				};
+			});
+		const horizontalLabels = this.horizontalLines.value
+			.concat(clamp(this.hoverY.value, range.min.y, range.max.y))
+			.map((l, i) => {
+				const isHover = i === this.horizontalLines.value.length;
+				return {
+					text: '$' + l.toFixed(2),
+					pos: scene.sceneToClip(new Vec3(range.min.x, l, 0), this.model.value),
+					isHover,
+				};
+			});
 
-		this.labels.setLabels(horizontalLabels.concat(verticalLabels));
+		this.labels.setLabels(
+			horizontalLabels.concat(verticalLabels).filter(l => l.pos.w > 0)
+		);
 	}
 
 	getGeometry() {
@@ -297,7 +373,6 @@ export class Axes extends Mesh {
 	getVerticalLines(period: Period): number[] {
 		const eye = this.eye.value;
 		const range = this.range.value;
-
 		const minCenter = getNext(new Date(range.min.x), period, maxLines / 2).getTime();
 		const maxCenter = getNext(new Date(range.max.x), period, -maxLines / 2).getTime();
 		const center = clamp(eye.x, minCenter, maxCenter);
@@ -315,8 +390,8 @@ export class Axes extends Mesh {
 	}
 
 	getHorizontalLines(): number[] {
-		const eye = this.eye.value;
 		const range = this.range.value;
+		const eye = this.eye.value;
 		const scale = this.model.value[5];
 		const minTick = this.minTick.value;
 
@@ -338,11 +413,23 @@ export class Axes extends Mesh {
 
 		const res: number[] = [];
 		const evenStart = Math.ceil(start / step) * step;
-		for (let i = evenStart; i <= end; i += step) res.push(i);
+		for (let i = evenStart; i <= end; i += step) {
+			res.push(i);
+		}
 		return res;
 	}
 
-	update(input: Input, hoverWorldPos: Vec3 | undefined) {
+	viewToWorld(scene: Scene, x: number, y: number): Vec3 | undefined {
+		const ray = scene.rayCast(x, y);
+		// z + bt = 0
+		// t = -z / b
+		const t = -ray.point.z / ray.dir.z;
+		if (Number.isFinite(t)) return ray.point.add(ray.dir.mulScalar(t));
+	}
+
+	update(scene: Scene) {
+		const input = scene.input;
+		const hoverWorldPos = this.viewToWorld(scene, input.posX, input.posY);
 		if (!hoverWorldPos) return;
 
 		const hoverAxesPos = new Vec4(hoverWorldPos)
@@ -356,10 +443,8 @@ export class Axes extends Mesh {
 		const range = this.range.value;
 		const hoveringAxes = hoverAxesPos.x > range.min.x && hoverAxesPos.x < range.max.x &&
 			hoverAxesPos.y > range.min.y && hoverAxesPos.y < range.max.y;
-		document.body.style.cursor = (input.buttons.shift && hoveringAxes) ? 'ns-resize' : 'auto';
 		if (input.wheelY) {
-			const origin = hoverAxesPos;
-			console.log(input.wheelY);
+			const origin = hoveringAxes ? hoverAxesPos : range.max.add(range.min).divScalar(2);
 			const scale = new Vec3(1, 1 + input.wheelY / 1e3, 1);
 			const transform = Mat4
 				.translate(origin)

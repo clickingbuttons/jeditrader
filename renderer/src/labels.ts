@@ -1,13 +1,14 @@
-import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
-import { signal, effect, Signal } from '@preact/signals-core';
+import { signal, effect } from '@preact/signals-core';
 import { Scene } from './scene.js';
 
 export interface Label {
 	text: string;
-	pos: Vec3;
+	pos: {
+		x: number;
+		y: number;
+	};
+	isHover: boolean;
 }
-
-export type SceneToClip = (pos: Vec3) => Vec4;
 
 interface Rectangle {
 	left: number;
@@ -27,7 +28,6 @@ function intersects(r1: Rectangle, r2: Rectangle) {
 
 export class Labels {
 	scene: Scene;
-	model: Signal<Mat4>;
 
 	ctx: CanvasRenderingContext2D;
 	labels: Label[] = [];
@@ -37,9 +37,8 @@ export class Labels {
 		paddingPx: signal(2),
 	};
 
-	constructor(scene: Scene, model: Signal<Mat4>) {
+	constructor(scene: Scene) {
 		this.scene = scene;
-		this.model = model;
 		const ctx = scene.canvasUI.getContext('2d');
 		if (!ctx) throw new Error('cannot get canvas 2d context');
 		this.ctx = ctx;
@@ -56,10 +55,9 @@ export class Labels {
 		ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
 		const padding = this.settings.paddingPx.value;
-		ctx.font = `${this.settings.font.value}`;
+		ctx.font = this.settings.font.value;
 		ctx.textBaseline = 'middle';
 		ctx.textAlign = 'center';
-		ctx.fillStyle = 'white';
 		// Stoke for text shadow
 		ctx.strokeStyle = 'black';
 		ctx.lineWidth = 2;
@@ -71,26 +69,35 @@ export class Labels {
 			bottom: 0,
 		};
 		this.labels.forEach(l => {
-			const clipPos = this.scene.sceneToClip(l.pos, this.model.value);
-			if (clipPos.z < 0) return;
-			const x = (1 + clipPos.x) / 2 * ctx.canvas.width;
-			const y = (1 - clipPos.y) / 2 * ctx.canvas.height;
+			const x = (1 + l.pos.x) / 2 * ctx.canvas.width;
+			const y = (1 - l.pos.y) / 2 * ctx.canvas.height;
 			const measure = ctx.measureText(l.text);
 			const width = measure.width;
 			const height = measure.actualBoundingBoxAscent + measure.actualBoundingBoxDescent;
 			const rect: Rectangle = {
 				left: x - width / 2 - padding,
 				right: x + width / 2 + padding,
-				top: y + height / 2 - padding,
-				bottom: y + height * 3 / 2 + padding,
+				top: y - height / 2 - padding,
+				bottom: y + height / 2 + padding,
 			};
 			// Don't draw text that overlaps.
-			if (intersects(lastRect, rect)) return;
-			lastRect = rect;
+			if (!l.isHover) {
+				if (intersects(lastRect, rect)) return;
+				lastRect = rect;
+			}
 
+			if (l.isHover) {
+				ctx.fillStyle = 'black';
+				ctx.fillRect(
+					rect.left,
+					rect.top,
+					rect.right - rect.left,
+					rect.bottom - rect.top
+				);
+			}
 			ctx.strokeText(l.text, x, y);
+			ctx.fillStyle = 'white';
 			ctx.fillText(l.text, x, y);
-			// ctx.fillRect(rect.left, rect.top, rect.right - rect.left, rect.top - rect.bottom);
 		});
 	}
 }

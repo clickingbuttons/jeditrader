@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'preact/hooks';
 import { Toolbar } from './toolbar.js';
-import { Renderer, Chart as ChartScene } from '@jeditrader/renderer';
+import { Renderer, Chart as ChartScene, GeometryViewer, Scene } from '@jeditrader/renderer';
 import { Provider } from '@jeditrader/providers';
 import { Split, SplitItem } from './split.js';
 import { Settings } from './settings.js';
@@ -15,7 +15,7 @@ export function Chart() {
 	const [provider, setProvider] = useState<Provider | null>(null);
 	const [renderer, setRenderer] = useState<Renderer | null>(null);
 	const [showSettings, setShowSettings] = useState(true);
-	const [chart, setChart] = useState<ChartScene | null>(null);
+	const [scene, setScene] = useState<Scene | null>(null);
 
 	useEffect(() => {
 		if (!renderer) return;
@@ -39,9 +39,10 @@ export function Chart() {
 	useEffect(() => {
 		if (!provider || !renderer) return;
 
-		const chart = new ChartScene(renderer, provider);
-		renderer.scene = chart;
-		setChart(chart);
+		const scene = new ChartScene(renderer, provider);
+		// const scene = new GeometryViewer(renderer);
+		renderer.scene = scene;
+		setScene(scene);
 	}, [provider, renderer]);
 
 	return (
@@ -54,7 +55,7 @@ export function Chart() {
 					<Toolbar
 						style={{ pointerEvents: 'all' }}
 						renderer={renderer}
-						chart={chart}
+						scene={scene}
 						showSettings={showSettings}
 						setShowSettings={setShowSettings}
 						dark={dark}

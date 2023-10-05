@@ -1,8 +1,8 @@
 import { Vec3 } from '@jeditrader/linalg';
 import { Cube, Sphere, Vertex } from './index.js';
 
-// Do you know a good small testing lib with 0 deps?
-// If so use it instead of this function + ts-node
+// Do you know a good small testing lib?
+// If so use it instead of this function...
 function assertEq(actual: any, expected: any) {
 	if (typeof expected === 'number') {
 		if (expected.toFixed(5) != actual.toFixed(5)) throw new Error(`expected ${expected.toFixed(5)}, got ${actual.toFixed(5)}`);
@@ -34,7 +34,7 @@ function assertEq(actual: any, expected: any) {
 {
 	const cube = new Cube();
 
-	const sphere = new Sphere(new Vec3(0, 0, 0), 1.35);
+	const sphere = new Sphere({ radius: 1.35 });
 	assertEq(sphere.polygons.length, 128);
 	assertEq(sphere.polygons[0].vertices,
 		[

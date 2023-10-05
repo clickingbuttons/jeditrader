@@ -4,3 +4,4 @@ export { lods } from './lod.js';
 export { Labels } from './labels.js';
 export * from './chart.js';
 export * from './scene.js';
+export * from './geometry-viewer.js';

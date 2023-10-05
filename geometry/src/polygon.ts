@@ -13,8 +13,10 @@ export class Polygon {
 	userdata?: any;
 
 	constructor(vertices: Vertex[], userdata?: any) {
+		if (vertices.length < 3)
+			throw new Error(`a polygon must have at least 3 vertices, got ${vertices.length}`);
 		this.vertices = vertices;
-		this.plane = Plane.fromPoints(vertices[0].pos, vertices[1].pos, vertices[2].pos);
+		this.plane = Plane.fromPoints(vertices[0], vertices[1], vertices[2]);
 		this.userdata = userdata;
 	}
 
@@ -23,7 +25,8 @@ export class Polygon {
 	}
 
 	flip(): void {
-		this.vertices.reverse().map(v => v.flip());
+		this.vertices.forEach(v => v.flip());
+		this.vertices = this.vertices.reverse();
 		this.plane.flip();
 	}
 }

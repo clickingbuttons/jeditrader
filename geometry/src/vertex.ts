@@ -7,22 +7,21 @@ import { Vec3 } from '@jeditrader/linalg';
 // defined by `Vertex`. This class provides `normal` so convenience
 // functions like `sphere()` can return a smooth vertex normal, but `normal`
 // is not used anywhere else.
-export class Vertex {
-	pos: Vec3;
+export class Vertex extends Vec3 {
 	normal?: Vec3;
 
 	constructor(pos: Vec3, normal?: Vec3) {
-		this.pos = pos;
+		super(pos.x, pos.y, pos.z);
 		this.normal = normal;
 	}
 
-	clone() {
-		return new Vertex(this.pos.clone(), this.normal?.clone());
+	clone(): Vertex {
+		return new Vertex(this.clone(), this.normal?.clone());
 	}
 
 	// Invert all orientation-specific data (e.g. vertex normal). Called when the
 	// orientation of a polygon is flipped.
-	flip() {
+	flip(): void {
 		this.normal = this.normal?.mulScalar(-1);
 	}
 
@@ -31,7 +30,7 @@ export class Vertex {
 	// override this to interpolate additional properties.
 	interpolate(other: Vertex, t: number) {
 		return new Vertex(
-			this.pos.lerp(other.pos, t),
+			this.lerp(other, t),
 			(this.normal && other.normal) ? this.normal.lerp(other.normal, t) : undefined
 		);
 	}

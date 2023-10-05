@@ -8,8 +8,8 @@ export class Vec3 extends Vector<Vec3> {
 	get z(): number { return this[2]; }
 	set z(n: number) { this[2] = n; }
 
-	constructor(x: number, y: number, z: number) {
-		super([x, y, z], Vec3.f64);
+	constructor(x: number, y?: number, z?: number) {
+		super([x, y ?? x, z ?? x], Vec3.f64);
 	}
 
 	static f64(arr: Float64Array): Vec3 {

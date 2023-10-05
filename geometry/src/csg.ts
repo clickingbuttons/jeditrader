@@ -101,8 +101,9 @@ export class CSG {
 		return csg;
 	}
 
-	toIndexedTriangles(): { positions: number[], indices: number[] } {
+	toIndexedTriangles() {
 		const positions: number[] = [];
+		const normals: number[] = [];
 		const indices: number[] = [];
 		const indicesMap: { [v: string] : number } = {};
 
@@ -114,10 +115,11 @@ export class CSG {
 			for (var j = 0; j < poly.vertices.length; j++) {
 				var vert = poly.vertices[j];
 
-				var key = `${vert.pos.x} ${vert.pos.y} ${vert.pos.z}`;
+				var key = JSON.stringify(vert);
 				if (!(key in indicesMap)) {
 					indicesMap[key] = positions.length / 3;
-					positions.push(vert.pos.x, vert.pos.y, vert.pos.z);
+					positions.push(...vert);
+					if (vert.normal) normals.push(...vert.normal);
 				}
 				polyIndices.push(indicesMap[key]);
 			}
@@ -129,6 +131,7 @@ export class CSG {
 
 		return {
 			positions,
+			normals,
 			indices,
 		};
 	}

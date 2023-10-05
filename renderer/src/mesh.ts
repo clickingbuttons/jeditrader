@@ -1,6 +1,7 @@
 import { createBuffer, toF64 } from './util.js';
 import { BufferBinding } from './shader-binding.js';
 import { Mat4 } from '@jeditrader/linalg';
+import { CSG, Plane } from '@jeditrader/geometry';
 
 export interface MeshInstanceOptions {
 	count: number;
@@ -65,6 +66,25 @@ export class Mesh {
 		this.nIndices = indices.length;
 		this.nInstances = instanceOpts.count;
 	}
+
+	static fromCSG(
+		device: GPUDevice,
+		csg: CSG,
+		options: Partial<MeshOptions> = defaultOptions
+	) {
+		const { positions, indices } = csg.toIndexedTriangles();
+		return new Mesh(device, positions, indices, options);
+	}
+
+	// static fromPlane(
+	// 	device: GPUDevice,
+	// 	plane: Plane,
+	// 	options: Partial<MeshOptions> = defaultOptions
+	// ) {
+	// 	const csg = new Cone(plane.point);
+	// 	const { positions, indices } = csg.toIndexedTriangles();
+	// 	return new Mesh(device, positions, indices, options);
+	// }
 
 	updatePositions(positions: Float64Array | number[], offset: number = 0) {
 		this.device.queue.writeBuffer(

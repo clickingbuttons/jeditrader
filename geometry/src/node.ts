@@ -73,9 +73,9 @@ export class Node {
 	build(polygons: Polygon[]) {
 		if (!polygons.length) return;
 		if (!this.plane) this.plane = polygons[0].plane.clone();
-		var front: Polygon[] = [], back: Polygon[] = [];
-		for (var i = 0; i < polygons.length; i++) {
-			this.plane?.splitPolygon(polygons[i], this.polygons, this.polygons, front, back);
+		const front: Polygon[] = [], back: Polygon[] = [];
+		for (let i = 0; i < polygons.length; i++) {
+			this.plane.splitPolygon(polygons[i], this.polygons, this.polygons, front, back);
 		}
 		if (front.length) {
 			if (!this.front) this.front = new Node();

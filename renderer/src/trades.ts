@@ -21,7 +21,7 @@ export class Trades extends Mesh {
 	to?: Date;
 
 	constructor(device: GPUDevice, model: GPUBuffer, maxTrades: number) {
-		const { positions, indices } = new Cube(new Vec3(0, 0, 1)).toIndexedTriangles();
+		const { positions, indices } = new Cube({ center: new Vec3(0, 0, 1) }).toIndexedTriangles();
 
 		super(device, positions, indices, {
 			instances: {
@@ -78,7 +78,9 @@ export class Trades extends Mesh {
 		const nInstances = models.length / 16;
 
 		if (this.nInstances + nInstances > this.maxTrades) {
-			throw new Error('trades full');
+			// TODO: nice cache eviction
+			console.warn('throwing out trades');
+			this.nInstances = 0;
 		}
 
 		this.updateModels(models, this.nInstances);

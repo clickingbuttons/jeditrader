@@ -38,7 +38,7 @@ export class OHLCV extends Mesh {
 	to?: Date;
 
 	constructor(device: GPUDevice, model: GPUBuffer, maxCandles: number) {
-		const { positions, indices } = new Cube(new Vec3(0, 0, 1)).toIndexedTriangles();
+		const { positions, indices } = new Cube({ center: new Vec3(0, 0, 1) }).toIndexedTriangles();
 
 		super(device, positions, indices, {
 			instances: {
@@ -125,7 +125,9 @@ export class OHLCV extends Mesh {
 		const nInstances = models.length / 16;
 
 		if (this.nInstances + nInstances > this.maxCandles) {
-			throw new Error('candles full');
+			// TODO: nice cache eviction
+			console.warn('throwing out candles');
+			this.nInstances = 0;
 		}
 
 		this.updateModels(models, this.nInstances);

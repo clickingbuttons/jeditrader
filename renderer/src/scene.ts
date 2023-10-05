@@ -1,5 +1,5 @@
 import { Vec3, Vec4, Mat4, Ray } from '@jeditrader/linalg';
-import { Camera } from './camera.js';
+import { Camera, Controller, FPSController, OrbitController  } from './camera/index.js';
 import { Input } from './input.js';
 import { createBuffer } from './util.js';
 import { effect, Signal, computed } from '@preact/signals-core';
@@ -18,6 +18,7 @@ export class Scene {
 
 	input: Input;
 	camera: Camera;
+	cameraController: Controller;
 	viewProjInv: Signal<Mat4>;
 
 	bindGroup: GPUBindGroup;
@@ -35,6 +36,7 @@ export class Scene {
 		this.flags = renderer.flags;
 		this.input = renderer.input;
 		this.camera = new Camera(this.aspectRatio);
+		this.cameraController = new FPSController(this.camera);
 		this.viewProjInv = computed(() => this.camera.proj.value.mul(this.camera.view.value).inverse());
 		this.settings = {
 			camera: this.camera.settings,
@@ -51,7 +53,11 @@ export class Scene {
 			entries: [binding.entry(0, this.uniform)],
 		});
 		this.materials = {
-			default: new Material(this.device, { bindings: Object.values(Mesh.bindGroup) })
+			default: new Material(this.device, { bindings: Object.values(Mesh.bindGroup) }),
+			noCull: new Material(this.device, {
+				bindings: Object.values(Mesh.bindGroup),
+				cullMode: 'none',
+			}),
 		};
 		this.flags.rerender = true;
 
@@ -92,7 +98,7 @@ export class Scene {
 		this.flags.rerender = true;
 	}
 
-	sceneToClip(pos: Vec3, model: Mat4): Vec4 {
+	sceneToClip(pos: Vec3, model: Mat4 = Mat4.identity()): Vec4 {
 		let mvp = this.camera.proj.value
 			.mul(this.camera.view.value)
 			.mul(model);
@@ -106,7 +112,7 @@ export class Scene {
 	}
 
 	update(dt: DOMHighResTimeStamp) {
-		this.camera.update(dt, this.input);
+		this.cameraController.update(dt, this.input);
 		this.input.update();
 	}
 
@@ -115,17 +121,21 @@ export class Scene {
 		Object.values(this.materials).forEach(m => m.destroy());
 	}
 
-	rayCast(x: number, y: number): Ray {
-		// https://www.w3.org/TR/webgpu/#coordinate-systems
-		// convert to Normalized Device Coordinates: ([-1, -1, 0], [1, 1, 1])
-		x = (x / this.width.value - .5) * 2;
-		y = -(y / this.height.value - .5) * 2;
-
+	rayCastNDC(x: number, y: number): Ray {
 		let near = new Vec4(x, y, 0, 1).transform(this.viewProjInv.value);
 		near = near.divScalar(near.w);
 		let far = new Vec4(x, y, 1, 1).transform(this.viewProjInv.value);
 		far = far.divScalar(far.w);
 
-		return new Ray(near.xyz(), far.sub(near).normalize().xyz());
+		return new Ray(near.xyz(), far.sub(near).xyz());
+	}
+
+	rayCast(x: number, y: number): Ray {
+		// convert to Normalized Device Coordinates: ([-1, -1, 0], [1, 1, 1])
+		// https://www.w3.org/TR/webgpu/#coordinate-systems
+		return this.rayCastNDC(
+			(x / this.width.value - .5) * 2,
+			-(y / this.height.value - .5) * 2
+		);
 	}
 }
