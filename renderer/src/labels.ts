@@ -1,5 +1,5 @@
 import { signal, effect } from '@preact/signals-core';
-import { Scene } from './scene.js';
+import { Scene } from './scenes/scene.js';
 
 export interface Label {
 	text: string;

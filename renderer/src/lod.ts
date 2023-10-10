@@ -1,4 +1,5 @@
 import { Period } from '@jeditrader/providers';
+
 const cameraZs: { [p in Period]: number } = {
 	'year': Number.MAX_VALUE,
 	'month': 1e12,

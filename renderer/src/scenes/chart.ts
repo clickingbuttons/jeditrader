@@ -1,15 +1,15 @@
-import { Axes } from './axes.js';
+import { Axes } from '../meshes/axes.js';
 import { Vec3, Vec4, degToRad } from '@jeditrader/linalg';
 import { Provider, Period } from '@jeditrader/providers';
-import { AutoTicker } from './auto-ticker.js';
+import { AutoTicker } from '../auto-ticker.js';
 import { Scene } from './scene.js';
-import { Range } from './util.js';
+import { Range } from '../util.js';
 import { Signal, computed } from '@preact/signals-core';
-import { getLod, Lod } from './lod.js';
-import { Renderer } from './renderer.js';
-import { Cone, Circle } from '@jeditrader/geometry';
-import { Mesh } from './mesh.js';
-import { OHLCV } from './ohlcv.js';
+import { getLod, Lod } from '../lod.js';
+import { Renderer } from '../renderer.js';
+import { Cone } from '@jeditrader/geometry';
+import { Mesh } from '../meshes/index.js';
+import { AxesMaterial } from '../materials/index.js';
 
 export interface ChartContext {
 	scene: Scene,
@@ -34,8 +34,7 @@ export class Chart extends Scene {
 		const superMaterials = this.materials as Scene['materials'];
 		this.materials = {
 			// Draw axes first.
-			axes: Axes.material(this.device),
-			ohlcv: OHLCV.material(this.device),
+			axes: new AxesMaterial(this.device),
 			...superMaterials,
 		};
 
@@ -53,9 +52,9 @@ export class Chart extends Scene {
 		this.axes.range.subscribe(range => this.fitInView(range));
 
 		this.tickers = [
-			new AutoTicker(this, this.autoLod, this.axes.range, this.axes.buffers.models, provider),
+			new AutoTicker(this, this.autoLod, this.axes.range, this.axes.resources.inModel, provider),
 		];
-		this.materials.ohlcv.bind(...Object.values(this.tickers[0].lods));
+		this.materials.default.bind(...Object.values(this.tickers[0].lods));
 
 		const superSettings = this.settings as Scene['settings'];
 		this.settings = {

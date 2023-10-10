@@ -1,12 +1,11 @@
-import { lodKeys } from './lod.js';
+import { lodKeys } from '../lod.js';
 import { getNext } from '@jeditrader/providers';
-import { Mesh } from './mesh.js';
+import { Mesh } from '../meshes/mesh.js';
 import { Cube } from '@jeditrader/geometry';
 import { Vec3, Mat4 } from '@jeditrader/linalg';
 import { Scene } from './scene.js';
-import { Renderer } from './renderer.js';
+import { Renderer } from '../renderer.js';
 import { signal, effect } from '@preact/signals-core';
-import { Material } from './material.js';
 
 export class TestScene extends Scene {
 	declare settings;
@@ -28,6 +27,7 @@ export class TestScene extends Scene {
 		const superMaterials = this.materials as Scene['materials'];
 		this.materials = {
 			...superMaterials,
+			/*
 			error: new Material(this.device, {
 				bindings: Object.values(Mesh.bindGroup),
 				vertCode: `
@@ -35,8 +35,9 @@ let pos = projected(arg);
 return VertexOutput(pos.proj, pos.view);
 				`
 			}),
+			*/
 		};
-		const material = this.materials.error;
+		const material = this.materials.default;
 
 		const offset = new Date(2020, 1).getTime();
 
@@ -92,11 +93,11 @@ return VertexOutput(pos.proj, pos.view);
 				}));
 			}
 
-			material.destroy();
+			material.unbindAll();
 			material.bind(...meshes);
 			this.flags.rerender = true;
 		});
 
-		material.toggleWireframe();
+		this.toggleWireframe();
 	}
 };

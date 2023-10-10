@@ -1,12 +1,11 @@
 import { Vec3 } from '@jeditrader/linalg';
 import { signal, Signal } from '@preact/signals-core';
 import { Period, Aggregate, Trade, Provider, minDate, maxDate, getNext } from '@jeditrader/providers';
-import { OHLCV } from './ohlcv.js';
-import { Trades } from './trades.js';
+import { OHLCV, Trades } from './meshes/index.js';
 import { Range } from './util.js';
 import { RendererFlags } from './renderer.js';
 import { lodKeys } from './lod.js';
-import { Scene } from './scene.js';
+import { Scene } from './scenes/scene.js';
 
 function toBounds(aggs: Aggregate[], period: Exclude<Period, 'trade'>): Range<Vec3> {
 	let minTime = maxDate;
@@ -58,7 +57,7 @@ export class AutoTicker {
 		scene: Scene,
 		autoLod: Signal<Period>,
 		range: Signal<Range<Vec3>>,
-		modelBuffer: GPUBuffer,
+		modelBuffer: GPUBufferBinding,
 		provider: Provider,
 	) {
 		this.device = scene.device;

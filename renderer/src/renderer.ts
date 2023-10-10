@@ -1,8 +1,7 @@
 import { depthFormat, presentationFormat, sampleCount } from './util.js';
-import { Scene } from './scene.js';
+import { Scene, TestScene } from './scenes/index.js';
 import { debounce } from './helpers.js';
 import { Signal, signal } from '@preact/signals-core';
-import { TestScene } from './test-scene.js';
 import { Input } from './input.js';
 
 export interface RendererFlags {

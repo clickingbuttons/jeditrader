@@ -2,17 +2,10 @@ import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
 import { Mesh } from './mesh.js';
 import { Trade } from '@jeditrader/providers';
 import { Cube } from '@jeditrader/geometry';
-import { BufferBinding } from './shader-binding.js';
+import { MeshResources } from '../materials/index.js';
 
 export class Trades extends Mesh {
-	static bindGroup = {
-		...Mesh.bindGroup,
-		axes: new BufferBinding('axes', {
-			visibility: GPUShaderStage.VERTEX,
-			wgslType: 'array<f64, 16>'
-		}),
-	};
-	declare buffers: { [s in keyof typeof Trades.bindGroup]: GPUBuffer };
+	declare resources: MeshResources;
 
 	maxTrades: number;
 
@@ -20,7 +13,7 @@ export class Trades extends Mesh {
 	from?: Date;
 	to?: Date;
 
-	constructor(device: GPUDevice, model: GPUBuffer, maxTrades: number) {
+	constructor(device: GPUDevice, model: GPUBufferBinding, maxTrades: number) {
 		const { positions, indices } = new Cube({ center: new Vec3(0, 0, 1) }).toIndexedTriangles();
 
 		super(device, positions, indices, {
@@ -33,7 +26,7 @@ export class Trades extends Mesh {
 		this.nInstances = 0;
 		this.maxTrades = maxTrades;
 
-		this.buffers.axes = model;
+		this.resources.inModel = model;
 	}
 
 	static toBox(trade: Trade, lastPrice: number) {

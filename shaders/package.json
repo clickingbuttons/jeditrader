@@ -1,0 +1,20 @@
+{
+	"name": "@jeditrader/shaders",
+	"version": "0.0.1",
+	"exports": {
+		".": "./dist/esm/index.js"
+	},
+	"types": "dist/esm/index.d.ts",
+	"description": "WebGPU charting shaders",
+	"scripts": {
+		"gen": "node build.cjs",
+		"watch": "node build.cjs --watch"
+	},
+	"repository": "https://github.com/clickingbuttons/jeditrader",
+	"author": "clickingbuttons",
+	"license": "MIT",
+	"devDependencies": {
+		"@use-gpu/shader": "^0.10.1",
+		"chokidar": "^3.5.3"
+	}
+}

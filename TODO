@@ -1,11 +1,14 @@
 - labels always in view
 - prettier
+- choose camera
 - box select
 
 - capture cursor when dragging https://developer.mozilla.org/en-US/docs/Web/API/Pointer_Lock_API
 - orbit controls
 - demo data provider
 	- ticker select
+- free data provider
+	- choose LODs
 
 - volume surface
 

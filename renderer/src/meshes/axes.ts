@@ -1,16 +1,14 @@
 import { Mesh } from './mesh.js';
-import { BufferBinding } from './shader-binding.js';
 import { Vec3, Vec4, Mat4, clamp, Edge } from '@jeditrader/linalg';
-import { createBuffer } from './util.js';
+import { createBuffer, Range } from '../util.js';
 import { getNext, Period } from '@jeditrader/providers';
-import { Labels } from './labels.js';
-import { toymd } from './helpers.js';
+import { Labels } from '../labels.js';
+import { toymd } from '../helpers.js';
 import { signal, effect, computed, batch, Signal } from '@preact/signals-core';
-import { Range } from './util.js';
-import { lodKeys, getLodIndex } from './lod.js';
-import { Material } from './material.js';
-import { Scene } from './scene.js';
+import { lodKeys, getLodIndex } from '../lod.js';
+import { Scene } from '../scenes/scene.js';
 import { Plane, Vertex, Polygon } from '@jeditrader/geometry';
+import { AxesResources } from '../materials/axes.js';
 
 // Unfortunately this is needed to prevent jitter when the camera is at z < 1000
 //  8┌─────────┐9
@@ -74,61 +72,8 @@ function toLabel(period: Period, ms: number): string {
 	}
 }
 
-const vertCode = `
-let pos = projected(arg);
-return VertexOutput(pos.proj, toVec4(pos.eye).xy);
-`;
-
-const fragCode = `
-let uv = arg.uv;
-var dudv = vec2(
-	length(vec2(dpdx(uv.x), dpdy(uv.x))),
-	length(vec2(dpdx(uv.y), dpdy(uv.y)))
-);
-dudv *= axes.lineThickness;
-
-if (
-	(uv.y > -dudv.y + axes.hover.y && uv.y < dudv.y + axes.hover.y) ||
-	(uv.x > -dudv.x + axes.hover.x && uv.x < dudv.x + axes.hover.x)
-) {
-	return axes.hoverColor;
-}
-for (var i: u32 = 0; i < u32(axes.horizontalLinesLen); i++) {
-	let xVal = horizontalLines[i];
-	if (uv.y > -dudv.y + xVal && uv.y < dudv.y + xVal) {
-		return axes.lineColor;
-	}
-}
-for (var i: u32 = 0; i < u32(axes.verticalLinesLen); i++) {
-	let yVal = verticalLines[i];
-	if (uv.x > -dudv.x + yVal && uv.x < dudv.x + yVal) {
-		return axes.lineColor;
-	}
-}
-
-return axes.backgroundColor;
-`;
-
 export class Axes extends Mesh {
-	static bindGroup = {
-		...Mesh.bindGroup,
-		axes: new BufferBinding('axes', {
-			type: 'uniform',
-			visibility: GPUShaderStage.FRAGMENT,
-			wgslStruct: `struct Axes {
-				backgroundColor: vec4f,
-				lineColor: vec4f,
-				hoverColor: vec4f,
-				hover: vec2f,
-				lineThickness: f32,
-				horizontalLinesLen: f32,
-				verticalLinesLen: f32,
-			}`,
-		}),
-		horizontalLines: new BufferBinding('horizontalLines', { visibility: GPUShaderStage.FRAGMENT }),
-		verticalLines: new BufferBinding('verticalLines', { visibility: GPUShaderStage.FRAGMENT }),
-	};
-	declare buffers: { [s in keyof typeof Axes.bindGroup]: GPUBuffer };
+	declare resources: AxesResources;
 
 	uniformData() {
 		return new Float32Array([
@@ -140,17 +85,6 @@ export class Axes extends Mesh {
 			this.horizontalLines.value.length,
 			this.verticalLines.value.length,
 		]);
-	}
-
-	static material(device: GPUDevice) {
-		return new Material(device, {
-			bindings: Object.values(Axes.bindGroup),
-			depthWriteEnabled: false,
-			cullMode: 'none',
-			vertOutputFields: [ 'uv: vec2f' ],
-			vertCode,
-			fragCode,
-		});
 	}
 
 	eye: Signal<Vec3>;
@@ -188,19 +122,25 @@ export class Axes extends Mesh {
 			labels: this.labels.settings,
 		};
 
-		this.buffers.axes = createBuffer({
-			device,
-			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-			data: this.uniformData(),
-		});
-		this.buffers.horizontalLines = createBuffer({
-			device,
-			data: new Float32Array(maxLines)
-		});
-		this.buffers.verticalLines = createBuffer({
-			device,
-			data: new Float32Array(maxLines)
-		});
+		this.resources.axes = {
+			buffer: createBuffer({
+				device,
+				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+				data: this.uniformData(),
+			})
+		};
+		this.resources.horizontalLines = {
+			buffer: createBuffer({
+				device,
+				data: new Float32Array(maxLines)
+			})
+		};
+		this.resources.verticalLines = {
+			buffer: createBuffer({
+				device,
+				data: new Float32Array(maxLines)
+			})
+		};
 
 		this.range.subscribe(r => {
 			const len = r.max.sub(r.min);
@@ -213,7 +153,7 @@ export class Axes extends Mesh {
 		effect(() => this.updateUniform(scene));
 		effect(() => this.updateLines(scene));
 		effect(() => {
-			this.updateModels(this.model.value);
+			this.updateModel(this.model.value);
 			scene.flags.rerender = true;
 		});
 	}
@@ -227,7 +167,7 @@ export class Axes extends Mesh {
 	}
 
 	updateUniform(scene: Scene) {
-		this.device.queue.writeBuffer(this.buffers.axes, 0, this.uniformData());
+		this.device.queue.writeBuffer(this.resources.axes.buffer, 0, this.uniformData());
 		scene.flags.rerender = true;
 	}
 
@@ -301,10 +241,10 @@ export class Axes extends Mesh {
 			this.verticalLines.value = this.getVerticalLines(period);
 			this.horizontalLines.value = this.getHorizontalLines();
 
-			this.device.queue.writeBuffer(this.buffers.verticalLines, 0, new Float32Array(
+			this.device.queue.writeBuffer(this.resources.verticalLines.buffer, 0, new Float32Array(
 				this.verticalLines.value.map(x => this.eyeX(x))
 			));
-			this.device.queue.writeBuffer(this.buffers.horizontalLines, 0, new Float32Array(
+			this.device.queue.writeBuffer(this.resources.horizontalLines.buffer, 0, new Float32Array(
 				this.horizontalLines.value.map(y => this.eyeY(y))
 			));
 			scene.flags.rerender = true;

@@ -1,11 +1,11 @@
-import { Mesh } from './mesh.js';
+import { Mesh } from '../meshes/index.js';
+import { Renderer } from '../renderer.js';
 import { Cone, Circle } from '@jeditrader/geometry';
 import { Vec3, Mat4 } from '@jeditrader/linalg';
 import { Scene } from './scene.js';
-import { Renderer } from './renderer.js';
 import { signal, effect } from '@preact/signals-core';
 
-export class GeometryViewer extends Scene {
+export class Modeler extends Scene {
 	declare settings;
 	declare materials;
 
@@ -32,7 +32,7 @@ export class GeometryViewer extends Scene {
 			const { positions, indices } = new Cone(opts).toIndexedTriangles();
 			const mesh = new Mesh(this.device, positions, indices);
 
-			material.destroy();
+			material.unbindAll();
 			material.bind(mesh);
 			this.flags.rerender = true;
 		});

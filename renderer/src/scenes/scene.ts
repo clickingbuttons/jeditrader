@@ -1,12 +1,11 @@
 import { Vec3, Vec4, Mat4, Ray } from '@jeditrader/linalg';
-import { Camera, Controller, FPSController, OrbitController  } from './camera/index.js';
-import { Input } from './input.js';
-import { createBuffer } from './util.js';
+import { Camera, Controller, FPSController, OrbitController  } from '../camera/index.js';
+import { Input } from '../input.js';
+import { createBuffer } from '../util.js';
 import { effect, Signal, computed } from '@preact/signals-core';
-import { Renderer, RendererFlags } from './renderer.js';
-import { BufferBinding } from './shader-binding.js';
-import { Material } from './material.js';
-import { Mesh } from './mesh.js';
+import { Renderer, RendererFlags } from '../renderer.js';
+import { MeshMaterial } from '../materials/index.js';
+import { basic } from '@jeditrader/shaders';
 
 export class Scene {
 	width: Signal<number>;
@@ -36,7 +35,7 @@ export class Scene {
 		this.flags = renderer.flags;
 		this.input = renderer.input;
 		this.camera = new Camera(this.aspectRatio);
-		this.cameraController = new OrbitController(this.camera);
+		this.cameraController = new FPSController(this.camera);
 		this.viewProjInv = computed(() => this.camera.proj.value.mul(this.camera.view.value).inverse());
 		this.settings = {
 			camera: this.camera.settings,
@@ -46,19 +45,21 @@ export class Scene {
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 			data: this.uniformData(),
 		});
-		const binding = Scene.uniform;
-		const layout = this.device.createBindGroupLayout({ entries: [binding.layoutEntry(0)] });
+		const bindGroupLayoutEntry = basic.bindGroupLayouts['g_view'].scene;
+		const layout = this.device.createBindGroupLayout({
+			entries: [bindGroupLayoutEntry]
+		});
 		this.bindGroup = this.device.createBindGroup({
 			layout,
-			entries: [binding.entry(0, this.uniform)],
+			entries: [{
+				binding: bindGroupLayoutEntry.binding,
+				resource: { buffer: this.uniform }
+			}],
 		});
-		const bindings = Object.values(Mesh.bindGroup);
-		const fragCode = `
 
-		`;
 		this.materials = {
-			default: new Material(this.device, { bindings }),
-			phong: new Material(this.device, { bindings, fragCode }),
+			default: new MeshMaterial(this.device),
+			// phong: new Material(this.device, { bindings, fragCode }),
 		};
 		this.flags.rerender = true;
 
@@ -68,17 +69,6 @@ export class Scene {
 		});
 	}
 
-	static uniform = new BufferBinding('scene', {
-		type: 'uniform',
-		visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-		wgslStruct: `struct Scene {
-			view: mat4x4f,
-			proj: mat4x4f,
-			eye: vec4f,
-			eyeLow: vec4f,
-			one: f32,
-		}`
-	});
 	uniformData() {
 		return new Float32Array([
 			...this.camera.view.value,
@@ -119,7 +109,7 @@ export class Scene {
 
 	destroy() {
 		this.uniform.destroy();
-		Object.values(this.materials).forEach(m => m.destroy());
+		Object.values(this.materials).forEach(m => m.unbindAll());
 	}
 
 	rayCastNDC(x: number, y: number): Ray {

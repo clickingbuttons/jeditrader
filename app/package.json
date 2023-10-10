@@ -11,8 +11,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "esbuild-scripts build",
-		"start": "esbuild-scripts start",
-		"clean": "rm -rf dist"
+		"watch": "esbuild-scripts start"
 	},
 	"repository": "https://github.com/clickingbuttons/jeditrader",
 	"author": "clickingbuttons",

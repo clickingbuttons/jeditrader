@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'preact/hooks';
 import { Toolbar } from './toolbar.js';
-import { Renderer, Chart as ChartScene, GeometryViewer, Scene } from '@jeditrader/renderer';
+import { Renderer, Chart as ChartScene, Modeler, Scene } from '@jeditrader/renderer';
 import { Provider } from '@jeditrader/providers';
 import { Split, SplitItem } from './split.js';
 import { Settings } from './settings.js';
@@ -32,6 +32,7 @@ export function Chart() {
 			if (!r) return;
 			r.settings.clearColor.value = getBgColor();
 			setRenderer(r);
+			setScene(r.scene);
 			r.run();
 		});
 	}, []);
@@ -39,8 +40,8 @@ export function Chart() {
 	useEffect(() => {
 		if (!provider || !renderer) return;
 
-		// const scene = new ChartScene(renderer, provider);
-		const scene = new GeometryViewer(renderer);
+		const scene = new ChartScene(renderer, provider);
+		// const scene = new Modeler(renderer);
 		renderer.scene = scene;
 		setScene(scene);
 	}, [provider, renderer]);
