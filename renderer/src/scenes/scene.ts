@@ -1,11 +1,19 @@
 import { Vec3, Vec4, Mat4, Ray } from '@jeditrader/linalg';
-import { Camera, Controller, FPSController, OrbitController  } from '../camera/index.js';
+import { Camera, Controller, FPSController  } from '../camera/index.js';
 import { Input } from '../input.js';
 import { createBuffer } from '../util.js';
-import { effect, Signal, computed } from '@preact/signals-core';
+import { effect, Signal, computed, signal } from '@preact/signals-core';
 import { Renderer, RendererFlags } from '../renderer.js';
-import { MeshMaterial } from '../materials/index.js';
-import { basic } from '@jeditrader/shaders';
+import { BasicMaterial, PhongMaterial } from '../materials/index.js';
+import { basicVert } from '@jeditrader/shaders';
+import { Mesh } from '../meshes/index.js';
+import { Sphere } from '@jeditrader/geometry';
+
+const maxLights = 100;
+type Light = {
+	color: Vec4;
+	pos: Vec3;
+};
 
 export class Scene {
 	width: Signal<number>;
@@ -20,8 +28,16 @@ export class Scene {
 	cameraController: Controller;
 	viewProjInv: Signal<Mat4>;
 
-	bindGroup: GPUBindGroup;
-	uniform: GPUBuffer;
+	// Global shader resources
+	resources: {
+		bindGroup: GPUBindGroup;
+		view: GPUBuffer;
+		light: GPUBuffer;
+	};
+	light: Signal<Light> = signal({
+		color: new Vec4(1, 1, 1, 1),
+		pos: new Vec3(0, 3, 0),
+	});
 
 	materials;
 	settings;
@@ -39,48 +55,88 @@ export class Scene {
 		this.viewProjInv = computed(() => this.camera.proj.value.mul(this.camera.view.value).inverse());
 		this.settings = {
 			camera: this.camera.settings,
+			light: this.light,
+			showLights: signal(false),
 		};
-		this.uniform = createBuffer({
+
+		const view = createBuffer({
 			device: this.device,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-			data: this.uniformData(),
+			data: this.viewData(),
 		});
-		const bindGroupLayoutEntry = basic.bindGroupLayouts['g_view'].scene;
+		const lightPos = createBuffer({
+			device: this.device,
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+			data: this.viewData(),
+		});
+		const bindGroupLayout = basicVert.bindGroupLayouts['g_scene'];
 		const layout = this.device.createBindGroupLayout({
-			entries: [bindGroupLayoutEntry]
+			entries: Object.values(bindGroupLayout)
 		});
-		this.bindGroup = this.device.createBindGroup({
+		const bindGroup = this.device.createBindGroup({
 			layout,
-			entries: [{
-				binding: bindGroupLayoutEntry.binding,
-				resource: { buffer: this.uniform }
-			}],
+			entries: [
+				{ binding: bindGroupLayout.view.binding, resource: { buffer: view } },
+				{ binding: bindGroupLayout.lightPos.binding, resource: { buffer: lightPos } },
+			],
 		});
+		this.resources = {
+			view,
+			light: lightPos,
+			bindGroup,
+		};
 
 		this.materials = {
-			default: new MeshMaterial(this.device),
-			// phong: new Material(this.device, { bindings, fragCode }),
+			default: new BasicMaterial(this.device),
+			phong: new PhongMaterial(this.device),
 		};
 		this.flags.rerender = true;
 
 		effect(() => {
-			this.device.queue.writeBuffer(this.uniform, 0, this.uniformData());
+			this.device.queue.writeBuffer(this.resources.view, 0, this.viewData());
+			this.flags.rerender = true;
+		});
+
+		effect(() => {
+			this.device.queue.writeBuffer(this.resources.light, 0, this.lightData());
+			this.flags.rerender = true;
+		});
+
+		const lightMesh = Mesh.fromCSG(this.device, new Sphere({ radius: .25 }), {
+			instances: {
+				models: new Float64Array(16 * maxLights),
+				colors: new Float32Array(4 * maxLights),
+			}
+		});
+		this.materials.default.bind(lightMesh);
+		effect(() => {
+			const light = this.settings.light.value;
+			const transform = Mat4.translate(light.pos);
+			lightMesh.updateModels(transform);
+			lightMesh.updateColors(new Float32Array(light.color));
+			lightMesh.visible = this.settings.showLights.value;
 			this.flags.rerender = true;
 		});
 	}
 
-	uniformData() {
+	viewData() {
 		return new Float32Array([
 			...this.camera.view.value,
 			...this.camera.proj.value,
 			...this.camera.eye.value, 0,
 			...this.camera.eye.value.f32Low(), 0,
-			1,
+		]);
+	}
+
+	lightData() {
+		return new Float32Array([
+			...this.light.value.color,
+			...this.light.value.pos,
 		]);
 	}
 
 	render(pass: GPURenderPassEncoder) {
-		pass.setBindGroup(0, this.bindGroup);
+		pass.setBindGroup(0, this.resources.bindGroup);
 		Object.values(this.materials).forEach(material => material.render(pass));
 	}
 
@@ -108,7 +164,8 @@ export class Scene {
 	}
 
 	destroy() {
-		this.uniform.destroy();
+		this.resources.view.destroy();
+		this.resources.light.destroy();
 		Object.values(this.materials).forEach(m => m.unbindAll());
 	}
 

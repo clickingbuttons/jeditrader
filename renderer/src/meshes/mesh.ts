@@ -1,7 +1,7 @@
 import { createBuffer, toF64 } from '../util.js';
-import { Mat4 } from '@jeditrader/linalg';
+import { Mat4, Vec3 } from '@jeditrader/linalg';
 import { CSG, Plane } from '@jeditrader/geometry';
-import { MeshResources } from '../materials/mesh.js';
+import { MeshResources } from '../materials/index.js';
 
 export interface MeshInstanceOptions {
 	count: number;
@@ -13,12 +13,14 @@ export interface MeshInstanceOptions {
 export interface MeshOptions {
 	vertexStride: number;
 	model: Float64Array | number[];
+	normals: Float32Array | number[];
 	instances: Partial<MeshInstanceOptions>;
 }
 
 const defaultOptions: MeshOptions = {
 	vertexStride: 3,
 	model: Mat4.identity(),
+	normals: new Float32Array(new Vec3(1).normalize()),
 	instances: {
 		count: 1,
 		stride: 0,
@@ -53,27 +55,22 @@ export class Mesh {
 			positions: {
 				buffer: createBuffer({ device, data: toF64(positions) }),
 			},
+			normals: {
+				buffer: createBuffer({ device, data: new Float32Array(opts.normals) }),
+			},
 			indices: {
 				buffer: createBuffer({ device, data: new Uint32Array(indices) }),
 			},
-			models: {
-				buffer: createBuffer({ device, data: toF64(instanceOpts.models) }),
-			},
 			inModel: {
 				buffer: createBuffer({ device, data: toF64(opts.model) }),
+			},
+			models: {
+				buffer: createBuffer({ device, data: toF64(instanceOpts.models) }),
 			},
 			colors: {
 				buffer: createBuffer({ device, data: new Float32Array(instanceOpts.colors) }),
 			},
 		};
-		// this.buffers = mesh.createBuffers(
-		// 	device,
-		// 	[instanceOpts.stride, opts.vertexStride],
-		// 	positions,
-		// 	indices,
-		// 	instanceOpts.models,
-		// 	instanceOpts.colors,
-		// );
 
 		this.nIndices = indices.length;
 		this.nInstances = instanceOpts.count;
@@ -103,6 +100,14 @@ export class Mesh {
 			this.resources.positions.buffer,
 			offset,
 			toF64(positions)
+		);
+	}
+
+	updateNormals(normals: Float32Array | number[], offset: number = 0) {
+		this.device.queue.writeBuffer(
+			this.resources.normals.buffer,
+			offset,
+			new Float32Array(normals)
 		);
 	}
 

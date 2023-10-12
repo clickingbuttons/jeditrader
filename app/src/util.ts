@@ -7,7 +7,8 @@ dark.subscribe(dark => {
 	else document.body.classList.replace('dark', 'light');
 });
 
-export type RGBA = [number, number, number, number];
+export type RGB = [number, number, number];
+export type RGBA = [...RGB, number];
 
 export function parseColor(input: string): RGBA {
 	if (input[0] === "#") {
@@ -43,3 +44,38 @@ export function normalize(c: RGBA): RGBA {
 export function getBgColor() {
 	return normalize(parseColor(getVar('--bg')));
 }
+
+function isTypedArray(obj: any) {
+  const TypedArray = Object.getPrototypeOf(Uint8Array);
+  return obj instanceof TypedArray;
+}
+
+function rgbaNormToHex(r: number, g: number, b: number, a: number): string | undefined {
+	if (r > 1 || g > 1 || b > 1 || a < 0 || a > 1) return;
+  return '#'
+		+ Math.round(r * 255 * a).toString(16).padStart(2, '0')
+		+ Math.round(g * 255 * a).toString(16).padStart(2, '0')
+		+ Math.round(b * 255 * a).toString(16).padStart(2, '0');
+}
+
+const colorDiv = document.createElement('div');
+document.body.appendChild(colorDiv);
+export function getColor(obj: any): string | undefined {
+	if (Array.isArray(obj) || isTypedArray(obj)) {
+		if (obj.length < 3 || obj.length > 4) return;
+		return rgbaNormToHex(obj[0], obj[1], obj[2], obj[3] ?? 1);
+	} else if (typeof obj === 'string') {
+		colorDiv.style.color = obj;
+		const m = getComputedStyle(colorDiv).color.match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
+		if (m) return rgbaNormToHex(+m[1], +m[2], +m[3], 1);
+	}
+}
+
+export function hexToRGBNorm(hex: string): RGB {
+	var r = parseInt(hex.slice(1, 3), 16) / 255,
+			g = parseInt(hex.slice(3, 5), 16) / 255,
+			b = parseInt(hex.slice(5, 7), 16) / 255;
+
+	return [r, g, b];
+}
+

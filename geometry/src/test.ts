@@ -38,9 +38,9 @@ function assertEq(actual: any, expected: any) {
 	assertEq(sphere.polygons.length, 128);
 	assertEq(sphere.polygons[0].vertices,
 		[
-			new Vertex(new Vec3(0, 1.35, 0)),
-			new Vertex(new Vec3(0.477297, 1.247237, 0.1977)),
-			new Vertex(new Vec3(0.516622, 1.247237, 0)),
+			new Vertex(new Vec3(0, 1.35, 0), new Vec3(0)),
+			new Vertex(new Vec3(0.477297, 1.247237, 0.1977), new Vec3(0)),
+			new Vertex(new Vec3(0.516622, 1.247237, 0), new Vec3(0)),
 		],
 	);
 
@@ -48,9 +48,9 @@ function assertEq(actual: any, expected: any) {
 	assertEq(subbed.polygons.length, 247);
 	assertEq(subbed.polygons[0].vertices,
 		[
-			new Vertex(new Vec3(-1, 0.79135, 1)),
-			new Vertex(new Vec3(-1, 1, 1)),
-			new Vertex(new Vec3(-1, 1, 0.687727)),
+			new Vertex(new Vec3(-1, 0.79135, 1), new Vec3(0)),
+			new Vertex(new Vec3(-1, 1, 1), new Vec3(0)),
+			new Vertex(new Vec3(-1, 1, 0.687727), new Vec3(0)),
 		],
 	);
 }

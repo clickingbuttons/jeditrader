@@ -6,7 +6,7 @@ import { Controller } from './controller.js';
 
 export class FPSController implements Controller {
 	cam: Camera;
-	up = new Vec3(0, 0, 1);
+	up = new Vec3(0, 1, 0);
 	phi: Signal<number>;
 	theta: Signal<number>;
 

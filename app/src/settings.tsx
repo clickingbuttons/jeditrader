@@ -2,8 +2,12 @@ import { h, JSX } from 'preact';
 import { Renderer } from '@jeditrader/renderer';
 import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
 import { Signal, signal as newSignal } from '@preact/signals';
-import type { RGBA } from './util.js';
+import { RGBA, getColor, hexToRGBNorm } from './util.js';
 import './settings.css';
+
+function isColorProp(s: string) {
+	return s.toLowerCase().includes('color');
+}
 
 interface InputNumberProps extends Omit<JSX.HTMLAttributes<HTMLInputElement>, 'onChange'> {
 	value: number;
@@ -59,48 +63,37 @@ function InputMat4({ value, onChange }: { value: Mat4, onChange: (v: Mat4) => vo
 	return <InputNumbers value={value} onChange={onChange} />;
 }
 
-function rgbaNormToHex(r: number, g: number, b: number, a: number): string | undefined {
-	if (r > 1 || g > 1 || b > 1 || a < 0 || a > 1) return;
-  return '#'
-		+ Math.round(r * 255 * a).toString(16).padStart(2, '0')
-		+ Math.round(g * 255 * a).toString(16).padStart(2, '0')
-		+ Math.round(b * 255 * a).toString(16).padStart(2, '0');
+interface SettingInputProps {
+	signal: Signal<any>;
+	isColor: boolean;
+	options?: string[];
 }
 
-function hexToRGBNorm(hex: string): RGBA {
-	var r = parseInt(hex.slice(1, 3), 16) / 255,
-			g = parseInt(hex.slice(3, 5), 16) / 255,
-			b = parseInt(hex.slice(5, 7), 16) / 255;
-
-	return [r, g, b, 1];
-}
-
-const colorDiv = document.createElement('div');
-document.body.appendChild(colorDiv);
-
-function getColor(obj: any): string | undefined {
-	if (Array.isArray(obj)) {
-		if (obj.length < 3 || obj.length > 4) return;
-		return rgbaNormToHex(obj[0], obj[1], obj[2], obj[3] ?? 1);
-	} else if (typeof obj === 'string') {
-		colorDiv.style.color = obj;
-		const m = getComputedStyle(colorDiv).color.match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
-		if (m) return rgbaNormToHex(+m[1], +m[2], +m[3], 1);
-	} else if (typeof obj === 'object') {
-		if (['r', 'g', 'b', 'a'].every(v => v in obj))
-			return rgbaNormToHex(obj.r, obj.g, obj.b, obj.a);
-	}
-}
-
-function SettingInput({ signal, isColor }: { signal: Signal<any>, isColor: boolean }) {
+function SettingInput({ signal, isColor, options }: SettingInputProps) {
 	if (isColor) {
-		const color = getColor(signal.value);
+		const color = getColor(signal.value as RGBA | Vec4);
 		if (color) return (
-			<input
-				type="color"
-				value={color}
-				onChange={ev => signal.value = hexToRGBNorm(ev.currentTarget.value)}
-			/>
+			<span>
+				<input
+					type="color"
+					value={color}
+					onChange={ev => {
+						const newVal = hexToRGBNorm(ev.currentTarget.value);
+						signal.value[0] = newVal[0];
+						signal.value[1] = newVal[1];
+						signal.value[2] = newVal[2];
+						signal.value[3] = 1;
+						signal.value = signal.value.slice();
+					}}
+				/>
+				<InputNumber
+					value={signal.value[3]}
+					onChange={alpha => {
+						signal.value[3] = alpha;
+						signal.value = signal.value.slice();
+					}}
+				/>
+			</span>
 		);
 	}
 	if (typeof signal.value === 'boolean') return (
@@ -125,12 +118,24 @@ function SettingInput({ signal, isColor }: { signal: Signal<any>, isColor: boole
 	if (signal.value instanceof Mat4) return (
 		<InputMat4 value={signal.value} onChange={v => signal.value = v} />
 	);
-	if (typeof signal.value === 'string') return (
-		<input
-			value={signal.value}
-			onChange={ev => signal.value = ev.currentTarget.value}
-		/>
-	);
+	if (typeof signal.value === 'string') {
+		if (options) return (
+			<select
+				value={signal.value}
+				onChange={ev => signal.value = ev.currentTarget.value}
+			>
+				{options.map(o =>
+					<option value={o}>{o}</option>
+				)}
+			</select>
+		);
+		return (
+			<input
+				value={signal.value}
+				onChange={ev => signal.value = ev.currentTarget.value}
+			/>
+		);
+	}
 	if (Array.isArray(signal.value)) return (
 		<div class="inputlist">
 			{signal.value.map((v, i) => {
@@ -154,22 +159,52 @@ function SettingInput({ signal, isColor }: { signal: Signal<any>, isColor: boole
 			})}
 		</div>
 	);
+	const keys = Object.keys(signal.value);
+	if (keys.length) return (
+		<div>
+			{keys.map(k => {
+				const newSig = newSignal(signal.value[k]);
+				newSig.subscribe(v2 => {
+					if (signal.value[k] === v2) return;
+					signal.value[k] = v2;
+					signal.value = {...signal.value};
+				});
+				return <Setting label={k} signal={newSig} />
+			})}
+		</div>
+	);
 
 	return <span>Unknown type {JSON.stringify(signal.value)}</span>;
 }
 
-function Setting({ label, signal }: {label: string, signal: Signal<any>}) {
+interface SettingProps {
+	label: string;
+	signal: Signal<any>;
+	options?: string[];
+};
+
+function Setting({ label, signal, options }: SettingProps) {
 	return (
 		<tr>
 			<td><label>{label}</label></td>
 			<td class="settinginput">
-				<SettingInput signal={signal} isColor={label.toLowerCase().includes('color')} />
+				<SettingInput
+					signal={signal}
+					isColor={isColorProp(label)}
+					options={options}
+				/>
 			</td>
 		</tr>
 	);
 }
 
+function getSignal(o: any) {
+	if (o?.brand === signalId) return o;
+	if (o?.val?.brand === signalId) return o.val;
+}
+
 // { a: sig }
+// { a: { val: sig, options: ['a', 'b'] } }
 // { a: { b: { c: sig } } }
 const signalId = Symbol.for('preact-signals');
 function getSettings(o: object, startLevel: number) {
@@ -177,8 +212,9 @@ function getSettings(o: object, startLevel: number) {
 
 	function visit(o: object, level: number) {
 		Object.entries(o).forEach(([key, val]) => {
-			if (val.brand === signalId) {
-				res.push(<Setting label={key} signal={val} />);
+			const signal = getSignal(val);
+			if (signal) {
+				res.push(<Setting label={key} signal={signal} options={val.options} />);
 			} else {
 				res.push(<tr>{h('h' + level, { children: key })}</tr>);
 				visit(val, level + 1);

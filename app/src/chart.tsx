@@ -40,8 +40,8 @@ export function Chart() {
 	useEffect(() => {
 		if (!provider || !renderer) return;
 
-		const scene = new ChartScene(renderer, provider);
-		// const scene = new Modeler(renderer);
+		// const scene = new ChartScene(renderer, provider);
+		const scene = new Modeler(renderer);
 		renderer.scene = scene;
 		setScene(scene);
 	}, [provider, renderer]);

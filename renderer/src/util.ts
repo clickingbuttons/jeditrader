@@ -34,20 +34,6 @@ interface TypedArray {
 	[index: number]: number;
 }
 
-export function wgslType(arr: TypedArray) {
-	const objectType = Object.prototype.toString.call(arr);
-	switch (objectType) {
-		case '[object Float32Array]':
-			return 'f32';
-		case '[object Int32Array]':
-			return 'i32';
-		case '[object Uint32Array]':
-			return 'u32';
-		default:
-			throw new Error('unknown data type ' + objectType);
-	}
-}
-
 export function createBuffer({
 	device,
 	usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
@@ -60,39 +46,40 @@ export function createBuffer({
 	label?: string,
 }): GPUBuffer {
 	const alignment = usage & GPUBufferUsage.UNIFORM ? 16 : 1;
+	const size = Math.max(data.byteLength, 16);
 	const res = device.createBuffer({
 		label,
-		size: align(data.byteLength, alignment),
+		size: align(size, alignment),
 		usage,
 		mappedAtCreation: true
 	});
-	const objectType = Object.prototype.toString.call(data);
-	switch (objectType) {
-		case '[object Float64Array]':
+	switch (data.constructor) {
+		case Float64Array:
 			new Float64Array(res.getMappedRange()).set(data);
 			break;
-		case '[object Float32Array]':
+		case Float32Array:
 			new Float32Array(res.getMappedRange()).set(data);
 			break;
-		case '[object Int32Array]':
+		case Int32Array:
 			new Int32Array(res.getMappedRange()).set(data);
 			break;
-		case '[object Uint32Array]':
+		case Uint32Array:
 			new Uint32Array(res.getMappedRange()).set(data);
 			break;
-		case '[object Int16Array]':
+		case Int16Array:
 			new Int16Array(res.getMappedRange()).set(data);
 			break;
-		case '[object Uint16Array]':
+		case Uint16Array:
 			new Uint16Array(res.getMappedRange()).set(data);
 			break;
-		case '[object Int8Array]':
+		case Int8Array:
 			new Int8Array(res.getMappedRange()).set(data);
 			break;
-		case '[object Uint8Array]':
+		case Uint8Array:
 			new Uint8Array(res.getMappedRange()).set(data);
 			break;
 		default:
+			const objectType = Object.prototype.toString.call(data);
 			throw new Error('unknown data type ' + objectType);
 	}
 	res.unmap()

@@ -68,7 +68,7 @@ export class Plane extends LinPlane {
 				if (ti != PolygonType.front) b.push(ti != PolygonType.back ? vi.clone() : vi);
 				if ((ti | tj) == PolygonType.spanning) {
 					var t = (this.w - this.normal.dot(vi)) / this.normal.dot(vj.sub(vi));
-					var v = vi.interpolate(vj, t);
+					var v = vi.lerp(vj, t);
 					f.push(v);
 					b.push(v.clone());
 				}

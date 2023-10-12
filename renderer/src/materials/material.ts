@@ -1,5 +1,5 @@
 import { presentationFormat, sampleCount, depthFormat } from '../util.js';
-import type { Binding, BindGroupLayouts } from '@jeditrader/shaders';
+import type { Binding as ShaderBinding, BindGroupLayouts } from '@jeditrader/shaders';
 
 export interface MaterialOptions {
 	depthWriteEnabled: boolean;
@@ -16,6 +16,10 @@ export const defaultOptions: MaterialOptions = {
 export type MaterialBinding = {
 	resources: Binding['resources'];
 	draw: Binding['draw'];
+};
+
+export type Binding = ShaderBinding & {
+	obj: MaterialBinding;
 };
 
 export class Material {
@@ -63,7 +67,14 @@ export class Material {
 		layout: GPUPipelineLayout,
 		wireframe: boolean,
 	): GPURenderPipeline {
+		// @override can't be used for bind groups.
+		Object.keys(this.bindGroupLayouts).forEach((groupName, i) => {
+			vertCode = vertCode.replaceAll(`@group(${groupName})`, `@group(${i})`);
+			fragCode = fragCode.replaceAll(`@group(${groupName})`, `@group(${i})`);
+		});
+
 		return device.createRenderPipeline({
+			label: this.name,
 			vertex: {
 				module: device.createShaderModule({ code: vertCode }),
 				entryPoint: 'main',
@@ -105,17 +116,17 @@ export class Material {
 		});
 	}
 
-	bindResource(bindings: MaterialBinding): Binding {
+	bindResource(binding: MaterialBinding): Binding {
 		const bindGroups = {} as Binding['bindGroups'];
 		Object.entries(this.bindGroupLayouts)
 			.forEach(([groupName, bindGroupLayout], i) => {
 				if (groupName.startsWith('g_')) return;
 				const entries = Object.entries(bindGroupLayout).map(([key, layoutEntry]) => {
-					if (!(key in bindings.resources))
-						throw new Error(`expected resource "${key}" in resources when binding to material "${this.name}" (have keys ${Object.keys(bindings.resources)})`);
+					if (!(key in binding.resources))
+						throw new Error(`expected resource "${key}" in resources when binding to material "${this.name}" (have keys ${Object.keys(binding.resources)})`);
 					return {
 						binding: layoutEntry.binding,
-						resource: bindings.resources[key as keyof Binding['resources']]
+						resource: binding.resources[key as keyof Binding['resources']]
 					} as GPUBindGroupEntry;
 				});
 
@@ -127,9 +138,10 @@ export class Material {
 			});
 
 		return {
-			resources: bindings.resources,
+			obj: binding,
+			resources: binding.resources,
 			bindGroups,
-			draw: bindings.draw.bind(bindings),
+			draw: binding.draw.bind(binding),
 		};
 	}
 
@@ -138,7 +150,7 @@ export class Material {
 	}
 
 	unbind(...bindings: MaterialBinding[]) {
-		this.bindings = this.bindings.filter(b => !bindings.includes(b));
+		this.bindings = this.bindings.filter(b => !bindings.includes(b.obj));
 	}
 
 	unbindAll() {

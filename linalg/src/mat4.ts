@@ -101,7 +101,7 @@ export class Mat4 extends Float64Array {
 		]);
 	}
 
-	static rotate(axis: Vec3, angle: number): Mat4 {
+	static rotate(axis: Vec3, rads: number): Mat4 {
 		const n = axis.normalize();
 		const x = n.x;
 		const y = n.y;
@@ -109,8 +109,8 @@ export class Mat4 extends Float64Array {
 		const xx = x ** 2;
 		const yy = y ** 2;
 		const zz = z ** 2;
-		const c = Math.cos(angle);
-		const s = Math.sin(angle);
+		const c = Math.cos(rads);
+		const s = Math.sin(rads);
 		const oneMinusCosine = 1 - c;
 
 		return new Mat4([
@@ -290,6 +290,10 @@ export class Mat4 extends Float64Array {
 
 	scale(v: Vec3): Mat4 {
 		return this.mul(Mat4.scale(v));
+	}
+
+	rotate(axis: Vec3, angle: number): Mat4 {
+		return this.mul(Mat4.rotate(axis, angle));
 	}
 
 	f32Low() {

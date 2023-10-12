@@ -85,6 +85,7 @@ return VertexOutput(pos.proj, pos.view);
 
 				const indexed = new Cube().toIndexedTriangles();
 				meshes.push(new Mesh(this.device, indexed.positions, indexed.indices, {
+					normals: indexed.normals,
 					instances: {
 						count: models.length / 16,
 						models,

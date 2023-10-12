@@ -31,11 +31,11 @@ export class Circle extends CSG {
 			.map(i => {
 				const dir = circleDirection(-i / slices);
 				const p = center.add(dir.mulScalar(radius));
-				return new Vertex(p);
+				return new Vertex(p, dir);
 			});
 
 		super([
-			new Polygon([new Vertex(center), ...vertices, vertices[0]])
+			new Polygon([new Vertex(center, new Vec3(0, 0, 1)), ...vertices, vertices[0]])
 		]);
 	}
 }

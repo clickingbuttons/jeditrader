@@ -119,7 +119,7 @@ export class CSG {
 				if (!(key in indicesMap)) {
 					indicesMap[key] = positions.length / 3;
 					positions.push(...vert);
-					if (vert.normal) normals.push(...vert.normal);
+					normals.push(...vert.normal.normalize());
 				}
 				polyIndices.push(indicesMap[key]);
 			}

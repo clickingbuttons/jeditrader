@@ -50,9 +50,11 @@ export class Input {
 
 	handleKey(ev: KeyboardEvent, keydown: boolean) {
 		if (!this.focused) return;
-		ev.preventDefault();
 		let key = keyMap(ev.key);
-		if (key) this.buttons[key] = keydown;
+		if (key) {
+			ev.preventDefault();
+			this.buttons[key] = keydown;
+		}
 		this.buttons.shift = ev.shiftKey;
 		this.buttons.ctrl = ev.ctrlKey;
 		this.buttons.alt = ev.altKey;

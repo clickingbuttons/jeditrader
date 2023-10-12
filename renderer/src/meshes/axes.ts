@@ -180,8 +180,8 @@ export class Axes extends Mesh {
 		];
 		const rays = viewBounds.map(b => scene.rayCastNDC(b[0], b[1]));
 		const verts = rays.map(r => ({
-			near: new Vertex(r.point),
-			far: new Vertex(r.point.add(r.dir)),
+			near: r.point,
+			far: r.point.add(r.dir),
 		}));
 		// front face is ccw
 		// back face is cw
@@ -201,33 +201,33 @@ export class Axes extends Mesh {
 		];
 	}
 
-	viewWorldPolygon(scene: Scene): Polygon {
-		const range = this.range.value;
-		const planes = this.viewPlanes(scene);
-		console.log(planes);
+	// viewWorldPolygon(scene: Scene): Polygon {
+	// 	const range = this.range.value;
+	// 	const planes = this.viewPlanes(scene);
+	// 	console.log(planes);
 
-		const indices = [
-			[0, 1],
-			[1, 2],
-			[2, 3],
-			[3, 0],
-		];
-		const vertices = [
-			new Vertex(new Vec3(range.min.x, range.min.y, 0)),
-			new Vertex(new Vec3(range.min.x, range.max.y, 0)),
-			new Vertex(new Vec3(range.max.x, range.max.y, 0)),
-			new Vertex(new Vec3(range.max.x, range.min.y, 0)),
-		];
-		const edges: Edge[] = indices
-			.map(i => {
-				let edge: Edge | undefined = new Edge(vertices[i[0]], vertices[i[1]]);
-				planes.forEach(p => { if (edge) edge = p.clip(edge); });
-				return edge;
-			})
-			.filter(Boolean);
+	// 	const indices = [
+	// 		[0, 1],
+	// 		[1, 2],
+	// 		[2, 3],
+	// 		[3, 0],
+	// 	];
+	// 	const vertices = [
+	// 		new Vec3(range.min.x, range.min.y, 0)),
+	// 		new Vec3(range.min.x, range.max.y, 0)),
+	// 		new Vec3(range.max.x, range.max.y, 0)),
+	// 		new Vec3(range.max.x, range.min.y, 0)),
+	// 	];
+	// 	const edges: Edge[] = indices
+	// 		.map(i => {
+	// 			let edge: Edge | undefined = new Edge(vertices[i[0]], vertices[i[1]]);
+	// 			planes.forEach(p => { if (edge) edge = p.clip(edge); });
+	// 			return edge;
+	// 		})
+	// 		.filter(Boolean);
 
-		return new Polygon(edges.map(e => [new Vertex(e.a), new Vertex(e.b)]).flat());
-	}
+	// 	return new Polygon(edges.map(e => [new Vertex(e.a), new Vertex(e.b)]).flat());
+	// }
 
 	updateLines(scene: Scene) {
 		const range = this.range.value;
