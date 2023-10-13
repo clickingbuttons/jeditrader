@@ -128,6 +128,7 @@ export class Scene {
 			...this.camera.proj.value,
 			...this.camera.eye.value, 0,
 			...this.camera.eye.value.f32Low(), 0,
+			1,
 		]);
 	}
 

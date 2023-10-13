@@ -1,8 +1,6 @@
 // Whitepaper: https://andrewthall.org/papers/dfp64_qf128.pdf
 // WGSL port of https://github.com/visgl/luma.gl/blob/291a2fdfb1cfdb15405032b3dcbfbe55133ead61/modules/shadertools/src/modules/math/fp64/fp64-arithmetic.glsl.ts
 
-@global override one: f32 = 1.0;
-
 @export struct fp64 {
 	high: f32,
 	low: f32,
@@ -12,23 +10,23 @@
 fn split64(a: f32) -> fp64 {
 	let c = (f32(1u << 12u) + 1.0) * a;
 	let a_big = c - a;
-	let a_hi = c * one - a_big;
-	let a_lo = a * one - a_hi;
+	let a_hi = c * view.one - a_big;
+	let a_lo = a * view.one - a_hi;
 	return fp64(a_hi, a_lo);
 }
 
 // Special sum operation when a > b
 fn quickTwoSum(a: f32, b: f32) -> fp64 {
-	let x = (a + b) * one;
-	let b_virt = (x - a) * one;
+	let x = (a + b) * view.one;
+	let b_virt = (x - a) * view.one;
 	let y = b - b_virt;
 	return fp64(x, y);
 }
 
 fn twoSum(a: f32, b: f32) -> fp64 {
 	let x = (a + b);
-	let b_virt = (x - a) * one;
-	let a_virt = (x - b_virt) * one;
+	let b_virt = (x - a) * view.one;
+	let a_virt = (x - b_virt) * view.one;
 	let b_err = b - b_virt;
 	let a_err = a - a_virt;
 	let y = a_err + b_err;
@@ -37,8 +35,8 @@ fn twoSum(a: f32, b: f32) -> fp64 {
 
 fn twoSub(a: f32, b: f32) -> fp64 {
 	let s = (a - b);
-	let v = (s * one - a) * one;
-	let err = (a - (s - v) * one) * one - (b + v);
+	let v = (s * view.one - a) * view.one;
+	let err = (a - (s - v) * view.one) * view.one - (b + v);
 	return fp64(s, err);
 }
 
@@ -46,9 +44,9 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	let x = a * b;
 	let a2 = split64(a);
 	let b2 = split64(b);
-	let err1 = x - (a2.high * b2.high * one) * one;
-	let err2 = err1 - (a2.low * b2.high * one) * one;
-	let err3 = err2 - (a2.high * b2.low * one) * one;
+	let err1 = x - (a2.high * b2.high * view.one) * view.one;
+	let err2 = err1 - (a2.low * b2.high * view.one) * view.one;
+	let err3 = err2 - (a2.high * b2.low * view.one) * view.one;
 	let y = a2.low * b2.low - err3;
 	return fp64(x, y);
 }

@@ -82,7 +82,6 @@ export class Material {
 				}),
 				entryPoint: 'main',
 				constants: {
-					one: 1,
 					wireframe: +wireframe,
 				},
 			},
