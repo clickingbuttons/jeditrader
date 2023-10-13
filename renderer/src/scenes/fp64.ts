@@ -58,7 +58,7 @@ return VertexOutput(pos.proj, pos.view);
 			min: new Vec3(0, 0, 0),
 			max: new Vec3(offset, 0, 0)
 		});
-		this.toggleWireframe();
+		// this.toggleWireframe();
 	}
 
 	getGeometryMeshes(offset: number): Mesh[] {

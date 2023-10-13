@@ -1,4 +1,3 @@
-@global @export override wireframe: bool = false;
 @global @export struct View {
 	view: mat4x4f,
 	proj: mat4x4f,

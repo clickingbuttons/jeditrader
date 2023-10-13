@@ -18,6 +18,23 @@ export type BindGroupLayouts = {
 };
 
 //{
+//	"g_view": {
+//		scene: GPUBindGroupLayoutEntry;
+//	},
+//	"mesh": {
+//		strides: GPUBindGroupLayoutEntry;
+//		positions: GPUBindGroupLayoutEntry;
+//		indices: GPUBindGroupLayoutEntry;
+//		models: GPUBindGroupLayoutEntry;
+//		colors: GPUBindGroupLayoutEntry;
+//	}
+//}
+// Group order is sensitive thanks to GPUPipelineLayoutDescriptor
+export type VertexLayouts = {
+	[varName: string]: GPUVertexBufferLayout;
+};
+
+//{
 //	resources: {
 //		// NOTE: we can do this because these come from the WGSL symbol names which must be unique
 //		scene: GPUBufferBinding;

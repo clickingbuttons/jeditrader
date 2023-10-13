@@ -1,5 +1,5 @@
 import { presentationFormat, sampleCount, depthFormat } from '../util.js';
-import type { Binding as ShaderBinding, BindGroupLayouts } from '@jeditrader/shaders';
+import type { Binding as ShaderBinding, BindGroupLayouts, VertexLayouts } from '@jeditrader/shaders';
 
 export interface MaterialOptions {
 	depthWriteEnabled: boolean;
@@ -28,7 +28,9 @@ export class Material {
 	pipelineWireframe: GPURenderPipeline;
 
 	bindGroupLayouts: BindGroupLayouts;
+	vertexLayouts: VertexLayouts;
 	bindings: Binding[] = [];
+
 
 	name: string;
 	wireframe = false;
@@ -39,12 +41,14 @@ export class Material {
 		vertCode: string,
 		fragCode: string,
 		bindGroupLayouts: BindGroupLayouts,
+		vertexLayouts: VertexLayouts,
 		options: Partial<MaterialOptions> = defaultOptions
 	) {
 		const opts = { ...defaultOptions, ...options };
 		this.device = device;
 		this.name = name;
 		this.bindGroupLayouts = bindGroupLayouts;
+		this.vertexLayouts = vertexLayouts;
 		const layout = device.createPipelineLayout({
 			label: name,
 			bindGroupLayouts: Object.entries(bindGroupLayouts)
@@ -81,9 +85,7 @@ export class Material {
 					code: vertCode,
 				}),
 				entryPoint: 'main',
-				constants: {
-					wireframe: +wireframe,
-				},
+				buffers: Object.values(this.vertexLayouts),
 			},
 			fragment: {
 				module: device.createShaderModule({
@@ -121,14 +123,17 @@ export class Material {
 		});
 	}
 
+	static throwMissingKey(key: string, binding: MaterialBinding) {
+		throw new Error(`expected resource "${key}" in resources when binding to material "${this.name}" (have keys ${Object.keys(binding.resources)})`);
+	}
+
 	bindResource(binding: MaterialBinding): Binding {
 		const bindGroups = {} as Binding['bindGroups'];
 		Object.entries(this.bindGroupLayouts)
 			.forEach(([groupName, bindGroupLayout], i) => {
 				if (groupName.startsWith('g_')) return;
 				const entries = Object.entries(bindGroupLayout).map(([key, layoutEntry]) => {
-					if (!(key in binding.resources))
-						throw new Error(`expected resource "${key}" in resources when binding to material "${this.name}" (have keys ${Object.keys(binding.resources)})`);
+					if (!(key in binding.resources)) Material.throwMissingKey(key, binding);
 					return {
 						binding: layoutEntry.binding,
 						resource: binding.resources[key as keyof Binding['resources']]
@@ -140,6 +145,11 @@ export class Material {
 					layout: this.pipeline.getBindGroupLayout(i),
 					entries,
 				});
+			});
+
+		Object.keys(this.vertexLayouts)
+			.forEach(key => {
+				if (!(key in binding.resources)) Material.throwMissingKey(key, binding);
 			});
 
 		return {
@@ -164,7 +174,7 @@ export class Material {
 
 	render(pass: GPURenderPassEncoder): void {
 		pass.setPipeline(this.wireframe ? this.pipelineWireframe : this.pipeline);
-		this.bindings.forEach(({ bindGroups, draw }) => {
+		this.bindings.forEach(({ bindGroups, draw, resources, obj }) => {
 			Object.keys(this.bindGroupLayouts)
 				.forEach((groupName, i) => {
 					if (!groupName.startsWith('g_')) {
@@ -172,6 +182,14 @@ export class Material {
 						pass.setBindGroup(i, b);
 					}
 				});
+
+			if (resources.indices && 'buffer' in resources.indices)
+				pass.setIndexBuffer(resources.indices.buffer, 'uint32');
+			Object.keys(this.vertexLayouts).forEach((k, i) => {
+				const b = resources[k];
+				if (b && 'buffer' in b) pass.setVertexBuffer(i, b.buffer);
+				else Material.throwMissingKey(k, obj);
+			});
 			draw(pass, this.wireframe);
 		});
 	}

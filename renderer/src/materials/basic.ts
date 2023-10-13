@@ -1,12 +1,18 @@
 import { Material, MaterialOptions, defaultOptions } from './material.js';
 import { basicVert, BasicVertResources, basicFrag } from '@jeditrader/shaders';
 
-export type MeshResources = BasicVertResources.Mesh;
-
-const bindGroupLayouts = basicVert.bindGroupLayouts;
+export type MeshResources = BasicVertResources.Mesh & BasicVertResources.Vertex;
 
 export class BasicMaterial extends Material {
 	constructor(device: GPUDevice, options: Partial<MaterialOptions> = defaultOptions) {
-		super(device, 'basic', basicVert.code, basicFrag.code, bindGroupLayouts, options);
+		super(
+			device,
+			'basic',
+			basicVert.code,
+			basicFrag.code,
+			basicVert.bindGroupLayouts,
+			basicVert.vertexLayouts,
+			options
+		);
 	}
 }

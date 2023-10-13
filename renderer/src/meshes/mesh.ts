@@ -46,21 +46,36 @@ export class Mesh {
 	) {
 		const instanceOpts = { ...defaultOptions.instances, ...options.instances } as MeshInstanceOptions;
 		const opts = { ...defaultOptions, ...options };
-		const strides = [instanceOpts.stride, opts.vertexStride];
 		this.device = device;
 
 		this.resources = {
-			strides: {
-				buffer: createBuffer({ device, data: new Uint32Array(strides) }),
+			pos: {
+				buffer: createBuffer({
+					device,
+					usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+					data: new Float32Array(positions)
+				}),
 			},
-			positions: {
-				buffer: createBuffer({ device, data: toF64(positions) }),
+			posLow: {
+				buffer: createBuffer({
+					device,
+					usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+					data: new Float32Array(positions.map(v => v - Math.fround(v)))
+				}),
 			},
-			normals: {
-				buffer: createBuffer({ device, data: new Float32Array(opts.normals) }),
+			normal: {
+				buffer: createBuffer({
+					device,
+					usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+					data: new Float32Array(opts.normals)
+				}),
 			},
 			indices: {
-				buffer: createBuffer({ device, data: new Uint32Array(indices) }),
+				buffer: createBuffer({
+					device,
+					usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+					data: new Uint32Array(indices)
+				}),
 			},
 			inModel: {
 				buffer: createBuffer({ device, data: toF64(opts.model) }),
@@ -68,8 +83,12 @@ export class Mesh {
 			models: {
 				buffer: createBuffer({ device, data: toF64(instanceOpts.models) }),
 			},
-			colors: {
-				buffer: createBuffer({ device, data: concatTypedArrays(instanceOpts.colors) }),
+			color: {
+				buffer: createBuffer({
+					device,
+					usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+					data: concatTypedArrays(instanceOpts.colors)
+				}),
 			},
 		};
 
@@ -131,7 +150,7 @@ export class Mesh {
 
 	updateColors(colors: Uint8Array | number[], offset: number = 0) {
 		this.device.queue.writeBuffer(
-			this.resources.colors.buffer,
+			(this.resources.color as any).buffer,
 			offset * 4,
 			new Uint8Array(colors)
 		);
@@ -139,7 +158,8 @@ export class Mesh {
 
 	draw(pass: GPURenderPassEncoder, wireframe: boolean) {
 		if (this.nIndices === 0 || this.nInstances === 0 || !this.visible) return;
-		pass.draw(wireframe ? this.nIndices * 2 : this.nIndices, this.nInstances);
+		// pass.draw(wireframe ? this.nIndices * 2 : this.nIndices, this.nInstances);
+		pass.drawIndexed(this.nIndices, this.nInstances);
 	}
 
 	destroy() {
