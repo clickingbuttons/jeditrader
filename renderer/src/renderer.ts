@@ -1,8 +1,9 @@
 import { depthFormat, presentationFormat, sampleCount } from './util.js';
-import { Scene, TestScene } from './scenes/index.js';
+import { Scene, Fp64Scene } from './scenes/index.js';
 import { debounce } from './helpers.js';
 import { Signal, signal } from '@preact/signals-core';
 import { Input } from './input.js';
+import { Color } from './color.js';
 
 export interface RendererFlags {
 	rerender: boolean;
@@ -66,13 +67,13 @@ export class Renderer {
 		this.depthTexture = this.createDepthTarget();
 		this.depthTextureView = this.depthTexture.createView();
 		this.settings = {
-			clearColor: signal([135 / 255, 206 / 255, 235 / 255, 1.0]),
+			clearColor: signal(new Color(135, 206, 235)),
 		};
 		this.settings.clearColor.subscribe(() => this.flags.rerender = true);
 		this.width = signal(canvas.width);
 		this.height = signal(canvas.height);
 
-		this.scene = new TestScene(this); // Init last
+		this.scene = new Fp64Scene(this); // Init last
 
 		new ResizeObserver(debounce(this.onResize.bind(this))).observe(canvasUI);
 	}
@@ -127,7 +128,7 @@ export class Renderer {
 				{
 					view: this.renderTargetView,
 					resolveTarget: this.context.getCurrentTexture().createView(),
-					clearValue: this.settings.clearColor.value,
+					clearValue: this.settings.clearColor.value.rgba32float(),
 					loadOp: 'clear',
 					storeOp: 'store',
 				},

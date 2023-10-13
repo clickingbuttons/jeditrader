@@ -1,13 +1,8 @@
 import { h, JSX } from 'preact';
-import { Renderer } from '@jeditrader/renderer';
+import { Renderer, Color } from '@jeditrader/renderer';
 import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
 import { Signal, signal as newSignal } from '@preact/signals';
-import { RGBA, getColor, hexToRGBNorm } from './util.js';
 import './settings.css';
-
-function isColorProp(s: string) {
-	return s.toLowerCase().includes('color');
-}
 
 interface InputNumberProps extends Omit<JSX.HTMLAttributes<HTMLInputElement>, 'onChange'> {
 	value: number;
@@ -65,37 +60,26 @@ function InputMat4({ value, onChange }: { value: Mat4, onChange: (v: Mat4) => vo
 
 interface SettingInputProps {
 	signal: Signal<any>;
-	isColor: boolean;
 	options?: string[];
 }
 
-function SettingInput({ signal, isColor, options }: SettingInputProps) {
-	if (isColor) {
-		const color = getColor(signal.value as RGBA | Vec4);
-		if (color) return (
-			<span>
-				<input
-					type="color"
-					value={color}
-					onChange={ev => {
-						const newVal = hexToRGBNorm(ev.currentTarget.value);
-						signal.value[0] = newVal[0];
-						signal.value[1] = newVal[1];
-						signal.value[2] = newVal[2];
-						signal.value[3] = 1;
-						signal.value = signal.value.slice();
-					}}
-				/>
-				<InputNumber
-					value={signal.value[3]}
-					onChange={alpha => {
-						signal.value[3] = alpha;
-						signal.value = signal.value.slice();
-					}}
-				/>
-			</span>
-		);
-	}
+function SettingInput({ signal, options }: SettingInputProps) {
+	if (signal.value instanceof Color) return (
+		<span>
+			<input
+				type="color"
+				value={signal.value.hex()}
+				onChange={ev => signal.value = Color.parse(ev.currentTarget.value)}
+			/>
+			<InputNumber
+				value={signal.value[3]}
+				onChange={alpha => {
+					signal.value[3] = alpha;
+					signal.value = signal.value.slice();
+				}}
+			/>
+		</span>
+	);
 	if (typeof signal.value === 'boolean') return (
 		<input
 			type="checkbox"
@@ -147,7 +131,7 @@ function SettingInput({ signal, isColor, options }: SettingInputProps) {
 				});
 				return (
 					<span>
-						<SettingInput signal={newSig} isColor={false} />
+						<SettingInput signal={newSig} />
 						<button onClick={() => {
 							signal.value.splice(i, 1);
 							signal.value = [...signal.value];
@@ -190,7 +174,6 @@ function Setting({ label, signal, options }: SettingProps) {
 			<td class="settinginput">
 				<SettingInput
 					signal={signal}
-					isColor={isColorProp(label)}
 					options={options}
 				/>
 			</td>

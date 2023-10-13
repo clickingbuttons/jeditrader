@@ -1,5 +1,5 @@
 export * from './renderer.js';
 export type { Lod } from './lod.js';
 export { lods } from './lod.js';
-export { Labels } from './labels.js';
 export * from './scenes/index.js';
+export * from './color.js';

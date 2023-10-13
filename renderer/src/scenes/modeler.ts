@@ -7,6 +7,7 @@ import { Scene } from './scene.js';
 import { signal, effect, computed } from '@preact/signals-core';
 import { createBuffer } from '../util.js';
 import type { Material, PhongResources } from '../materials/index.js';
+import { Color } from '../color.js';
 
 export class Modeler extends Scene {
 	declare settings;
@@ -49,7 +50,7 @@ export class Modeler extends Scene {
 			};
 			const res = Mesh.fromCSG(this.device, new Cube(opts), {
 				instances: {
-					colors: [1, 1, 0, 1]
+					colors: new Color(255, 255, 0),
 				}
 			});
 			res.resources.phong = phongResources.phong;

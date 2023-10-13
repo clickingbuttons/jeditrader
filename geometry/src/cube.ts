@@ -26,9 +26,9 @@ export class Cube extends CSG {
 			new Polygon(
 				positions.map(i => new Vertex(
 					new Vec3(
-						center.x + i & 1 ? radius : -radius,
-						center.y + i & 2 ? radius : -radius,
-						center.z + i & 4 ? radius : -radius,
+						center.x + (i & 1 ? radius : -radius),
+						center.y + (i & 2 ? radius : -radius),
+						center.z + (i & 4 ? radius : -radius),
 					),
 					new Vec3(normals[0], normals[1], normals[2]),
 				))

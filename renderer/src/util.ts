@@ -7,13 +7,7 @@ export const sampleCount = 4;
 export const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 export const depthFormat: GPUTextureFormat = 'depth32float';
 
-interface TypedArray {
-	readonly BYTES_PER_ELEMENT: number;
-	readonly buffer: ArrayBufferLike;
-	readonly byteLength: number;
-	readonly length: number;
-	[index: number]: number;
-}
+type TypedArray = Float64Array | Float32Array | Int32Array | Uint32Array | Uint8Array;
 
 export function createBuffer({
 	device,
@@ -34,19 +28,14 @@ export function createBuffer({
 		usage,
 		mappedAtCreation: true
 	});
-	switch (data.constructor) {
-		case Float32Array:
-			new Float32Array(res.getMappedRange()).set(data);
-			break;
-		case Int32Array:
-			new Int32Array(res.getMappedRange()).set(data);
-			break;
-		case Uint32Array:
-			new Uint32Array(res.getMappedRange()).set(data);
-			break;
-		default:
-			const objectType = Object.prototype.toString.call(data);
-			throw new Error('unknown data type ' + objectType);
+
+	if (data instanceof Float32Array) new Float32Array(res.getMappedRange()).set(data);
+	else if (data instanceof Int32Array) new Int32Array(res.getMappedRange()).set(data);
+	else if (data instanceof Uint32Array) new Uint32Array(res.getMappedRange()).set(data);
+	else if (data instanceof Uint8Array) new Uint8Array(res.getMappedRange()).set(data);
+	else {
+		const objectType = Object.prototype.toString.call(data);
+		throw new Error('unknown data type ' + objectType);
 	}
 	res.unmap()
 
@@ -57,12 +46,44 @@ export function align(n: number, alignment: number) {
 	return (n + alignment - 1) & ~(alignment - 1);
 }
 
-export function toF64(nums: Float64Array | number[]): Float32Array {
+function getConstructor<T extends TypedArray>(t: T) {
+	if (t instanceof Float64Array) return Float64Array;
+	if (t instanceof Float32Array) return Float32Array;
+	if (t instanceof Int32Array) return Int32Array;
+	if (t instanceof Uint32Array) return Uint32Array;
+	if (t instanceof Uint8Array) return Uint8Array;
+
+	const objectType = Object.prototype.toString.call(t);
+	throw new Error('unknown data type ' + objectType);
+}
+
+export function concatTypedArrays<T extends TypedArray>(arrays: T[] | T): T {
+	if (!Array.isArray(arrays)) arrays = [arrays];
+
+	const Constructor = getConstructor(arrays[0]);
+	const res = new Constructor(arrays.reduce((acc, cur) => acc + cur.length, 0)) as T;
+
+	let o = 0;
+	for (let i = 0; i < arrays.length; i++) {
+		res.set(arrays[i], o);
+		o += arrays[i].length;
+	}
+
+	return res;
+}
+
+function toF640(nums: Float64Array | number[]): Float32Array {
 	const res = new Float32Array(nums.length * 2);
 	for (let i = 0; i < nums.length; i++) {
 		res[i * 2] = nums[i];
 		res[i * 2 + 1] = nums[i] - Math.fround(nums[i]);
 	}
 	return res;
+}
+
+export function toF64(nums: Float64Array | number[] | Float64Array[]): Float32Array {
+	if (nums[0] instanceof Float64Array) return toF640(concatTypedArrays(nums as Float64Array[]));
+
+	return toF640(nums as Float64Array | number[]);
 }
 

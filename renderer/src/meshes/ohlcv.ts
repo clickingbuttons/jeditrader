@@ -3,6 +3,7 @@ import { MeshResources } from '../materials/index.js';
 import { Mesh } from './mesh.js';
 import { Aggregate, Period, getNext } from '@jeditrader/providers';
 import { Cube } from '@jeditrader/geometry';
+import { Color } from '../color.js';
 
 export class OHLCV extends Mesh {
 	declare resources: MeshResources;
@@ -20,7 +21,7 @@ export class OHLCV extends Mesh {
 			instances: {
 				count: 0,
 				models: new Float64Array(maxCandles * 16),
-				colors: new Float32Array(maxCandles * 4),
+				colors: new Uint8Array(maxCandles * 4),
 			},
 		});
 		this.nInstances = 0;
@@ -55,9 +56,9 @@ export class OHLCV extends Mesh {
 		);
 		const wickTransform = Mat4.translate(wickTranslate).scale(wickScale);
 
-		let color = new Vec4(1, 1, 1, 1);
-		if (agg.close > agg.open) color = new Vec4(0, 1, 0, 1);
-		else if (agg.close < agg.open) color = new Vec4(1, 0, 0, 1);
+		let color = Color.white;
+		if (agg.close > agg.open) color = Color.green;
+		else if (agg.close < agg.open) color = Color.red;
 
 		return {
 			body: model,

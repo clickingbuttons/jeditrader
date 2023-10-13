@@ -3,6 +3,8 @@ import { Mesh } from './mesh.js';
 import { Trade } from '@jeditrader/providers';
 import { Cube } from '@jeditrader/geometry';
 import { MeshResources } from '../materials/index.js';
+import { concatTypedArrays } from '../util.js';
+import { Color } from '../color.js';
 
 export class Trades extends Mesh {
 	declare resources: MeshResources;
@@ -20,7 +22,7 @@ export class Trades extends Mesh {
 			instances: {
 				count: 0,
 				models: new Float64Array(maxTrades * 16),
-				colors: new Float32Array(maxTrades * 4),
+				colors: new Uint8Array(maxTrades * 4),
 			},
 		});
 		this.nInstances = 0;
@@ -38,9 +40,9 @@ export class Trades extends Mesh {
 		);
 		const model = Mat4.translate(translate).scale(scale);
 
-		let color = new Vec4(1, 1, 1, 1);
-		if (trade.price > lastPrice) color = new Vec4(0, 1, 0, 1);
-		else if (trade.price < lastPrice) color = new Vec4(1, 0, 0, 1);
+		let color = Color.white;
+		if (trade.price > lastPrice) color = Color.green;
+		else if (trade.price < lastPrice) color = Color.red;
 
 		return { model, color };
 	}

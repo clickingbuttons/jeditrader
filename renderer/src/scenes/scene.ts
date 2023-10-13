@@ -1,17 +1,18 @@
-import { Vec3, Vec4, Mat4, Ray } from '@jeditrader/linalg';
+import { Vec3, Vec4, Mat4, Ray, degToRad } from '@jeditrader/linalg';
 import { Camera, Controller, FPSController  } from '../camera/index.js';
 import { Input } from '../input.js';
-import { createBuffer } from '../util.js';
-import { effect, Signal, computed, signal } from '@preact/signals-core';
+import { createBuffer, Range } from '../util.js';
+import { effect, Signal, computed, signal, batch } from '@preact/signals-core';
 import { Renderer, RendererFlags } from '../renderer.js';
 import { BasicMaterial, PhongMaterial, LineMaterial } from '../materials/index.js';
 import { basicVert } from '@jeditrader/shaders';
 import { Mesh } from '../meshes/index.js';
 import { Sphere } from '@jeditrader/geometry';
+import { Color } from '../color.js';
 
 const maxLights = 100;
 type Light = {
-	color: Vec4;
+	color: Color;
 	pos: Vec3;
 };
 
@@ -35,7 +36,7 @@ export class Scene {
 		light: GPUBuffer;
 	};
 	light: Signal<Light> = signal({
-		color: new Vec4(1, 1, 1, 1),
+		color: Color.white,
 		pos: new Vec3(0, 3, 0),
 	});
 
@@ -107,7 +108,7 @@ export class Scene {
 		const lightMesh = Mesh.fromCSG(this.device, new Sphere({ radius: .25 }), {
 			instances: {
 				models: new Float64Array(16 * maxLights),
-				colors: new Float32Array(4 * maxLights),
+				colors: new Uint8Array(4 * maxLights),
 			}
 		});
 		this.materials.default.bind(lightMesh);
@@ -115,7 +116,7 @@ export class Scene {
 			const light = this.settings.light.value;
 			const transform = Mat4.translate(light.pos);
 			lightMesh.updateModels(transform);
-			lightMesh.updateColors(new Float32Array(light.color));
+			lightMesh.updateColors(light.color);
 			lightMesh.visible = this.settings.showLights.value;
 			this.flags.rerender = true;
 		});
@@ -131,10 +132,10 @@ export class Scene {
 	}
 
 	lightData() {
-		return new Float32Array([
-			...this.light.value.color,
-			...this.light.value.pos,
-		]);
+		const res = new Uint8Array(4 * 3 + 4);
+		new Float32Array(res.buffer).set(this.light.value.pos);
+		res.set(this.light.value.color, 4 * 3);
+		return res;
 	}
 
 	render(pass: GPURenderPassEncoder) {
@@ -208,5 +209,26 @@ export class Scene {
 			(x / this.width.value - .5) * 2,
 			-(y / this.height.value - .5) * 2
 		);
+	}
+
+	fitInView(range: Range<Vec3>, model: Mat4 = Mat4.identity()) {
+		// Center on sphere to make math easy.
+		// https://stackoverflow.com/questions/2866350/move-camera-to-fit-3d-scene
+		let center = new Vec4(range.max.add(range.min).divScalar(2));
+		// Take longest dimension as radius.
+		let dims = new Vec4(range.max.sub(range.min));
+
+		// Move to axes space.
+		center = center.transform(model);
+		dims = dims.transform(model);
+		const radius = Math.max(...dims) / 2;
+
+		const eye = center.clone();
+		eye.y *= 0.8;
+		eye.z = radius / Math.tan(degToRad(this.camera.fov.value / 2));
+		batch(() => {
+			this.camera.eye.value = eye.xyz();
+			this.camera.dir.value = center.sub(eye).xyz().normalize();
+		});
 	}
 }

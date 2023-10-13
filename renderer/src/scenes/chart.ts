@@ -1,5 +1,5 @@
 import { Axes } from '../meshes/axes.js';
-import { Vec3, Vec4, degToRad } from '@jeditrader/linalg';
+import { Vec3 } from '@jeditrader/linalg';
 import { Provider, Period } from '@jeditrader/providers';
 import { AutoTicker } from '../auto-ticker.js';
 import { Scene } from './scene.js';
@@ -64,22 +64,7 @@ export class Chart extends Scene {
 	}
 
 	fitInView(range: Range<Vec3>) {
-		// Center on sphere to make math easy.
-		// https://stackoverflow.com/questions/2866350/move-camera-to-fit-3d-scene
-		let center = new Vec4(range.max.add(range.min).divScalar(2));
-		const model = this.axes.model.value;
-		// Take longest dimension as radius.
-		let dims = new Vec4(range.max.sub(range.min));
-
-		// Move to axes space.
-		center = center.transform(model);
-		dims = dims.transform(model);
-		const radius = Math.max(...dims) / 2;
-
-		const eye = center;
-		eye.y *= 0.8;
-		eye.z = radius / Math.tan(degToRad(this.camera.fov.value / 2));
-		this.camera.eye.value = eye.xyz();
+		return super.fitInView(range, this.axes.model.value);
 	}
 
 	update(dt: DOMHighResTimeStamp) {

@@ -6,8 +6,10 @@ import { Vec3, Mat4 } from '@jeditrader/linalg';
 import { Scene } from './scene.js';
 import { Renderer } from '../renderer.js';
 import { signal, effect } from '@preact/signals-core';
+import { Color } from '../color.js';
 
-export class TestScene extends Scene {
+// Verifies can zoom from years to milliseconds
+export class Fp64Scene extends Scene {
 	declare settings;
 	declare materials;
 
@@ -42,65 +44,54 @@ return VertexOutput(pos.proj, pos.view);
 		const offset = new Date(2020, 1).getTime();
 
 		effect(() => {
-			const mss: number[] = this.settings.milliseconds.value;
 			const meshes: Mesh[] = [];
 
-			if (this.settings.geometry.value) {
-				const allPositions: number[] = [];
-				const allIndices: number[] = [];
-				const allNormals: number[] = [];
-				let nInstances = 0;
-				let instanceStride = 0;
-
-				mss.forEach(ms => {
-					const radius = ms / 2;
-					[
-						new Cube({ radius }),
-						new Cube({ center: new Vec3(offset, 0, 0), radius }),
-					].forEach(csg => {
-						const { positions, indices, normals } = csg.toIndexedTriangles();
-						allPositions.push(...positions);
-						allIndices.push(...indices);
-						allNormals.push(...normals);
-						instanceStride = positions.length;
-						nInstances += 1;
-					});
-				});
-
-				meshes.push(new Mesh(this.device, allPositions, allIndices, {
-					normals: allNormals,
-					instances: {
-						count: nInstances,
-						stride: instanceStride,
-					}
-				}));
-			}
-
-			if (this.settings.transform.value) {
-				const models = mss.map(ms => {
-					const radius = ms;
-
-					const scale = Mat4.scale(new Vec3(radius, radius, radius))
-					const translate = Mat4.translate(new Vec3(offset, 0, 0))
-
-					return [...scale, ...translate.mul(scale)];
-				}).flat();
-
-				const mesh = Mesh.fromCSG(this.device, new Cube(), {
-					instances: {
-						count: models.length / 16,
-						models,
-						colors: [0, 1, 0, 1],
-					}
-				});
-				meshes.push(mesh);
-			}
+			if (this.settings.geometry.value) meshes.push(...this.getGeometryMeshes(offset));
+			if (this.settings.transform.value) meshes.push(this.getTransformMesh(offset));
 
 			material.unbindAll();
 			material.bind(...meshes);
 			this.flags.rerender = true;
 		});
 
+		this.fitInView({
+			min: new Vec3(0, 0, 0),
+			max: new Vec3(offset, 0, 0)
+		});
 		this.toggleWireframe();
+	}
+
+	getGeometryMeshes(offset: number): Mesh[] {
+		return this.settings.milliseconds.value
+			.map(ms => {
+				const radius = ms / 2;
+				return [
+					new Cube({ radius }),
+					new Cube({ center: new Vec3(offset, 0, 0), radius }),
+				].map(csg => Mesh.fromCSG(this.device, csg))
+			})
+			.flat();
+	}
+
+	getTransformMesh(offset: number): Mesh {
+		const models = this.settings.milliseconds.value.map(ms => {
+			const radius = ms;
+
+			const scale = Mat4.scale(new Vec3(radius, radius, radius))
+			const translate = Mat4.translate(new Vec3(offset, 0, 0))
+
+			return [...scale, ...translate.mul(scale)];
+		}).flat();
+		const nInstances = models.length / 16;
+		const colors = new Uint8Array(4 * nInstances);
+		for (let i = 0; i < colors.length; i += 4) colors.set(Color.green, i);
+
+		return Mesh.fromCSG(this.device, new Cube(), {
+			instances: {
+				count: nInstances,
+				models,
+				colors,
+			}
+		});
 	}
 };

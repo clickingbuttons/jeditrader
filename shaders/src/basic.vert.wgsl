@@ -11,7 +11,7 @@ struct Strides {
 
 @group(mesh) @binding(3) var<storage, read> inModel: array<fp64, 16>;
 @group(mesh) @binding(4) var<storage, read> models: array<array<fp64, 16>>;
-@group(mesh) @binding(5) var<storage, read> colors: array<vec4f>;
+@group(mesh) @binding(5) var<storage, read> colors: array<u32>;
 @group(mesh) @binding(6) var<storage, read> normals: array<f32>;
 
 @export @global struct VertexInput {
@@ -42,7 +42,7 @@ fn model64(arg: VertexInput) -> array<fp64, 16> {
 		index = arg.instance;
 	}
 
-	return colors[index];
+	return unpack4x8unorm(colors[index]);
 }
 
 fn vertIndex(arg: VertexInput, useWireframe: bool) -> u32 {

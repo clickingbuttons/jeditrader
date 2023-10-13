@@ -1,13 +1,14 @@
-import { createBuffer, toF64 } from '../util.js';
+import { createBuffer, toF64, concatTypedArrays } from '../util.js';
 import { Mat4, Vec3 } from '@jeditrader/linalg';
 import { CSG, Plane } from '@jeditrader/geometry';
 import { MeshResources } from '../materials/index.js';
+import { Color } from '../color.js';
 
 export interface MeshInstanceOptions {
 	count: number;
 	stride: number;
 	models: Float64Array | number[];
-	colors: Float32Array | number[];
+	colors: Uint8Array;
 }
 
 export interface MeshOptions {
@@ -25,7 +26,7 @@ const defaultOptions: MeshOptions = {
 		count: 1,
 		stride: 0,
 		models: Mat4.identity(),
-		colors: new Float32Array([1, .6, .6, 1]),
+		colors: new Color(255, 153, 153),
 	}
 };
 
@@ -68,7 +69,7 @@ export class Mesh {
 				buffer: createBuffer({ device, data: toF64(instanceOpts.models) }),
 			},
 			colors: {
-				buffer: createBuffer({ device, data: new Float32Array(instanceOpts.colors) }),
+				buffer: createBuffer({ device, data: concatTypedArrays(instanceOpts.colors) }),
 			},
 		};
 
@@ -128,11 +129,11 @@ export class Mesh {
 		);
 	}
 
-	updateColors(colors: Float32Array | number[], offset: number = 0) {
+	updateColors(colors: Uint8Array | number[], offset: number = 0) {
 		this.device.queue.writeBuffer(
 			this.resources.colors.buffer,
-			offset * 4 * Float32Array.BYTES_PER_ELEMENT,
-			new Float32Array(colors)
+			offset * 4,
+			new Uint8Array(colors)
 		);
 	}
 

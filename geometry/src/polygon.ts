@@ -6,7 +6,6 @@ import { Vertex } from './vertex.js';
 //
 // Each convex polygon has a `userdata` property, which is shared between all
 // polygons that are clones of each other or were split from the same polygon.
-// This can be used to define per-polygon properties (such as surface color).
 export class Polygon {
 	vertices: Vertex[];
 	plane: Plane;
