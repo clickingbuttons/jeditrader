@@ -20,7 +20,7 @@ export interface MeshOptions {
 const defaultOptions: MeshOptions = {
 	vertexStride: 3,
 	model: Mat4.identity(),
-	normals: new Float32Array(new Vec3(1).normalize()),
+	normals: new Float32Array(new Vec3(0)),
 	instances: {
 		count: 1,
 		stride: 0,
@@ -81,7 +81,8 @@ export class Mesh {
 		csg: CSG,
 		options: Partial<MeshOptions> = defaultOptions
 	) {
-		const { positions, indices } = csg.toIndexedTriangles();
+		const { positions, indices, normals } = csg.toIndexedTriangles();
+		options.normals = normals;
 		return new Mesh(device, positions, indices, options);
 	}
 

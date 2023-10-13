@@ -27,15 +27,16 @@ export class Circle extends CSG {
 	constructor(options: Partial<CircleOptions> = defaultOptions) {
 		const { center, radius, slices } = { ...defaultOptions, ...options };
 
-		const vertices: Vertex[] = [...Array(slices).keys()]
+		const vertices: Vertex[] = [...Array(slices + 1).keys()]
 			.map(i => {
-				const dir = circleDirection(-i / slices);
+				const dir = circleDirection(i / slices);
 				const p = center.add(dir.mulScalar(radius));
 				return new Vertex(p, dir);
 			});
+		const centerV = new Vertex(center, new Vec3(0, 0, 1));
 
 		super([
-			new Polygon([new Vertex(center, new Vec3(0, 0, 1)), ...vertices, vertices[0]])
+			new Polygon([centerV, ...vertices, centerV])
 		]);
 	}
 }

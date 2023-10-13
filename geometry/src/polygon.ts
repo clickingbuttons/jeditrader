@@ -24,10 +24,8 @@ export class Polygon {
 		return new Polygon(this.vertices.map(v => v.clone()), this.userdata);
 	}
 
-	flip(): void {
-		this.vertices.forEach(v => v.flip());
-		this.vertices = this.vertices.reverse();
-		this.plane.flip();
+	flip(): Polygon {
+		return new Polygon(this.vertices.reverse());
 	}
 }
 

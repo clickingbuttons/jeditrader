@@ -41,46 +41,19 @@ export class Modeler extends Scene {
 			this.flags.rerender = true;
 		});
 
-		const maxNormals = 1000;
-		const normalMesh = Mesh.fromCSG(this.device, new Cone(), {
-			model: Mat4.scale(new Vec3(.1)),
-			instances: {
-				models: new Float64Array(16 * maxNormals),
-			}
-		});
-		const normalMaterial = this.materials.default;
-		normalMaterial.bind(normalMesh);
-
 		const mesh = computed(() => {
 			const opts = {
 				center: this.settings.center.value,
 				radius: this.settings.radius.value,
 				height: this.settings.radius.value,
 			};
-			const { positions, indices, normals } = new Sphere().toIndexedTriangles();
-			const res = new Mesh(this.device, positions, indices, {
-				normals,
+			const res = Mesh.fromCSG(this.device, new Cube(opts), {
 				instances: {
 					colors: [1, 1, 0, 1]
 				}
 			});
 			res.resources.phong = phongResources.phong;
 
-			for (let i = 0; i < positions.length; i += 3) {
-				const x = i + 0;
-				const y = i + 1;
-				const z = i + 2;
-				const pos = new Vec3(positions[x], positions[y], positions[z]).mulScalar(1 / .1);
-				const norm = new Vec3(normals[x], normals[y], normals[z]);
-				console.log(pos, norm)
-
-				const model = Mat4
-					.translate(pos)
-					.rotate(new Vec3(1, 0, 0), -Math.PI / 2);
-				normalMesh.updateModels([...model], i);
-			}
-			console.log(positions.length)
-			normalMesh.nInstances = positions.length;
 			return res;
 		});
 

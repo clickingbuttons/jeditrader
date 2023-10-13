@@ -4,7 +4,7 @@ import { Input } from '../input.js';
 import { createBuffer } from '../util.js';
 import { effect, Signal, computed, signal } from '@preact/signals-core';
 import { Renderer, RendererFlags } from '../renderer.js';
-import { BasicMaterial, PhongMaterial } from '../materials/index.js';
+import { BasicMaterial, PhongMaterial, LineMaterial } from '../materials/index.js';
 import { basicVert } from '@jeditrader/shaders';
 import { Mesh } from '../meshes/index.js';
 import { Sphere } from '@jeditrader/geometry';
@@ -39,6 +39,7 @@ export class Scene {
 		pos: new Vec3(0, 3, 0),
 	});
 
+	normals = false;
 	materials;
 	settings;
 
@@ -89,6 +90,7 @@ export class Scene {
 		this.materials = {
 			default: new BasicMaterial(this.device),
 			phong: new PhongMaterial(this.device),
+			line: new LineMaterial(this.device),
 		};
 		this.flags.rerender = true;
 
@@ -142,6 +144,27 @@ export class Scene {
 
 	toggleWireframe() {
 		Object.values(this.materials).forEach(material => material.toggleWireframe());
+		this.flags.rerender = true;
+	}
+
+	toggleNormals() {
+		this.normals = !this.normals;
+		if (this.normals) {
+			const lineBindings = this.materials.default.bindings
+				.concat(this.materials.phong.bindings)
+				.map(b => ({
+					...b,
+					draw(pass: GPURenderPassEncoder) {
+						if (!(b.obj instanceof Mesh)) return;
+						if (b.obj.nIndices === 0 || b.obj.nInstances === 0 || !b.obj.visible) return;
+						pass.draw(b.obj.nIndices * 2, b.obj.nInstances);
+					}
+				}));
+			this.materials.line.bind(...lineBindings);
+		} else {
+			this.materials.line.unbindAll();
+		}
+
 		this.flags.rerender = true;
 	}
 

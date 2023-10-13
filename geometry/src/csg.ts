@@ -95,10 +95,8 @@ export class CSG {
 		return new CSG(a.allPolygons());
 	}
 
-	inverse() {
-		var csg = this.clone();
-		csg.polygons.map(function(p) { p.flip(); });
-		return csg;
+	inverse(): CSG {
+		return new CSG(this.polygons.map(p => p.flip()));
 	}
 
 	toIndexedTriangles() {
@@ -119,7 +117,7 @@ export class CSG {
 				if (!(key in indicesMap)) {
 					indicesMap[key] = positions.length / 3;
 					positions.push(...vert);
-					normals.push(...vert.normal.normalize());
+					normals.push(...vert.normal);
 				}
 				polyIndices.push(indicesMap[key]);
 			}

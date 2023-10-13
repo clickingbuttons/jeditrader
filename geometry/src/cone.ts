@@ -15,20 +15,23 @@ const defaultOptions: ConeOptions = {
 export class Cone extends CSG {
 	constructor(options: Partial<ConeOptions> = defaultOptions) {
 		const opts: ConeOptions = { ...defaultOptions, ...options };
+
 		const circle = new Circle(opts);
-		const finalVert = opts.center.add(new Vec3(0, 0, opts.height));
+		const peak = new Vertex(
+			opts.center.add(new Vec3(0, 0, opts.height)),
+			new Vec3(0, 0, 1)
+		);
+		const mountain = circle.polygons[0];
+		mountain.vertices.forEach(v => v.normal = peak.sub(v).mulScalar(-1).normalize());
+		mountain.vertices[0] = mountain.vertices[mountain.vertices.length - 1] = peak;
 
-		const circlePoly = circle.polygons[0];
-		const verts = [...circlePoly.vertices];
-		verts[0] = new Vertex(finalVert, new Vec3(0, 0, -1));
-
-		let vertices = circlePoly.vertices;
-		vertices.reverse();
-		vertices.unshift(vertices.pop() as Vertex);
+		const base = new Circle(opts);
+		const basePoly = base.polygons[0].flip();
+		basePoly.vertices.forEach(v => v.normal = peak.sub(v).mulScalar(-1).normalize());
 
 		super([
-			circlePoly,
-			new Polygon(verts)
+			mountain,
+			basePoly,
 		]);
 	}
 }

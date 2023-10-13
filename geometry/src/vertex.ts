@@ -9,12 +9,11 @@ export class Vertex extends Vec3 {
 	}
 
 	clone(): Vertex {
-		return new Vertex(this.clone(), this.normal.clone());
+		return new Vertex(super.clone(), this.normal.clone());
 	}
 
-	// TODO: make not mutate
-	flip(): void {
-		this.normal = this.normal.mulScalar(-1);
+	flip(): Vertex {
+		return new Vertex(super.clone(), this.normal.mulScalar(-1));
 	}
 
 	lerp(other: Vertex, t: number): Vertex {

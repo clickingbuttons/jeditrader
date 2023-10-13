@@ -20,7 +20,7 @@ export class TestScene extends Scene {
 		this.settings = {
 			...superSettings,
 			milliseconds,
-			geometry: signal(true),
+			geometry: signal(false),
 			transform: signal(true),
 		};
 
@@ -48,6 +48,7 @@ return VertexOutput(pos.proj, pos.view);
 			if (this.settings.geometry.value) {
 				const allPositions: number[] = [];
 				const allIndices: number[] = [];
+				const allNormals: number[] = [];
 				let nInstances = 0;
 				let instanceStride = 0;
 
@@ -57,15 +58,17 @@ return VertexOutput(pos.proj, pos.view);
 						new Cube({ radius }),
 						new Cube({ center: new Vec3(offset, 0, 0), radius }),
 					].forEach(csg => {
-						const { positions, indices } = csg.toIndexedTriangles();
+						const { positions, indices, normals } = csg.toIndexedTriangles();
 						allPositions.push(...positions);
 						allIndices.push(...indices);
+						allNormals.push(...normals);
 						instanceStride = positions.length;
 						nInstances += 1;
 					});
 				});
 
 				meshes.push(new Mesh(this.device, allPositions, allIndices, {
+					normals: allNormals,
 					instances: {
 						count: nInstances,
 						stride: instanceStride,
@@ -83,15 +86,14 @@ return VertexOutput(pos.proj, pos.view);
 					return [...scale, ...translate.mul(scale)];
 				}).flat();
 
-				const indexed = new Cube().toIndexedTriangles();
-				meshes.push(new Mesh(this.device, indexed.positions, indexed.indices, {
-					normals: indexed.normals,
+				const mesh = Mesh.fromCSG(this.device, new Cube(), {
 					instances: {
 						count: models.length / 16,
 						models,
 						colors: [0, 1, 0, 1],
 					}
-				}));
+				});
+				meshes.push(mesh);
 			}
 
 			material.unbindAll();

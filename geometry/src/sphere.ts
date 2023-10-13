@@ -21,7 +21,8 @@ function sphereVertex(
 	phi: number,
 ): Vertex {
 	const dir = sphereDirection(theta, phi);
-	return new Vertex(center.add(dir.mulScalar(radius)), dir);
+	const res = new Vertex(center.add(dir.mulScalar(radius)), dir);
+	return res;
 }
 
 export interface SphereOptions {

@@ -1,6 +1,6 @@
 import { JSX } from 'preact';
 import { SymbolPicker } from './select.js';
-import { LightMode, DarkMode, Settings, Debug } from './icons/index.js';
+import { LightMode, DarkMode, Settings, Box, ArrowUp } from './icons/index.js';
 import { lods, Lod, Chart as ChartScene, Renderer, Scene } from '@jeditrader/renderer';
 import { Signal } from '@preact/signals';
 import './toolbar.css';
@@ -61,11 +61,18 @@ export function Toolbar({
 			}
 			<div class="toolbar-buttons" >
 				<button
+					title="Toggle normals"
+					onClick={() => scene?.toggleNormals()}
+					disabled={!scene}
+				>
+					<ArrowUp />
+				</button>
+				<button
 					title="Toggle wireframe"
 					onClick={() => scene?.toggleWireframe()}
 					disabled={!scene}
 				>
-					<Debug />
+					<Box />
 				</button>
 				<button
 					title={`Activate ${dark.value ? 'light' : 'dark'} mode`}

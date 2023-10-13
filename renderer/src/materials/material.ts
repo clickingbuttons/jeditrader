@@ -76,7 +76,10 @@ export class Material {
 		return device.createRenderPipeline({
 			label: this.name,
 			vertex: {
-				module: device.createShaderModule({ code: vertCode }),
+				module: device.createShaderModule({
+					label: `${this.name} vertex shader`,
+					code: vertCode,
+				}),
 				entryPoint: 'main',
 				constants: {
 					one: 1,
@@ -84,7 +87,10 @@ export class Material {
 				},
 			},
 			fragment: {
-				module: device.createShaderModule({ code: fragCode }),
+				module: device.createShaderModule({
+					label: `${this.name} fragment shader`,
+					code: fragCode,
+				}),
 				entryPoint: 'main',
 				targets: [{
 					format: presentationFormat,

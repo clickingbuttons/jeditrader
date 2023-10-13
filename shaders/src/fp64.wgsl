@@ -81,6 +81,15 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	return p;
 }
 
+@export fn vec4_sum64(a: array<fp64, 4>, b: array<fp64, 4>) -> array<fp64, 4> {
+	return array<fp64, 4>(
+		sum64(a[0], b[0]),
+		sum64(a[1], b[1]),
+		sum64(a[2], b[2]),
+		sum64(a[3], b[3]),
+	);
+}
+
 @export fn vec4_sub64(a: array<fp64, 4>, b: array<fp64, 4>) -> array<fp64, 4> {
 	return array<fp64, 4>(
 		sub64(a[0], b[0]),
