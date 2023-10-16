@@ -4,7 +4,7 @@ import { Input } from '../input.js';
 import { createBuffer, Range } from '../util.js';
 import { effect, Signal, computed, signal, batch } from '@preact/signals-core';
 import { Renderer, RendererFlags } from '../renderer.js';
-import { BasicMaterial, PhongMaterial, LineMaterial } from '../materials/index.js';
+import { BasicMaterial, PhongMaterial, NormalsMaterial } from '../materials/index.js';
 import { basicVert } from '@jeditrader/shaders';
 import { Mesh } from '../meshes/index.js';
 import { Sphere } from '@jeditrader/geometry';
@@ -91,7 +91,7 @@ export class Scene {
 		this.materials = {
 			default: new BasicMaterial(this.device),
 			phong: new PhongMaterial(this.device),
-			line: new LineMaterial(this.device),
+			line: new NormalsMaterial(this.device),
 		};
 		this.flags.rerender = true;
 
