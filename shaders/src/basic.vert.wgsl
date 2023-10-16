@@ -13,11 +13,11 @@ struct Strides {
 @group(mesh) @binding(5) var<storage, read> colors: array<u32>;
 @group(mesh) @binding(6) var<storage, read> normals: array<f32>;
 
-@export @global struct VertexInput {
+@export struct VertexInput {
 	@builtin(vertex_index) vertex: u32,
 	@builtin(instance_index) instance: u32,
 }
-@export @global struct VertexOutput {
+@export struct VertexOutput {
 	@builtin(position) position: vec4f,
 	@location(0) color: vec4f,
 	@location(1) worldPos: vec4f,

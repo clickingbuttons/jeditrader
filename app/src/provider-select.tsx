@@ -3,11 +3,10 @@ import { getCookie, setCookie } from './cookies.js';
 import { Provider, Clickhouse, Polygon } from '@jeditrader/providers';
 
 export interface ProviderSelectProps {
- setProvider(p: Provider): void;
- canvas: HTMLCanvasElement | null;
+	setProvider(p: Provider): void;
 }
 
-export function ProviderSelect({ setProvider, canvas }: ProviderSelectProps) {
+export function ProviderSelect({ setProvider }: ProviderSelectProps) {
 	const apiKey = getCookie('POLY_API_KEY') ?? '';
 	const providers = {
 		'clickhouse': {
@@ -25,8 +24,7 @@ export function ProviderSelect({ setProvider, canvas }: ProviderSelectProps) {
 			ev.preventDefault();
 			if (providerName === 'polygon') setProvider(new Polygon(providers.polygon.apiKey));
 			if (providerName === 'clickhouse') setProvider(new Clickhouse(providers.clickhouse.url));
-			canvas?.focus();
-		}} class="providerForm">
+		}}>
 			<table>
 				<tr>
 					<td><label>Provider</label></td>

@@ -1,4 +1,5 @@
 import { JSX } from 'preact';
+import { StateUpdater } from 'preact/hooks';
 import { SymbolPicker } from './select.js';
 import { LightMode, DarkMode, Settings, Box, ArrowUp } from './icons/index.js';
 import { lods, Lod, Chart as ChartScene, Renderer, Scene } from '@jeditrader/renderer';
@@ -25,20 +26,19 @@ function LodSelect({ chart }: { chart: ChartScene }) {
 
 interface ToolbarProps extends JSX.HTMLAttributes<HTMLDivElement> {
 	renderer: Renderer | null;
-	scene: Scene | null;
 	showSettings: boolean;
-	setShowSettings: (b: boolean) => void;
+	setShowSettings: StateUpdater<boolean>;
 	dark: Signal<boolean>;
 }
 
 export function Toolbar({
 	renderer,
-	scene,
 	showSettings,
 	setShowSettings,
 	dark,
-	style
+	style,
 }: ToolbarProps) {
+	const scene = renderer?.scene;
 	const chart: ChartScene | null = scene instanceof ChartScene ? scene : null;
 	return (
 		<div class="toolbar" style={style}>
