@@ -37,7 +37,7 @@ export class Scene {
 	};
 	light: Signal<Light> = signal({
 		color: Color.white,
-		pos: new Vec3(0, 3, 0),
+		pos: new Vec3(1, 1, 1),
 	});
 
 	normals = false;

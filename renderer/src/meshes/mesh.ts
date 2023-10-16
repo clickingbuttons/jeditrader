@@ -12,14 +12,12 @@ export interface MeshInstanceOptions {
 }
 
 export interface MeshOptions {
-	vertexStride: number;
 	model: Float64Array | number[];
 	normals: Float32Array | number[];
 	instances: Partial<MeshInstanceOptions>;
 }
 
 const defaultOptions: MeshOptions = {
-	vertexStride: 3,
 	model: Mat4.identity(),
 	normals: new Float32Array(new Vec3(0)),
 	instances: {
@@ -49,33 +47,17 @@ export class Mesh {
 		this.device = device;
 
 		this.resources = {
-			pos: {
-				buffer: createBuffer({
-					device,
-					usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-					data: new Float32Array(positions)
-				}),
+			strides: {
+				buffer: createBuffer({ device, data: new Uint32Array([instanceOpts.stride]) }),
 			},
-			posLow: {
-				buffer: createBuffer({
-					device,
-					usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-					data: new Float32Array(positions.map(v => v - Math.fround(v)))
-				}),
+			positions: {
+				buffer: createBuffer({ device, data: toF64(positions) }),
 			},
-			normal: {
-				buffer: createBuffer({
-					device,
-					usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-					data: new Float32Array(opts.normals)
-				}),
+			normals: {
+				buffer: createBuffer({ device, data: new Float32Array(opts.normals) }),
 			},
 			indices: {
-				buffer: createBuffer({
-					device,
-					usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
-					data: new Uint32Array(indices)
-				}),
+				buffer: createBuffer({ device, data: new Uint32Array(indices) }),
 			},
 			inModel: {
 				buffer: createBuffer({ device, data: toF64(opts.model) }),
@@ -83,12 +65,8 @@ export class Mesh {
 			models: {
 				buffer: createBuffer({ device, data: toF64(instanceOpts.models) }),
 			},
-			color: {
-				buffer: createBuffer({
-					device,
-					usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-					data: concatTypedArrays(instanceOpts.colors)
-				}),
+			colors: {
+				buffer: createBuffer({ device, data: concatTypedArrays(instanceOpts.colors) }),
 			},
 		};
 
@@ -150,7 +128,7 @@ export class Mesh {
 
 	updateColors(colors: Uint8Array | number[], offset: number = 0) {
 		this.device.queue.writeBuffer(
-			(this.resources.color as any).buffer,
+			this.resources.colors.buffer,
 			offset * 4,
 			new Uint8Array(colors)
 		);
@@ -158,8 +136,7 @@ export class Mesh {
 
 	draw(pass: GPURenderPassEncoder, wireframe: boolean) {
 		if (this.nIndices === 0 || this.nInstances === 0 || !this.visible) return;
-		// pass.draw(wireframe ? this.nIndices * 2 : this.nIndices, this.nInstances);
-		pass.drawIndexed(this.nIndices, this.nInstances);
+		pass.draw(wireframe ? this.nIndices * 2 : this.nIndices, this.nInstances);
 	}
 
 	destroy() {

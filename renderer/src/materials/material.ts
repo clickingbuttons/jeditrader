@@ -86,6 +86,9 @@ export class Material {
 				}),
 				entryPoint: 'main',
 				buffers: Object.values(this.vertexLayouts),
+				constants: {
+					wireframe: +wireframe,
+				},
 			},
 			fragment: {
 				module: device.createShaderModule({
@@ -183,8 +186,6 @@ export class Material {
 					}
 				});
 
-			if (resources.indices && 'buffer' in resources.indices)
-				pass.setIndexBuffer(resources.indices.buffer, 'uint32');
 			Object.keys(this.vertexLayouts).forEach((k, i) => {
 				const b = resources[k];
 				if (b && 'buffer' in b) pass.setVertexBuffer(i, b.buffer);

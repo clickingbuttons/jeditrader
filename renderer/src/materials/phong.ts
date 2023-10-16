@@ -1,15 +1,9 @@
 import { Material, MaterialOptions, defaultOptions } from './material.js';
-import { basicVert, BasicVertResources, phongFrag, PhongFragResources } from '@jeditrader/shaders';
+import { basicVert, BasicVertResources, phongFrag } from '@jeditrader/shaders';
 
 export type PhongResources =
 	& BasicVertResources.Mesh
-	& BasicVertResources.Vertex
-	& PhongFragResources.Phong;
-
-const bindGroupLayouts = {
-	...basicVert.bindGroupLayouts,
-	phong: phongFrag.bindGroupLayouts.phong,
-};
+;
 
 export class PhongMaterial extends Material {
 	constructor(device: GPUDevice, options: Partial<MaterialOptions> = defaultOptions) {
@@ -18,7 +12,7 @@ export class PhongMaterial extends Material {
 			'phong',
 			basicVert.code,
 			phongFrag.code,
-			bindGroupLayouts,
+			basicVert.bindGroupLayouts,
 			basicVert.vertexLayouts,
 			options
 		);

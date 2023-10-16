@@ -17,3 +17,4 @@
 	return res;
 }
 
+@global override wireframe: bool = false;

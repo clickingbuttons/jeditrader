@@ -40,7 +40,8 @@ export class Renderer {
 	depthTextureView: GPUTextureView;
 
 	lastTime = performance.now();
-	dt = signal(1);
+	dUpdate = signal(1);
+	dRender = signal(1);
 	flags: RendererFlags = {
 		rerender: true,
 	};
@@ -113,15 +114,18 @@ export class Renderer {
 
 	frame(time: DOMHighResTimeStamp): void {
 		const dt = time - this.lastTime;
+
+		let start = performance.now();
 		this.scene.update(dt);
-		this.lastTime = time;
+		this.dUpdate.value = performance.now() - start;
 
 		if (!this.flags.rerender) { // Save GPU + CPU a lot of work
+			this.lastTime = time;
 			requestAnimationFrame(this.frame.bind(this));
 			return;
 		}
-		this.dt.value = dt;
 
+		start = performance.now();
 		const commandEncoder = this.device.createCommandEncoder();
 		const renderPassDescriptor: GPURenderPassDescriptor = {
 			colorAttachments: [
@@ -148,6 +152,8 @@ export class Renderer {
 		this.device.queue.submit([commandEncoder.finish()]);
 		this.flags.rerender = false;
 
+		this.dRender.value = performance.now() - start;
+		this.lastTime = time;
 		requestAnimationFrame(this.frame.bind(this));
 	}
 
@@ -166,6 +172,7 @@ export class Renderer {
 
 			var adapter = await navigator.gpu.requestAdapter();
 			if (adapter === null) throw new Error('No WebGPU adapter available');
+			console.log(adapter.limits);
 			var device = await adapter.requestDevice();
 			var context = canvas.getContext('webgpu');
 			if (context === null) throw new Error('No WebGPU context available');

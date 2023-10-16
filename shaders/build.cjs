@@ -267,9 +267,9 @@ function genTs(b, bindGroupLayouts, vertexLayouts) {
 			arrayStride: getSize(v.type, v.name),
 			attributes: [
 				{
-					offset: 0,
-					format: vertexFormat(v.type, v.name),
 					shaderLocation: location(v.attr.find(a => a.startsWith('location'))),
+					format: vertexFormat(v.type, v.name),
+					offset: 0,
 				}
 			]
 		};

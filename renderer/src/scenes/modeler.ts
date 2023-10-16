@@ -23,24 +23,7 @@ export class Modeler extends Scene {
 			material: { val: signal('phong'), options: Object.keys(this.materials) },
 			center: signal(new Vec3(0, 0, 0)),
 			radius: signal(.5),
-			phong: {
-				ambientColor: signal(new Vec4(0, 1, 0, .1)),
-			}
 		};
-
-		const phongResources ={
-			phong: {
-				buffer: createBuffer({
-					device: this.device,
-					usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-					data: this.phongData(),
-				})
-			}
-		};
-		effect(() => {
-			this.device.queue.writeBuffer(phongResources.phong.buffer, 0, this.phongData());
-			this.flags.rerender = true;
-		});
 
 		const mesh = computed(() => {
 			const opts = {
@@ -53,7 +36,6 @@ export class Modeler extends Scene {
 					colors: new Color(255, 255, 0),
 				}
 			});
-			res.resources.phong = phongResources.phong;
 
 			return res;
 		});
@@ -77,12 +59,5 @@ export class Modeler extends Scene {
 
 	matKey(): keyof typeof this.materials {
 		return this.settings.material.val.value as keyof typeof this.materials;
-	}
-
-	phongData() {
-		const phong = this.settings.phong;
-		return new Float32Array([
-			...phong.ambientColor.value,
-		]);
 	}
 };

@@ -3,7 +3,6 @@ import { axesVert, AxesVertResources, axesFrag, AxesFragResources } from '@jedit
 
 export type AxesResources =
 	& AxesVertResources.Mesh
-	& AxesVertResources.Vertex
 	& AxesFragResources.Axes;
 
 const bindGroupLayouts = {
