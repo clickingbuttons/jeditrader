@@ -9,3 +9,4 @@ export * from './circle.js';
 export * from './line.js';
 export * from './edge.js';
 export * from './plane.js';
+export * from './polygon.js';

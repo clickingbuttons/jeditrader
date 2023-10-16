@@ -1,5 +1,5 @@
 import { h, JSX } from 'preact';
-import { Renderer, Color } from '@jeditrader/renderer';
+import { Renderer, Color, Scene } from '@jeditrader/renderer';
 import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
 import { Signal, signal as newSignal } from '@preact/signals';
 import './settings.css';
@@ -212,17 +212,21 @@ function getSettings(o: object, startLevel: number) {
 
 interface SettingsProps extends JSX.HTMLAttributes<HTMLTableElement> {
 	renderer: Renderer | null;
+	scene: Scene | null; // To force renderer on scene selection
 }
 
-export function Settings({ renderer, style }: SettingsProps) {
+export function Settings({ renderer, scene, style }: SettingsProps) {
 	if (!renderer) return null;
 
+	scene = scene ?? renderer.scene;
 	return (
 		<table class="settings" style={style}>
 			<tr><h2>Renderer</h2></tr>
 			{getSettings(renderer.settings, 3)}
-			<tr><h2>Scene</h2></tr>
-			{getSettings(renderer.scene.settings, 3)}
+			{scene && <>
+				<tr><h2>Scene</h2></tr>
+				{getSettings(scene.settings, 3)}
+			</>}
 		</table>
 	);
 }

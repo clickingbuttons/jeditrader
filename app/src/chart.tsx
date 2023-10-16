@@ -58,7 +58,11 @@ export function Chart() {
 					/>
 				</SplitItem>
 				<SplitItem>
-					{showSettings && <Settings renderer={renderer} style={{ pointerEvents: 'all' }} />}
+					{showSettings && <Settings
+						renderer={renderer}
+						scene={scene}
+						style={{ pointerEvents: 'all' }}
+					/>}
 				</SplitItem>
 			</Split>
 		</div>

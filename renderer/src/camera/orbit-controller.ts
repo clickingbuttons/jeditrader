@@ -1,5 +1,5 @@
 import { Camera } from './camera.js';
-import { Vec3, Mat4, clamp } from '@jeditrader/linalg';
+import { Vec3, clamp } from '@jeditrader/linalg';
 import { Input } from '../input.js';
 import { signal, batch, Signal } from '@preact/signals-core';
 import { Controller } from './controller.js';

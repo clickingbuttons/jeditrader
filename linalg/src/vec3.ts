@@ -1,3 +1,4 @@
+import { degToRad } from './util.js';
 import { Vector } from './vec.js';
 
 export class Vec3 extends Vector<Vec3> {
@@ -22,5 +23,21 @@ export class Vec3 extends Vector<Vec3> {
 			this.z * v.x - this.x * v.z,
 			this.x * v.y - this.y * v.x,
 		);
+	}
+
+	basis(): [Vec3, Vec3, Vec3] {
+		const res: Vec3[] = [this];
+		const normalized = this.normalize();
+
+		// TODO: find proof at least 2/3 will be unique
+		[
+			normalized.cross(new Vec3(1, 0, 0)),
+			normalized.cross(new Vec3(0, 1, 0)),
+			normalized.cross(new Vec3(0, 0, 1)),
+		].forEach(v => {
+			if (!v.eq(new Vec3(0)) && res.every(u => u.dot(v) === 0)) res.push(v);
+		});
+
+		return res.slice(0, 3) as [Vec3, Vec3, Vec3];
 	}
 }

@@ -2,11 +2,10 @@ import { Mesh } from '../meshes/index.js';
 import { Renderer } from '../renderer.js';
 import { OrbitController  } from '../camera/index.js';
 import { Cone, Circle, Sphere, Cube, Vertex } from '@jeditrader/geometry';
-import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
+import { Vec3, Mat4, Plane } from '@jeditrader/linalg';
 import { Scene } from './scene.js';
 import { signal, effect, computed } from '@preact/signals-core';
-import { createBuffer } from '../util.js';
-import type { Material, PhongResources } from '../materials/index.js';
+import type { Material } from '../materials/index.js';
 import { Color } from '../color.js';
 
 export class Modeler extends Scene {
@@ -15,7 +14,7 @@ export class Modeler extends Scene {
 	constructor(renderer: Renderer) {
 		super(renderer);
 
-		// this.cameraController = new OrbitController(this.camera);
+		this.cameraController = new OrbitController(this.camera);
 
 		const superSettings = this.settings as Scene['settings'];
 		this.settings = {
@@ -24,6 +23,11 @@ export class Modeler extends Scene {
 			center: signal(new Vec3(0, 0, 0)),
 			radius: signal(.5),
 		};
+
+		// const mesh = computed(() => Mesh.fromPlane(this.device, new Plane(
+		// 	new Vec3(0, 1, 0).normalize(),
+		// 	new Vec3(0, 0, 0),
+		// )));
 
 		const mesh = computed(() => {
 			const opts = {

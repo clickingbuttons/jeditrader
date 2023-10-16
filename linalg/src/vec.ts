@@ -74,4 +74,12 @@ export class Vector<T extends Float64Array> extends Float64Array {
 	f32Low() {
 		return new Float32Array(this.map(v => v - Math.fround(v)));
 	}
+
+	proj(onto: T): T {
+		return this.mulScalar(this.dot(onto) / onto.reduce((acc, cur) => acc + cur * cur, 0));
+	}
+
+	abs(): T {
+		return this.ty(this.map(val => Math.abs(val)));
+	}
 };

@@ -31,7 +31,7 @@ export class Material {
 	vertexLayouts: VertexLayouts;
 	bindings: Binding[] = [];
 
-
+	topology: GPUPrimitiveTopology;
 	name: string;
 	wireframe = false;
 
@@ -46,6 +46,7 @@ export class Material {
 	) {
 		const opts = { ...defaultOptions, ...options };
 		this.device = device;
+		this.topology = opts.topology;
 		this.name = name;
 		this.bindGroupLayouts = bindGroupLayouts;
 		this.vertexLayouts = vertexLayouts;

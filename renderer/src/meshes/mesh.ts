@@ -1,6 +1,6 @@
 import { createBuffer, toF64, concatTypedArrays } from '../util.js';
-import { Mat4, Vec3 } from '@jeditrader/linalg';
-import { CSG, Plane } from '@jeditrader/geometry';
+import { Mat4, Vec3, Plane, Polygon } from '@jeditrader/linalg';
+import { CSG } from '@jeditrader/geometry';
 import { MeshResources } from '../materials/index.js';
 import { Color } from '../color.js';
 
@@ -84,15 +84,25 @@ export class Mesh {
 		return new Mesh(device, positions, indices, options);
 	}
 
-	// static fromPlane(
-	// 	device: GPUDevice,
-	// 	plane: Plane,
-	// 	options: Partial<MeshOptions> = defaultOptions
-	// ) {
-	// 	const csg = new Cone(plane.point);
-	// 	const { positions, indices } = csg.toIndexedTriangles();
-	// 	return new Mesh(device, positions, indices, options);
-	// }
+	static fromPlane(device: GPUDevice, plane: Plane, radius: number = 1) {
+		const [_, axes2, axes3] = plane.normal.basis();
+		const vec3s = [1, 3, 5, 7]
+			.map(n => n / 4 * Math.PI)
+			.map(n => axes2.mulScalar(Math.sin(n)).add(axes3.mulScalar(Math.cos(n))))
+			.map(v => plane.point.add(v));
+		const positions = vec3s.reduce((acc, cur) => acc.concat(...cur), [] as number[]);
+		const normals = [
+			...plane.normal,
+			...plane.normal,
+			...plane.normal,
+			...plane.normal,
+		];
+		const indices = [ 1, 2, 0, 2, 3, 0 ];
+		return new Mesh(device, positions, indices, {
+			normals,
+			model: Mat4.scale(new Vec3(radius)),
+		});
+	}
 
 	updatePositions(positions: Float64Array | number[], offset: number = 0) {
 		this.device.queue.writeBuffer(

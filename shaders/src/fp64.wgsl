@@ -97,6 +97,15 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	);
 }
 
+@export fn vec4_mul64(a: array<fp64, 4>, b: array<fp64, 4>) -> array<fp64, 4> {
+	return array<fp64, 4>(
+		mul64(a[0], b[0]),
+		mul64(a[1], b[1]),
+		mul64(a[2], b[2]),
+		mul64(a[3], b[3]),
+	);
+}
+
 @export fn vec4_dot64(a: array<fp64, 4>, b: array<fp64, 4>) -> fp64 {
 	var v = array<fp64, 4>();
 

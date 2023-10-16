@@ -90,6 +90,7 @@ export class Scene {
 
 		this.materials = {
 			default: new BasicMaterial(this.device),
+			noCull: new BasicMaterial(this.device, { cullMode: 'none' }),
 			phong: new PhongMaterial(this.device),
 			line: new NormalsMaterial(this.device),
 		};
@@ -152,8 +153,10 @@ export class Scene {
 	toggleNormals() {
 		this.normals = !this.normals;
 		if (this.normals) {
-			const lineBindings = this.materials.default.bindings
-				.concat(this.materials.phong.bindings)
+			const lineBindings = Object.values(this.materials)
+				.filter(m => m.topology === 'triangle-list')
+				.map(m => m.bindings)
+				.flat()
 				.map(b => ({
 					...b,
 					draw(pass: GPURenderPassEncoder) {
