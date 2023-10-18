@@ -16,7 +16,7 @@ const scenes = {
 };
 
 export function SceneSelect({ setScene: userSetScene, renderer }: SceneSelectProps) {
-	const [scene, setScene] = useState<keyof typeof scenes>('modeler');
+	const [scene, setScene] = useState<keyof typeof scenes>('chart');
 
 	return (
 		<div class="sceneForm">

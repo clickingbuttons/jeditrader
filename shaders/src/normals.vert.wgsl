@@ -1,6 +1,6 @@
 use './scene.wgsl'::{ view, view32 };
-use './basic.vert.wgsl'::{ projected, VertexInput, position64, getNormal, getColor, model64 };
-use './fp64.wgsl'::{ vec4_64, vec4_sum64, vec4_mul64, fp64 };
+use './basic.vert.wgsl'::{ projected, VertexInput, position64, getNormal, getColor, model64, inModel };
+use './fp64.wgsl'::{ vec4_64, vec4_sum64, mul64, vec4_div64, fp64 };
 
 struct LineVertexOutput {
 	@builtin(position) position: vec4f,
@@ -10,7 +10,7 @@ struct LineVertexOutput {
 @vertex fn main(arg2: VertexInput) -> LineVertexOutput {
 	let arg = VertexInput(arg2.vertex / 2, arg2.instance);
 	let v = position64(arg);
-	let c = vec4f(1);
+	let c = getColor(arg);
 
 	if (arg2.vertex % 2 == 0) {
 		// Point on surface

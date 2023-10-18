@@ -44,6 +44,7 @@ export class FPSController implements Controller {
 		const absZ = Math.abs(cam.eye.value.z);
 		let cameraSpeed = dt * Math.max(absZ, input.buttons.shift ? 8 : 1) / 200;
 		if (input.buttons.shift) cameraSpeed *= 2;
+		if (input.buttons.alt) cameraSpeed /= 2;
 
 		const up = cam.up.value;
 		let newEye = cam.eye.value.clone();

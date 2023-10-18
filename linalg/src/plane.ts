@@ -30,13 +30,23 @@ export class Plane {
 			if (p0.sub(l0).dot(n) == 0) return l;
 			else return;
 		}
-		const d = p0.sub(l0).dot(n);
+		const d = p0.sub(l0).dot(n) / denom;
 		return l0.add(l.mulScalar(d));
 	}
 
+	distance(p: Vec3): number {
+		const v = p.sub(this.point);
+		return v.dot(this.normal);
+	}
+
+	// TODO: unit tests
+	// const testPlane = new Plane(new Vec3(0, 0, 1), new Vec3(0, 1, 0));
+	// const testEdge = new Edge(new Vec3(-1, 0, -1), new Vec3(1, 2, 1));
+	// const testClip = testPlane.clip(testEdge);
+	// console.log(testClip);
 	clip(edge: Edge): Edge | undefined {
-		const ta = this.normal.dot(edge.a) - this.w;
-		const tb = this.normal.dot(edge.b) - this.w;
+		const ta = this.distance(edge.a);
+		const tb = this.distance(edge.b);
 		if (ta >= 0 && tb >= 0) return edge;
 		if (ta < 0 && tb < 0) return;
 
@@ -52,11 +62,6 @@ export class Plane {
 
 	clone() {
 		return new Plane(this.normal.clone(), this.point.clone());
-	}
-
-	flip() {
-		this.normal = this.normal.mulScalar(-1);
-		this.w = -this.w;
 	}
 }
 

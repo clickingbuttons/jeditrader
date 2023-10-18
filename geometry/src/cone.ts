@@ -19,7 +19,8 @@ export class Cone extends CSG {
 		const circle = new Circle(opts);
 		const peak = new Vertex(
 			opts.center.add(new Vec3(0, 0, opts.height)),
-			new Vec3(0, 0, 1)
+			new Vec3(0, 0, 1),
+			new Vec3(0, 255, 0),
 		);
 		const mountain = circle.polygons[0];
 		mountain.vertices.forEach(v => v.normal = peak.sub(v).mulScalar(-1).normalize());

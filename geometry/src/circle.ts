@@ -33,7 +33,7 @@ export class Circle extends CSG {
 				const p = center.add(dir.mulScalar(radius));
 				return new Vertex(p, dir);
 			});
-		const centerV = new Vertex(center, new Vec3(0, 0, 1));
+		const centerV = new Vertex(center, new Vec3(0, 0, 1), new Vec3(0, 0, 255));
 
 		super([
 			new Polygon([centerV, ...vertices, centerV])

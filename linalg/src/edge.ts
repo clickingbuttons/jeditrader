@@ -10,6 +10,6 @@ export class Edge {
 	}
 
 	dir(): Vec3 {
-		return this.a.sub(this.b);
+		return this.b.sub(this.a);
 	}
 }

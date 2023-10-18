@@ -25,7 +25,7 @@ export class Modeler extends Scene {
 		};
 
 		// const mesh = computed(() => Mesh.fromPlane(this.device, new Plane(
-		// 	new Vec3(0, 1, 0).normalize(),
+		// 	new Vec3(0, 0, 1).normalize(),
 		// 	new Vec3(0, 0, 0),
 		// )));
 

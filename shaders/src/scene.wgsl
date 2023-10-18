@@ -17,4 +17,4 @@
 	return res;
 }
 
-@global override wireframe: bool = false;
+@global @export override wireframe: bool = false;

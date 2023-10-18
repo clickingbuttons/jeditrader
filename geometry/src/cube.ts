@@ -9,7 +9,7 @@ export interface CubeOptions {
 }
 const defaultOptions: CubeOptions = {
 	center: new Vec3(0),
-	radius: .5,
+	radius: 1,
 };
 
 export class Cube extends CSG {

@@ -4,14 +4,15 @@ use './fp64.wgsl'::{ fp64, mat4_vec4_mul64, vec4_sub64, vec4_64, toVec4 };
 struct Strides {
 	instance: u32,
 };
-@group(mesh) @binding(0) var<storage, read> strides: Strides;
-@group(mesh) @binding(1) var<storage, read> positions: array<fp64>;
-@group(mesh) @binding(2) var<storage, read> indices: array<u32>;
+@group(mesh) @binding(0) var<uniform> strides: Strides;
+@group(mesh) @binding(1) var<storage, read> indices: array<u32>;
+@group(mesh) @binding(2) var<storage, read> positions: array<fp64>;
 
 @group(mesh) @binding(3) var<storage, read> inModel: array<fp64, 16>;
 @group(mesh) @binding(4) var<storage, read> models: array<array<fp64, 16>>;
 @group(mesh) @binding(5) var<storage, read> colors: array<u32>;
-@group(mesh) @binding(6) var<storage, read> normals: array<f32>;
+@group(mesh) @binding(6) var<storage, read> instanceColors: array<u32>;
+@group(mesh) @binding(7) var<storage, read> normals: array<f32>;
 
 @export struct VertexInput {
 	@builtin(vertex_index) vertex: u32,
@@ -24,7 +25,7 @@ struct Strides {
 	@location(2) normal: vec3f,
 }
 
-fn model64(arg: VertexInput) -> array<fp64, 16> {
+@export fn model64(arg: VertexInput) -> array<fp64, 16> {
 	let NO_SHAKE = VertexInput();
 	let NO_SHAKE2 = VertexOutput();
 	var index = 0u;
@@ -33,15 +34,6 @@ fn model64(arg: VertexInput) -> array<fp64, 16> {
 	}
 
 	return models[index];
-}
-
-@export fn getColor(arg: VertexInput) -> vec4f {
-	var index = 0u;
-	if (arg.instance < arrayLength(&colors)) {
-		index = arg.instance;
-	}
-
-	return unpack4x8unorm(colors[index]);
 }
 
 fn vertIndex(arg: VertexInput, useWireframe: bool) -> u32 {
@@ -56,6 +48,14 @@ fn vertIndex(arg: VertexInput, useWireframe: bool) -> u32 {
 	}
 
 	return indices[arg.vertex];
+}
+
+@export fn getColor(arg: VertexInput) -> vec4f {
+	let index = vertIndex(arg, wireframe);
+	let c1 = unpack4x8unorm(colors[index]);
+	let c2 = unpack4x8unorm(instanceColors[arg.instance]);
+
+	return c1 * c2;
 }
 
 @export fn getNormal(arg: VertexInput) -> vec3f {

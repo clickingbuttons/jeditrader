@@ -8,17 +8,19 @@ export interface MeshInstanceOptions {
 	count: number;
 	stride: number;
 	models: Float64Array | number[];
-	colors: Uint8Array;
+	colors: Uint8Array | number[];
 }
 
 export interface MeshOptions {
 	model: Float64Array | number[];
+	colors: Uint8Array | number[];
 	normals: Float32Array | number[];
 	instances: Partial<MeshInstanceOptions>;
 }
 
 const defaultOptions: MeshOptions = {
 	model: Mat4.identity(),
+	colors: Color.white,
 	normals: new Float32Array(new Vec3(0)),
 	instances: {
 		count: 1,
@@ -27,6 +29,15 @@ const defaultOptions: MeshOptions = {
 		colors: new Color(255, 153, 153),
 	}
 };
+
+function fillColors(colors: Uint8Array | number[], desiredLen: number): Uint8Array {
+	if (colors.length >= desiredLen) return new Uint8Array(colors);
+
+	const res = new Uint8Array(desiredLen).fill(255);
+	res.set(new Uint8Array(colors));
+
+	return res;
+}
 
 export class Mesh {
 	device: GPUDevice;
@@ -48,16 +59,20 @@ export class Mesh {
 
 		this.resources = {
 			strides: {
-				buffer: createBuffer({ device, data: new Uint32Array([instanceOpts.stride]) }),
+				buffer: createBuffer({
+					device,
+					usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+					data: new Uint32Array([instanceOpts.stride])
+				}),
 			},
 			positions: {
 				buffer: createBuffer({ device, data: toF64(positions) }),
 			},
-			normals: {
-				buffer: createBuffer({ device, data: new Float32Array(opts.normals) }),
-			},
 			indices: {
 				buffer: createBuffer({ device, data: new Uint32Array(indices) }),
+			},
+			normals: {
+				buffer: createBuffer({ device, data: new Float32Array(opts.normals) }),
 			},
 			inModel: {
 				buffer: createBuffer({ device, data: toF64(opts.model) }),
@@ -66,7 +81,10 @@ export class Mesh {
 				buffer: createBuffer({ device, data: toF64(instanceOpts.models) }),
 			},
 			colors: {
-				buffer: createBuffer({ device, data: concatTypedArrays(instanceOpts.colors) }),
+				buffer: createBuffer({ device, data: fillColors(opts.colors, positions.length * 4 / 3) }),
+			},
+			instanceColors: {
+				buffer: createBuffer({ device, data: new Uint8Array(instanceOpts.colors) }),
 			},
 		};
 
@@ -79,29 +97,33 @@ export class Mesh {
 		csg: CSG,
 		options: Partial<MeshOptions> = defaultOptions
 	) {
-		const { positions, indices, normals } = csg.toIndexedTriangles();
-		options.normals = normals;
-		return new Mesh(device, positions, indices, options);
+		const opts = { ...defaultOptions, ...options };
+		const { positions, indices, normals, colors } = csg.toIndexedTriangles();
+		opts.normals = normals;
+		opts.colors = colors;
+		return new Mesh(device, positions, indices, opts);
 	}
 
-	static fromPlane(device: GPUDevice, plane: Plane, radius: number = 1) {
+	static fromPlane(
+		device: GPUDevice,
+		plane: Plane,
+		options: Partial<MeshOptions> = defaultOptions
+	) {
+		const opts = { ...defaultOptions, ...options };
 		const [_, axes2, axes3] = plane.normal.basis();
-		const vec3s = [1, 3, 5, 7]
+		const positions = [1, 3, 5, 7]
 			.map(n => n / 4 * Math.PI)
 			.map(n => axes2.mulScalar(Math.sin(n)).add(axes3.mulScalar(Math.cos(n))))
-			.map(v => plane.point.add(v));
-		const positions = vec3s.reduce((acc, cur) => acc.concat(...cur), [] as number[]);
-		const normals = [
+			.reduce((acc, cur) => acc.concat(...cur), [] as number[]);
+		opts.normals = [
 			...plane.normal,
 			...plane.normal,
 			...plane.normal,
 			...plane.normal,
 		];
-		const indices = [ 1, 2, 0, 2, 3, 0 ];
-		return new Mesh(device, positions, indices, {
-			normals,
-			model: Mat4.scale(new Vec3(radius)),
-		});
+		opts.model = Mat4.translate(plane.point).mul(new Mat4(opts.model));
+		const indices = [1, 2, 0, 2, 3, 0];
+		return new Mesh(device, positions, indices, opts);
 	}
 
 	updatePositions(positions: Float64Array | number[], offset: number = 0) {
@@ -139,6 +161,14 @@ export class Mesh {
 	updateColors(colors: Uint8Array | number[], offset: number = 0) {
 		this.device.queue.writeBuffer(
 			this.resources.colors.buffer,
+			offset * 4,
+			new Uint8Array(colors)
+		);
+	}
+
+	updateInstanceColors(colors: Uint8Array | number[], offset: number = 0) {
+		this.device.queue.writeBuffer(
+			this.resources.instanceColors.buffer,
 			offset * 4,
 			new Uint8Array(colors)
 		);

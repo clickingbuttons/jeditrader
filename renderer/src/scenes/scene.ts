@@ -4,7 +4,7 @@ import { Input } from '../input.js';
 import { createBuffer, Range } from '../util.js';
 import { effect, Signal, computed, signal, batch } from '@preact/signals-core';
 import { Renderer, RendererFlags } from '../renderer.js';
-import { BasicMaterial, PhongMaterial, NormalsMaterial } from '../materials/index.js';
+import { BasicMaterial, PhongMaterial, NormalsMaterial, LineMaterial } from '../materials/index.js';
 import { basicVert } from '@jeditrader/shaders';
 import { Mesh } from '../meshes/index.js';
 import { Sphere } from '@jeditrader/geometry';
@@ -90,9 +90,11 @@ export class Scene {
 
 		this.materials = {
 			default: new BasicMaterial(this.device),
-			noCull: new BasicMaterial(this.device, { cullMode: 'none' }),
 			phong: new PhongMaterial(this.device),
-			line: new NormalsMaterial(this.device),
+			// Debugging
+			line: new LineMaterial(this.device),
+			noCull: new BasicMaterial(this.device, { cullMode: 'none' }),
+			normals: new NormalsMaterial(this.device),
 		};
 		this.flags.rerender = true;
 
@@ -115,9 +117,9 @@ export class Scene {
 		this.materials.default.bind(lightMesh);
 		effect(() => {
 			const light = this.settings.light.value;
-			const transform = Mat4.translate(light.pos);
+			const transform = Mat4.translate(light.pos).scale(new Vec3(1e11));
 			lightMesh.updateModels(transform);
-			lightMesh.updateColors(light.color);
+			lightMesh.updateInstanceColors(light.color);
 			lightMesh.visible = this.settings.showLights.value;
 			this.flags.rerender = true;
 		});
@@ -165,9 +167,9 @@ export class Scene {
 						pass.draw(b.obj.nIndices * 2, b.obj.nInstances);
 					}
 				}));
-			this.materials.line.bind(...lineBindings);
+			this.materials.normals.bind(...lineBindings);
 		} else {
-			this.materials.line.unbindAll();
+			this.materials.normals.unbindAll();
 		}
 
 		this.flags.rerender = true;

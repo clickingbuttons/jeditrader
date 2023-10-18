@@ -15,9 +15,13 @@ export class OHLCV extends Mesh {
 	to?: Date;
 
 	constructor(device: GPUDevice, model: GPUBufferBinding, maxCandles: number) {
-		const { positions, indices } = new Cube({ center: new Vec3(0, 0, 1) }).toIndexedTriangles();
+		const { positions, indices, normals } = new Cube({
+			radius: 1,
+			center: new Vec3(0, 0, 1),
+		}).toIndexedTriangles();
 
 		super(device, positions, indices, {
+			normals,
 			instances: {
 				count: 0,
 				models: new Float64Array(maxCandles * 16),
@@ -52,7 +56,7 @@ export class OHLCV extends Mesh {
 		const wickTranslate = new Vec3(
 			translate.x,
 			(agg.high + agg.low) / 2,
-			0
+			scale.z
 		);
 		const wickTransform = Mat4.translate(wickTranslate).scale(wickScale);
 
@@ -78,7 +82,7 @@ export class OHLCV extends Mesh {
 
 			if (wick) {
 				models.push(...wick);
-				colors.push(179 / 255, 153 / 255, 132 / 255, 1.0);
+				colors.push(...new Color(179, 153, 132));
 			}
 			models.push(...body);
 			colors.push(...color);
@@ -101,7 +105,7 @@ export class OHLCV extends Mesh {
 		}
 
 		this.updateModels(models, this.nInstances);
-		this.updateColors(colors, this.nInstances);
+		this.updateInstanceColors(colors, this.nInstances);
 		this.nInstances += nInstances;
 	}
 }

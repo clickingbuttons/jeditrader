@@ -13,6 +13,17 @@ export class Color extends Uint8Array {
 		super([r, g, b, a]);
 	}
 
+	static fromArray(arr: Iterable<number>): Color {
+		const rgba: number[] = [];
+		let i = 0;
+		for (let v of arr) {
+			rgba.push(v);
+			if (++i > 4) break;
+		}
+
+		return new Color(rgba[0], rgba[1], rgba[2], rgba[3]);
+	}
+
 	static parse(input: string): Color {
 		// Check for r,g,b,a
 		let split = input.split(',').map(v => +v).filter(Number.isFinite);
@@ -45,5 +56,9 @@ export class Color extends Uint8Array {
 
 	clone(): Color {
 		return new Color(this[0], this[1], this[2], this[3]);
+	}
+
+	lerp(v: Color, t: number): Color {
+		return Color.fromArray(this.map((val, i) => val + t * (v[i] - val)));
 	}
 }

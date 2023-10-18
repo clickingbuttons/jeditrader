@@ -16,9 +16,12 @@ export class Trades extends Mesh {
 	to?: Date;
 
 	constructor(device: GPUDevice, model: GPUBufferBinding, maxTrades: number) {
-		const { positions, indices } = new Cube({ center: new Vec3(0, 0, 1) }).toIndexedTriangles();
+		const { positions, indices, normals } = new Cube({
+			center: new Vec3(0, 0, 1)
+		}).toIndexedTriangles();
 
 		super(device, positions, indices, {
+			normals,
 			instances: {
 				count: 0,
 				models: new Float64Array(maxTrades * 16),
@@ -79,7 +82,7 @@ export class Trades extends Mesh {
 		}
 
 		this.updateModels(models, this.nInstances);
-		this.updateColors(colors, this.nInstances);
+		this.updateInstanceColors(colors, this.nInstances);
 		this.nInstances += nInstances;
 	}
 }

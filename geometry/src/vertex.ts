@@ -2,10 +2,12 @@ import { Vec3 } from '@jeditrader/linalg';
 
 export class Vertex extends Vec3 {
 	normal: Vec3;
+	color?: Vec3;
 
-	constructor(pos: Vec3, normal: Vec3) {
+	constructor(pos: Vec3, normal: Vec3, color?: Vec3) {
 		super(pos.x, pos.y, pos.z);
 		this.normal = normal;
+		this.color = color;
 	}
 
 	clone(): Vertex {

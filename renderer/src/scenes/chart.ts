@@ -1,5 +1,5 @@
 import { Axes } from '../meshes/axes.js';
-import { Vec3 } from '@jeditrader/linalg';
+import { Vec3, Mat4 } from '@jeditrader/linalg';
 import { Provider, Period } from '@jeditrader/providers';
 import { AutoTicker } from '../auto-ticker.js';
 import { Scene } from './scene.js';
@@ -10,6 +10,7 @@ import { Renderer } from '../renderer.js';
 import { Cone } from '@jeditrader/geometry';
 import { Mesh } from '../meshes/index.js';
 import { AxesMaterial } from '../materials/index.js';
+import { Color } from '../color.js';
 
 export interface ChartContext {
 	scene: Scene,
@@ -21,7 +22,6 @@ export class Chart extends Scene {
 	declare settings;
 	declare materials;
 
-	test: Mesh;
 	axes: Axes;
 	tickers: AutoTicker[] = [];
 
@@ -41,10 +41,15 @@ export class Chart extends Scene {
 		// Test cube.
 		{
 			const radius = 1e10;
-			const { positions, indices } = new Cone({ radius, height: radius }).toIndexedTriangles();
-			this.test = new Mesh(this.device, positions, indices);
-			this.materials.default.bind(this.test);
+			const mesh = Mesh.fromCSG(this.device, new Cone(), {
+				model: Mat4.scale(new Vec3(radius))
+			});
+			this.materials.default.bind(mesh);
 		}
+		this.light.value = {
+			color: Color.white,
+			pos: new Vec3(1.36e12, 9e10, 7e10),
+		};
 
 		this.axes = new Axes(this);
 		this.materials.axes.bind(this.axes);

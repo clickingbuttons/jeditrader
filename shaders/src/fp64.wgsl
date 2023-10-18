@@ -79,6 +79,14 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	return p;
 }
 
+@export fn div64(a: fp64, b: fp64) -> fp64 {
+	let xn = 1.0 / b.high;
+	let yn = mul64(a, fp64(xn, xn));
+	let diff = (sub64(a, mul64(b, yn))).high;
+	let prod = twoProd(xn, diff);
+	return sum64(yn, prod);
+}
+
 @export fn vec4_sum64(a: array<fp64, 4>, b: array<fp64, 4>) -> array<fp64, 4> {
 	return array<fp64, 4>(
 		sum64(a[0], b[0]),
@@ -103,6 +111,15 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 		mul64(a[1], b[1]),
 		mul64(a[2], b[2]),
 		mul64(a[3], b[3]),
+	);
+}
+
+@export fn vec4_div64(a: array<fp64, 4>, b: array<fp64, 4>) -> array<fp64, 4> {
+	return array<fp64, 4>(
+		div64(a[0], b[0]),
+		div64(a[1], b[1]),
+		div64(a[2], b[2]),
+		div64(a[3], b[3]),
 	);
 }
 

@@ -1,5 +1,5 @@
 import { Mesh } from './mesh.js';
-import { Vec3, Vec4, Mat4, clamp, Edge } from '@jeditrader/linalg';
+import { Vec2, Vec3, Vec4, Mat4, clamp, Edge } from '@jeditrader/linalg';
 import { createBuffer, Range } from '../util.js';
 import { getNext, Period } from '@jeditrader/providers';
 import { Labels } from '../labels.js';
@@ -7,8 +7,10 @@ import { toymd } from '../helpers.js';
 import { signal, effect, computed, batch, Signal } from '@preact/signals-core';
 import { lodKeys, getLodIndex } from '../lod.js';
 import { Scene } from '../scenes/scene.js';
-import { Plane, Vertex, Polygon } from '@jeditrader/geometry';
+import { Plane, Vertex, Polygon, CSG } from '@jeditrader/geometry';
 import { AxesResources } from '../materials/axes.js';
+import { Line } from './line.js';
+import { Color } from '../color.js';
 
 // Unfortunately this is needed to prevent jitter when the camera is at z < 1000
 //  8┌─────────┐9
@@ -109,7 +111,9 @@ export class Axes extends Mesh {
 	constructor(scene: Scene) {
 		const { device } = scene;
 
-		super(device, new Array(nVertices * 3).fill(0), indices);
+		super(device, new Float64Array(nVertices * 3), indices, {
+			normals: new Array(nVertices).fill([0, 0, 1]).flat(),
+		});
 
 		this.eye = scene.camera.eye;
 		this.labels = new Labels(scene);
@@ -171,9 +175,9 @@ export class Axes extends Mesh {
 		scene.flags.rerender = true;
 	}
 
-	viewPlanes(scene: Scene): Plane[] {
+	viewPlanes(scene: Scene) {
 		const viewBounds = [
-			[-1, -1],
+			[-1, -1], // bottom left
 			[-1, 1],
 			[1, 1],
 			[1, -1]
@@ -183,51 +187,103 @@ export class Axes extends Mesh {
 			near: r.point,
 			far: r.point.add(r.dir),
 		}));
-		// front face is ccw
-		// back face is cw
-		return [
-			// near
-			Plane.fromPoints(verts[0].near, verts[1].near, verts[2].near),
-			// far
-			Plane.fromPoints(verts[2].far, verts[1].far, verts[0].far),
-			// top
-			Plane.fromPoints(verts[1].near, verts[1].far, verts[0].far),
-			// right
-			Plane.fromPoints(verts[2].near, verts[2].far, verts[1].far),
-			// bottom
-			Plane.fromPoints(verts[3].near, verts[3].far, verts[2].far),
-			// left
-			Plane.fromPoints(verts[0].near, verts[0].far, verts[3].far),
+		const colors = [
+			new Vec3(255, 0, 0),
+			new Vec3(255, 255, 0),
+			new Vec3(0, 255, 0),
+			new Vec3(0, 255, 255),
+			new Vec3(0, 0, 255),
+			new Vec3(255, 0, 255),
 		];
+		const tmpNormal = new Vec3(0, 0, 0);
+		const csg = new CSG([
+			// near
+			new Polygon([
+				new Vertex(verts[0].near, tmpNormal, colors[0]),
+				new Vertex(verts[1].near, tmpNormal, colors[0]),
+				new Vertex(verts[2].near, tmpNormal, colors[0]),
+				new Vertex(verts[3].near, tmpNormal, colors[0]),
+			]),
+			// far
+			new Polygon([
+				new Vertex(verts[3].far, tmpNormal, colors[1]),
+				new Vertex(verts[2].far, tmpNormal, colors[1]),
+				new Vertex(verts[1].far, tmpNormal, colors[1]),
+				new Vertex(verts[0].far, tmpNormal, colors[1]),
+			]),
+			// top
+			new Polygon([
+				new Vertex(verts[1].far , tmpNormal, colors[2]),
+				new Vertex(verts[2].far , tmpNormal, colors[2]),
+				new Vertex(verts[2].near, tmpNormal, colors[2]),
+				new Vertex(verts[1].near, tmpNormal, colors[2]),
+			]),
+			// bottom
+			new Polygon([
+				new Vertex(verts[0].near, tmpNormal, colors[3]),
+				new Vertex(verts[3].near, tmpNormal, colors[3]),
+				new Vertex(verts[3].far , tmpNormal, colors[3]),
+				new Vertex(verts[0].far , tmpNormal, colors[3]),
+			]),
+			// left
+			new Polygon([
+				new Vertex(verts[1].far , tmpNormal, colors[4]),
+				new Vertex(verts[1].near, tmpNormal, colors[4]),
+				new Vertex(verts[0].near, tmpNormal, colors[4]),
+				new Vertex(verts[0].far , tmpNormal, colors[4]),
+			]),
+			// right
+			new Polygon([
+				new Vertex(verts[2].near, tmpNormal, colors[5]),
+				new Vertex(verts[2].far , tmpNormal, colors[5]),
+				new Vertex(verts[3].far , tmpNormal, colors[5]),
+				new Vertex(verts[3].near, tmpNormal, colors[5]),
+			]),
+		]);
+		csg.polygons.forEach(p => p.vertices.forEach(v => v.normal = p.plane.normal.mulScalar(1e12)));
+		return {
+			planes: csg.polygons.map(p => p.plane),
+			csg: csg.invert(),
+		};
 	}
 
-	// viewWorldPolygon(scene: Scene): Polygon {
-	// 	const range = this.range.value;
-	// 	const planes = this.viewPlanes(scene);
-	// 	console.log(planes);
+	viewWorldPolygon(scene: Scene): Polygon {
+		const range = this.range.value;
+		const { planes, csg } = this.viewPlanes(scene);
+		scene.materials.phong.unbindAll();
+		scene.materials.phong.bind(Mesh.fromCSG(this.device, csg));
 
-	// 	const indices = [
-	// 		[0, 1],
-	// 		[1, 2],
-	// 		[2, 3],
-	// 		[3, 0],
-	// 	];
-	// 	const vertices = [
-	// 		new Vec3(range.min.x, range.min.y, 0)),
-	// 		new Vec3(range.min.x, range.max.y, 0)),
-	// 		new Vec3(range.max.x, range.max.y, 0)),
-	// 		new Vec3(range.max.x, range.min.y, 0)),
-	// 	];
-	// 	const edges: Edge[] = indices
-	// 		.map(i => {
-	// 			let edge: Edge | undefined = new Edge(vertices[i[0]], vertices[i[1]]);
-	// 			planes.forEach(p => { if (edge) edge = p.clip(edge); });
-	// 			return edge;
-	// 		})
-	// 		.filter(Boolean);
+		const vertices = [
+			new Vec2(range.min.x, range.min.y),
+			new Vec2(range.min.x, range.max.y),
+			new Vec2(range.max.x, range.max.y),
+			new Vec2(range.max.x, range.min.y),
+		]
+			.map(v => new Vec4(v.x, v.y, 0, 1))
+			.map(v => v.transform(this.model.value).xyz());
+		const edges = vertices.map((v1, i) => {
+			const v2 = vertices[(i + 1) % vertices.length];
+			return new Edge(v1, v2);
+		});
 
-	// 	return new Polygon(edges.map(e => [new Vertex(e.a), new Vertex(e.b)]).flat());
-	// }
+		let edge: Edge | undefined = edges[0];
+		planes.forEach(p => { if (edge) edge = p.clip(edge); });
+		scene.materials.line.unbindAll();
+		if (edge) {
+			const line = new Line(this.device, [edge]);
+			scene.materials.line.bind(line);
+		}
+		console.log(edge)
+		// .map(v => {
+		// 		let v2: Edge | undefined = v;
+		// 		planes.forEach(p => { if (v2) v2 = p.clip(v); });
+		// 		return v2;
+		// 	})
+		// 	.filter(Boolean);
+
+		const normal = new Vec3(0, 0, 1);
+		return new Polygon(edges.map(e => [new Vertex(e.a, normal), new Vertex(e.b, normal)]).flat());
+	}
 
 	updateLines(scene: Scene) {
 		const range = this.range.value;
@@ -392,6 +448,12 @@ export class Axes extends Mesh {
 				.translate(origin.mulScalar(-1));
 
 			this.model.value = this.model.value.mul(transform);
+		}
+
+		if (input.buttons.mouse1) {
+			const poly = this.viewWorldPolygon(scene);
+			// const mesh = Mesh.fromCSG(this.device, new CSG([poly]));
+			// scene.materials.noCull.bind(mesh);
 		}
 	}
 
