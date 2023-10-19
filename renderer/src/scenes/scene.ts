@@ -12,9 +12,10 @@ import { Color } from '../color.js';
 
 const maxLights = 100;
 type Light = {
-	color: Color;
 	pos: Vec3;
+	color: Color;
 };
+const lightSize = 4 * (3 /* pos */ + 1 /* color (rgbaunorm ) */);
 
 export class Scene {
 	width: Signal<number>;
@@ -33,12 +34,12 @@ export class Scene {
 	resources: {
 		bindGroup: GPUBindGroup;
 		view: GPUBuffer;
-		light: GPUBuffer;
+		lights: GPUBuffer;
 	};
-	light: Signal<Light> = signal({
+	lights: Signal<Light[]> = signal([{
 		color: Color.white,
 		pos: new Vec3(1, 1, 1),
-	});
+	}]);
 
 	normals = false;
 	materials;
@@ -57,7 +58,7 @@ export class Scene {
 		this.viewProjInv = computed(() => this.camera.proj.value.mul(this.camera.view.value).inverse());
 		this.settings = {
 			camera: this.camera.settings,
-			light: this.light,
+			lights: this.lights,
 			showLights: signal(false),
 		};
 
@@ -66,11 +67,7 @@ export class Scene {
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 			data: this.viewData(),
 		});
-		const lightPos = createBuffer({
-			device: this.device,
-			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-			data: this.viewData(),
-		});
+		const lights = createBuffer({ device: this.device, data: new Uint8Array(lightSize * maxLights), });
 		const bindGroupLayout = basicVert.bindGroupLayouts['g_scene'];
 		const layout = this.device.createBindGroupLayout({
 			entries: Object.values(bindGroupLayout)
@@ -79,12 +76,12 @@ export class Scene {
 			layout,
 			entries: [
 				{ binding: bindGroupLayout.view.binding, resource: { buffer: view } },
-				{ binding: bindGroupLayout.lightPos.binding, resource: { buffer: lightPos } },
+				{ binding: bindGroupLayout.lights.binding, resource: { buffer: lights } },
 			],
 		});
 		this.resources = {
 			view,
-			light: lightPos,
+			lights,
 			bindGroup,
 		};
 
@@ -104,7 +101,7 @@ export class Scene {
 		});
 
 		effect(() => {
-			this.device.queue.writeBuffer(this.resources.light, 0, this.lightData());
+			this.device.queue.writeBuffer(this.resources.lights, 0, this.lightData());
 			this.flags.rerender = true;
 		});
 
@@ -115,11 +112,15 @@ export class Scene {
 			}
 		});
 		this.materials.default.bind(lightMesh);
+		this.settings.lights.subscribe(lights => {
+			lights.forEach((light, i) => {
+				const transform = Mat4.translate(light.pos).scale(new Vec3(10e9));
+				lightMesh.updateModels(transform, i);
+				lightMesh.updateInstanceColors(light.color, i);
+			});
+			lightMesh.nInstances = lights.length;
+		});
 		effect(() => {
-			const light = this.settings.light.value;
-			const transform = Mat4.translate(light.pos).scale(new Vec3(1e11));
-			lightMesh.updateModels(transform);
-			lightMesh.updateInstanceColors(light.color);
 			lightMesh.visible = this.settings.showLights.value;
 			this.flags.rerender = true;
 		});
@@ -132,13 +133,17 @@ export class Scene {
 			...this.camera.eye.value, 0,
 			...this.camera.eye.value.f32Low(), 0,
 			1,
+			this.lights.value.length,
 		]);
 	}
 
 	lightData() {
-		const res = new Uint8Array(4 * 3 + 4);
-		new Float32Array(res.buffer).set(this.light.value.pos);
-		res.set(this.light.value.color, 4 * 3);
+		const lights = this.lights.value;
+		const res = new Uint8Array(lightSize * lights.length);
+		lights.forEach((light, i) => {
+			new Float32Array(res.buffer).set(light.pos, i * 4);
+			res.set(light.color, i * lightSize + 3 * 4);
+		});
 		return res;
 	}
 
@@ -195,7 +200,7 @@ export class Scene {
 
 	destroy() {
 		this.resources.view.destroy();
-		this.resources.light.destroy();
+		this.resources.lights.destroy();
 		Object.values(this.materials).forEach(m => m.unbindAll());
 	}
 

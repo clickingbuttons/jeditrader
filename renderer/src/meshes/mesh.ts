@@ -153,7 +153,7 @@ export class Mesh {
 	updateModels(models: Float64Array | number[], offset: number = 0) {
 		this.device.queue.writeBuffer(
 			this.resources.models.buffer,
-			offset * 16 * 2 * Float32Array.BYTES_PER_ELEMENT,
+			offset * 16 * Float32Array.BYTES_PER_ELEMENT * 2,
 			toF64(models)
 		);
 	}

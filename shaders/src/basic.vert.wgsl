@@ -5,14 +5,14 @@ struct Strides {
 	instance: u32,
 };
 @group(mesh) @binding(0) var<uniform> strides: Strides;
-@group(mesh) @binding(1) var<storage, read> indices: array<u32>;
-@group(mesh) @binding(2) var<storage, read> positions: array<fp64>;
+@group(mesh) @binding(1) var<storage> indices: array<u32>;
+@group(mesh) @binding(2) var<storage> positions: array<fp64>;
 
-@group(mesh) @binding(3) var<storage, read> inModel: array<fp64, 16>;
-@group(mesh) @binding(4) var<storage, read> models: array<array<fp64, 16>>;
-@group(mesh) @binding(5) var<storage, read> colors: array<u32>;
-@group(mesh) @binding(6) var<storage, read> instanceColors: array<u32>;
-@group(mesh) @binding(7) var<storage, read> normals: array<f32>;
+@group(mesh) @binding(3) var<storage> inModel: array<fp64, 16>;
+@group(mesh) @binding(4) var<storage> models: array<array<fp64, 16>>;
+@group(mesh) @binding(5) var<storage> colors: array<u32>;
+@group(mesh) @binding(6) var<storage> instanceColors: array<u32>;
+@group(mesh) @binding(7) var<storage> normals: array<f32>;
 
 @export struct VertexInput {
 	@builtin(vertex_index) vertex: u32,

@@ -1,6 +1,6 @@
 import { Axes } from '../meshes/axes.js';
-import { Vec3, Mat4 } from '@jeditrader/linalg';
-import { Provider, Period } from '@jeditrader/providers';
+import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
+import { Provider, Period, getNext } from '@jeditrader/providers';
 import { AutoTicker } from '../auto-ticker.js';
 import { Scene } from './scene.js';
 import { Range } from '../util.js';
@@ -46,15 +46,25 @@ export class Chart extends Scene {
 			});
 			this.materials.default.bind(mesh);
 		}
-		this.light.value = {
-			color: Color.white,
-			pos: new Vec3(1.36e12, 9e10, 7e10),
-		};
 
 		this.axes = new Axes(this);
 		this.materials.axes.bind(this.axes);
 
-		this.axes.range.subscribe(range => this.fitInView(range));
+		this.axes.range.subscribe(range => {
+			this.fitInView(range);
+
+			const avg = range.max.add(range.min).divScalar(2);
+			const z = this.camera.eye.value.z;
+			this.lights.value = [new Vec4(avg.x, avg.y, 0, 1)].map(v => {
+					const res =v.transform(this.axes.model.value).xyz();
+					res.z = z;
+					return res;
+				})
+				.map(pos => ({
+					color: Color.white,
+					pos,
+				}));
+		});
 
 		this.tickers = [
 			new AutoTicker(this, this.autoLod, this.axes.range, this.axes.resources.inModel, provider),
