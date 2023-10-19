@@ -108,7 +108,7 @@ export class Scene {
 			this.flags.rerender = true;
 		});
 
-		const lightMesh = Mesh.fromCSG(this.device, new Sphere({ radius: .25 }), {
+		const lightMesh = Mesh.fromCSG(this.device, new Sphere(), {
 			instances: {
 				models: new Float64Array(16 * maxLights),
 				colors: new Uint8Array(4 * maxLights),

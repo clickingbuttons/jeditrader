@@ -59,7 +59,7 @@ export class Chart extends Scene {
 		this.tickers = [
 			new AutoTicker(this, this.autoLod, this.axes.range, this.axes.resources.inModel, provider),
 		];
-		this.materials.default.bind(...Object.values(this.tickers[0].lods));
+		this.materials.phong.bind(...Object.values(this.tickers[0].lods));
 
 		const superSettings = this.settings as Scene['settings'];
 		this.settings = {

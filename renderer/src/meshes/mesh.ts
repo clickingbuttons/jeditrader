@@ -121,7 +121,7 @@ export class Mesh {
 			...plane.normal,
 			...plane.normal,
 		];
-		opts.model = Mat4.translate(plane.point).mul(new Mat4(opts.model));
+		opts.model = Mat4.translate(plane.point()).mul(new Mat4(opts.model));
 		const indices = [1, 2, 0, 2, 3, 0];
 		return new Mesh(device, positions, indices, opts);
 	}

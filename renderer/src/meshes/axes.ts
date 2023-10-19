@@ -1,5 +1,5 @@
 import { Mesh } from './mesh.js';
-import { Vec2, Vec3, Vec4, Mat4, clamp, Edge } from '@jeditrader/linalg';
+import { Vec3, Vec4, Mat4, clamp, Line, Edge } from '@jeditrader/linalg';
 import { createBuffer, Range } from '../util.js';
 import { getNext, Period } from '@jeditrader/providers';
 import { Labels } from '../labels.js';
@@ -9,8 +9,7 @@ import { lodKeys, getLodIndex } from '../lod.js';
 import { Scene } from '../scenes/scene.js';
 import { Plane, Vertex, Polygon, CSG } from '@jeditrader/geometry';
 import { AxesResources } from '../materials/axes.js';
-import { Line } from './line.js';
-import { Color } from '../color.js';
+import { Line as LineMesh } from './line.js';
 
 // Unfortunately this is needed to prevent jitter when the camera is at z < 1000
 //  8┌─────────┐9
@@ -20,20 +19,20 @@ import { Color } from '../color.js';
 //   │7└─────┘6│
 // 11└─────────┘10
 //
+// Unfortunately it still has problems when the camera is close to an edge.
 // If replacing this with quads, see:
 // https://github.com/m-schuetz/webgpu_wireframe_thicklines/blob/master/renderWireframeThick.js
 const nVertices = 12;
-// cw vs ccw doesn't matter because we set cullMode: 'none'
 const indices = [
-	0, 1, 2,
-	2, 0, 3,
+	0, 3, 2,
+	2, 1, 0,
 	4, 0, 5,
-	0, 5, 1,
+	0, 1, 5,
 	5, 1, 6,
 	2, 6, 1,
-	2, 6, 7,
-	7, 3, 2,
-	3, 7, 0,
+	7, 6, 2,
+	7, 2, 3,
+	0, 7, 3,
 	0, 4, 7,
 	8, 4, 9,
 	4, 5, 9,
@@ -247,42 +246,64 @@ export class Axes extends Mesh {
 		};
 	}
 
-	viewWorldPolygon(scene: Scene): Polygon {
+	viewWorldPolygon(scene: Scene): Polygon | undefined {
 		const range = this.range.value;
 		const { planes, csg } = this.viewPlanes(scene);
-		scene.materials.phong.unbindAll();
-		scene.materials.phong.bind(Mesh.fromCSG(this.device, csg));
+		scene.materials.default.unbindAll();
+		scene.materials.default.bind(Mesh.fromCSG(this.device, csg));
 
-		const vertices = [
-			new Vec2(range.min.x, range.min.y),
-			new Vec2(range.min.x, range.max.y),
-			new Vec2(range.max.x, range.max.y),
-			new Vec2(range.max.x, range.min.y),
-		]
-			.map(v => new Vec4(v.x, v.y, 0, 1))
-			.map(v => v.transform(this.model.value).xyz());
-		const edges = vertices.map((v1, i) => {
-			const v2 = vertices[(i + 1) % vertices.length];
-			return new Edge(v1, v2);
-		});
-
-		let edge: Edge | undefined = edges[0];
-		planes.forEach(p => { if (edge) edge = p.clip(edge); });
-		scene.materials.line.unbindAll();
-		if (edge) {
-			const line = new Line(this.device, [edge]);
-			scene.materials.line.bind(line);
+		const thisPlane = new Plane(new Vec3(0, 0, 1), 0);
+		// const M = [
+		// 	[...thisPlane.normal, thisPlane.d],
+		// 	[...planes[2].normal, planes[2].d],
+		// 	[...planes[4].normal, planes[4].d],
+		// ];
+		// console.log(gaussElim(M));
+		// return undefined;
+		const lines: Line[] = [];
+		for (let i = 2; i < planes.length; i++) {
+			const p = planes[i];
+			const intersection = thisPlane.intersectPlane(p);
+			if (intersection instanceof Plane) return; // Coplanar
+			if (intersection instanceof Line) lines.push(intersection);
 		}
-		console.log(edge)
+		console.log(lines);
+		const edges = lines.map(l => new Edge(
+			l.point.add(l.dir.mulScalar(-10e13)),
+			l.point.add(l.dir.mulScalar(10e12))
+		));
+		console.log(edges)
+		scene.materials.line.unbindAll();
+		scene.materials.line.bind(new LineMesh(this.device, edges));
+
+		// const line = new Line(this.device, [edge]);
+		// scene.materials.line.bind(line);
+		// const vertices = [
+		// 	new Vec2(range.min.x, range.min.y),
+		// 	new Vec2(range.min.x, range.max.y),
+		// 	new Vec2(range.max.x, range.max.y),
+		// 	new Vec2(range.max.x, range.min.y),
+		// ]
+		// 	.map(v => new Vec4(v.x, v.y, 0, 1))
+		// 	.map(v => v.transform(this.model.value).xyz());
+		// const edges = vertices.map((v1, i) => {
+		// 	const v2 = vertices[(i + 1) % vertices.length];
+		// 	return new Edge(v1, v2);
+		// });
+
+		// let edge: Edge | undefined = edges[0];
+		// planes.forEach(p => { if (edge) edge = p.clip(edge); });
+		// scene.materials.line.unbindAll();
+		// if (edge) {
+		// 	const line = new Line(this.device, [edge]);
+		// 	scene.materials.line.bind(line);
+		// }
 		// .map(v => {
 		// 		let v2: Edge | undefined = v;
 		// 		planes.forEach(p => { if (v2) v2 = p.clip(v); });
 		// 		return v2;
 		// 	})
 		// 	.filter(Boolean);
-
-		const normal = new Vec3(0, 0, 1);
-		return new Polygon(edges.map(e => [new Vertex(e.a, normal), new Vertex(e.b, normal)]).flat());
 	}
 
 	updateLines(scene: Scene) {
@@ -393,7 +414,7 @@ export class Axes extends Mesh {
 
 		const minStep = minTick;
 		const maxStep = (range.max.y - range.min.y) / 5;
-		let step = clamp(eye.z / scale, minStep, maxStep);
+		let step = clamp(Math.abs(eye.z) / scale, minStep, maxStep);
 		step = 10 ** Math.floor(Math.log10(step));
 
 		const minCenter = range.min.y + maxLines / 2 * step;
@@ -452,8 +473,11 @@ export class Axes extends Mesh {
 
 		if (input.buttons.mouse1) {
 			const poly = this.viewWorldPolygon(scene);
-			// const mesh = Mesh.fromCSG(this.device, new CSG([poly]));
-			// scene.materials.noCull.bind(mesh);
+			scene.materials.noCull.unbindAll();
+			if (poly) {
+				const mesh = Mesh.fromCSG(this.device, new CSG([poly]));
+				scene.materials.noCull.bind(mesh);
+			}
 		}
 	}
 

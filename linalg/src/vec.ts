@@ -64,7 +64,7 @@ export class Vector<T extends Float64Array> extends Float64Array {
 	}
 
 	magnitude(): number {
-		return Math.sqrt(this.reduce((acc, cur) => acc + cur * cur));
+		return Math.sqrt(this.reduce((acc, cur) => acc + (cur * cur)));
 	}
 
 	eq(v: T): boolean {

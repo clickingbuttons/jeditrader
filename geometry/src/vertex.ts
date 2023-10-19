@@ -20,7 +20,7 @@ export class Vertex extends Vec3 {
 
 	lerp(other: Vertex, t: number): Vertex {
 		return new Vertex(
-			this.lerp(other, t),
+			super.lerp(other, t),
 			this.normal.lerp(other.normal, t)
 		);
 	}

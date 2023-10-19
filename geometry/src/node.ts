@@ -30,7 +30,7 @@ export class Node {
 		for (var i = 0; i < this.polygons.length; i++) {
 			this.polygons[i].flip();
 		}
-		this.plane?.flip();
+		this.plane = this.plane?.flip();
 		if (this.front) this.front.invert();
 		if (this.back) this.back.invert();
 		var temp = this.front;

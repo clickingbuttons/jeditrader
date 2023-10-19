@@ -21,7 +21,7 @@ export class Polygon {
 
 	isClockwise(): boolean {
 		const sum = this.edges()
-			.map(e => (e.b.x - e.a.x) * (e.b.y + e.a.y))
+			.map(e => (e.p2.x - e.p1.x) * (e.p2.y + e.p1.y))
 			.reduce((acc, cur) => acc + cur, 0);
 
 		return sum >= 0;

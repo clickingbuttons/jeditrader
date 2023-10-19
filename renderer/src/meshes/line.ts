@@ -8,10 +8,10 @@ export class Line {
 	nVertices: number;
 
 	constructor(device: GPUDevice, edges: Edge[]) {
-		// Don't optimize indexes for now.
+		// Don't optimize indices for now.
 		this.resources = {
 			positions: {
-				buffer: createBuffer({ device, data: toF64(edges.map(e => [e.a, e.b]).flat()) }),
+				buffer: createBuffer({ device, data: toF64(edges.map(e => [e.p1, e.p2]).flat()) }),
 			},
 		};
 		this.nVertices = edges.length * 2;

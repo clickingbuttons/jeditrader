@@ -12,8 +12,8 @@ const bindGroupLayouts = {
 
 const axesDefaultOptions = {
 	...defaultOptions,
-	depthWriteEnabled: false,
-	cullMode: 'none',
+	// depthWriteEnabled: false,
+	// cullMode: 'none',
 } as Partial<MaterialOptions>;
 
 export class AxesMaterial extends Material {

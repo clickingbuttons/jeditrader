@@ -15,11 +15,16 @@ export class Plane extends LinPlane {
 
 	static fromPoints(a: Vec3, b: Vec3, c: Vec3): Plane {
 		const p = super.fromPoints(a, b, c);
-		return new Plane(p.normal, p.point);
+		return new Plane(p.normal, p.d);
+	}
+
+	flip() {
+		const flipped = super.flip();
+		return new Plane(flipped.normal, flipped.d);
 	}
 
 	clone() {
-		return new Plane(this.normal.clone(), this.point.clone());
+		return new Plane(this.normal.clone(), this.d);
 	}
 
 	// Split `polygon` by this plane if needed, then put the polygon or polygon
@@ -37,7 +42,7 @@ export class Plane extends LinPlane {
 		var polygonType = 0;
 		var types: number[] = [];
 		for (var i = 0; i < polygon.vertices.length; i++) {
-			var t = this.normal.dot(polygon.vertices[i]) - this.w;
+			var t = this.normal.dot(polygon.vertices[i]) - this.d;
 			var type = (t < -Plane.EPSILON)
 				? PolygonType.back
 				: (t > Plane.EPSILON)
@@ -67,14 +72,14 @@ export class Plane extends LinPlane {
 				if (ti != PolygonType.back) f.push(vi);
 				if (ti != PolygonType.front) b.push(ti != PolygonType.back ? vi.clone() : vi);
 				if ((ti | tj) == PolygonType.spanning) {
-					var t = (this.w - this.normal.dot(vi)) / this.normal.dot(vj.sub(vi));
+					var t = (this.d - this.normal.dot(vi)) / this.normal.dot(vj.sub(vi));
 					var v = vi.lerp(vj, t);
 					f.push(v);
 					b.push(v.clone());
 				}
 			}
-			if (f.length >= 3) front.push(new Polygon(f, polygon.userdata));
-			if (b.length >= 3) back.push(new Polygon(b, polygon.userdata));
+			if (f.length >= 3) front.push(new Polygon(f));
+			if (b.length >= 3) back.push(new Polygon(b));
 			break;
 		}
 	}

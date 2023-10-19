@@ -5,12 +5,12 @@
 	"description": "JediTrader monorepo",
 	"repository": "https://github.com/clickingbuttons/jeditrader.git",
 	"author": "clickingbuttons",
-	"type": "module",
 	"scripts": {
 		"start": "node build.mjs && node watch.mjs",
 		"build": "node build.mjs ",
 		"watch": "node watch.mjs",
-		"clean": "node clean.mjs"
+		"clean": "node clean.mjs",
+		"test": "jasmine --config=./jasmine.json"
 	},
 	"workspaces": [
 		"providers",
@@ -22,6 +22,8 @@
 	],
 	"license": "MIT",
 	"devDependencies": {
+		"@types/jasmine": "^5.1.1",
+		"jasmine": "^5.1.0",
 		"typescript": "^5.1.6"
 	}
 }
