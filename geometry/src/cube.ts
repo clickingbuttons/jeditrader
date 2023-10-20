@@ -30,7 +30,9 @@ export class Cube extends CSG {
 						center.y + (i & 2 ? radius : -radius),
 						center.z + (i & 4 ? radius : -radius),
 					),
-					new Vec3(normals[0], normals[1], normals[2]),
+					{
+						normal: new Vec3(normals[0], normals[1], normals[2]),
+					}
 				))
 			)
 		));

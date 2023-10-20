@@ -4,7 +4,7 @@ import { Trade } from '@jeditrader/providers';
 import { Cube } from '@jeditrader/geometry';
 import { MeshResources } from '../materials/index.js';
 import { concatTypedArrays } from '../util.js';
-import { Color } from '../color.js';
+import { Color } from '@jeditrader/geometry';
 
 export class Trades extends Mesh {
 	declare resources: MeshResources;

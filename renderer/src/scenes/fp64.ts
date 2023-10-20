@@ -6,7 +6,7 @@ import { Vec3, Mat4 } from '@jeditrader/linalg';
 import { Scene } from './scene.js';
 import { Renderer } from '../renderer.js';
 import { signal, effect } from '@preact/signals-core';
-import { Color } from '../color.js';
+import { Color } from '@jeditrader/geometry';
 
 // Verifies can zoom from years to milliseconds
 export class Fp64Scene extends Scene {

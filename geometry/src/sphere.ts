@@ -20,8 +20,8 @@ function sphereVertex(
 	theta: number,
 	phi: number,
 ): Vertex {
-	const dir = sphereDirection(theta, phi);
-	const res = new Vertex(center.add(dir.mulScalar(radius)), dir);
+	const normal = sphereDirection(theta, phi);
+	const res = new Vertex(center.add(normal.mulScalar(radius)), { normal });
 	return res;
 }
 

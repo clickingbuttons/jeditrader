@@ -7,7 +7,7 @@ import { toymd } from '../helpers.js';
 import { signal, effect, computed, batch, Signal } from '@preact/signals-core';
 import { lodKeys, getLodIndex } from '../lod.js';
 import { Scene } from '../scenes/scene.js';
-import { Plane, Vertex, Polygon, CSG } from '@jeditrader/geometry';
+import { Plane, Vertex, Polygon, CSG, Color } from '@jeditrader/geometry';
 import { AxesResources } from '../materials/axes.js';
 import { Line as LineMesh } from './line.js';
 
@@ -186,58 +186,49 @@ export class Axes extends Mesh {
 			near: r.point,
 			far: r.point.add(r.dir),
 		}));
-		const colors = [
-			new Vec3(255, 0, 0),
-			new Vec3(255, 255, 0),
-			new Vec3(0, 255, 0),
-			new Vec3(0, 255, 255),
-			new Vec3(0, 0, 255),
-			new Vec3(255, 0, 255),
-		];
-		const tmpNormal = new Vec3(0, 0, 0);
 		const csg = new CSG([
 			// near
 			new Polygon([
-				new Vertex(verts[0].near, tmpNormal, colors[0]),
-				new Vertex(verts[1].near, tmpNormal, colors[0]),
-				new Vertex(verts[2].near, tmpNormal, colors[0]),
-				new Vertex(verts[3].near, tmpNormal, colors[0]),
-			]),
+				new Vertex(verts[0].near),
+				new Vertex(verts[1].near),
+				new Vertex(verts[2].near),
+				new Vertex(verts[3].near),
+			], new Color(255, 0, 0)),
 			// far
 			new Polygon([
-				new Vertex(verts[3].far, tmpNormal, colors[1]),
-				new Vertex(verts[2].far, tmpNormal, colors[1]),
-				new Vertex(verts[1].far, tmpNormal, colors[1]),
-				new Vertex(verts[0].far, tmpNormal, colors[1]),
-			]),
+				new Vertex(verts[3].far),
+				new Vertex(verts[2].far),
+				new Vertex(verts[1].far),
+				new Vertex(verts[0].far),
+			], new Color(255, 255, 0)),
 			// top
 			new Polygon([
-				new Vertex(verts[1].far , tmpNormal, colors[2]),
-				new Vertex(verts[2].far , tmpNormal, colors[2]),
-				new Vertex(verts[2].near, tmpNormal, colors[2]),
-				new Vertex(verts[1].near, tmpNormal, colors[2]),
-			]),
+				new Vertex(verts[1].far ),
+				new Vertex(verts[2].far ),
+				new Vertex(verts[2].near),
+				new Vertex(verts[1].near),
+			], new Color(0, 255, 0)),
 			// bottom
 			new Polygon([
-				new Vertex(verts[0].near, tmpNormal, colors[3]),
-				new Vertex(verts[3].near, tmpNormal, colors[3]),
-				new Vertex(verts[3].far , tmpNormal, colors[3]),
-				new Vertex(verts[0].far , tmpNormal, colors[3]),
-			]),
+				new Vertex(verts[0].near),
+				new Vertex(verts[3].near),
+				new Vertex(verts[3].far ),
+				new Vertex(verts[0].far ),
+			], new Color(0, 255, 255)),
 			// left
 			new Polygon([
-				new Vertex(verts[1].far , tmpNormal, colors[4]),
-				new Vertex(verts[1].near, tmpNormal, colors[4]),
-				new Vertex(verts[0].near, tmpNormal, colors[4]),
-				new Vertex(verts[0].far , tmpNormal, colors[4]),
-			]),
+				new Vertex(verts[1].far ),
+				new Vertex(verts[1].near),
+				new Vertex(verts[0].near),
+				new Vertex(verts[0].far ),
+			], new Color(0, 0, 255)),
 			// right
 			new Polygon([
-				new Vertex(verts[2].near, tmpNormal, colors[5]),
-				new Vertex(verts[2].far , tmpNormal, colors[5]),
-				new Vertex(verts[3].far , tmpNormal, colors[5]),
-				new Vertex(verts[3].near, tmpNormal, colors[5]),
-			]),
+				new Vertex(verts[2].near),
+				new Vertex(verts[2].far ),
+				new Vertex(verts[3].far ),
+				new Vertex(verts[3].near),
+			], new Color(255, 0, 255)),
 		]);
 		csg.polygons.forEach(p => p.vertices.forEach(v => v.normal = p.plane.normal.mulScalar(1e12)));
 		return {

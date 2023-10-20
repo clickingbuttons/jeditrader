@@ -29,11 +29,11 @@ export class Circle extends CSG {
 
 		const vertices: Vertex[] = [...Array(slices + 1).keys()]
 			.map(i => {
-				const dir = circleDirection(i / slices);
-				const p = center.add(dir.mulScalar(radius));
-				return new Vertex(p, dir);
+				const normal = circleDirection(i / slices);
+				const p = center.add(normal.mulScalar(radius));
+				return new Vertex(p, { normal });
 			});
-		const centerV = new Vertex(center, new Vec3(0, 0, 1), new Vec3(0, 0, 255));
+		const centerV = new Vertex(center, { normal: new Vec3(0, 0, 1) });
 
 		super([
 			new Polygon([centerV, ...vertices, centerV])

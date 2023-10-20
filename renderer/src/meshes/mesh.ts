@@ -2,7 +2,7 @@ import { createBuffer, toF64, concatTypedArrays } from '../util.js';
 import { Mat4, Vec3, Plane, Polygon } from '@jeditrader/linalg';
 import { CSG } from '@jeditrader/geometry';
 import { MeshResources } from '../materials/index.js';
-import { Color } from '../color.js';
+import { Color } from '@jeditrader/geometry';
 
 export interface MeshInstanceOptions {
 	count: number;

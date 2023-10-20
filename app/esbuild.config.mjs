@@ -44,6 +44,6 @@ export const esbuildConfig = ({ isProd }) => ({
 			src: 'static',
 			dest: outdir,
 		}),
-	]
+	],
 })
 

@@ -3,7 +3,7 @@ import { MeshResources } from '../materials/index.js';
 import { Mesh } from './mesh.js';
 import { Aggregate, Period, getNext } from '@jeditrader/providers';
 import { Cube } from '@jeditrader/geometry';
-import { Color } from '../color.js';
+import { Color } from '@jeditrader/geometry';
 
 export class OHLCV extends Mesh {
 	declare resources: MeshResources;

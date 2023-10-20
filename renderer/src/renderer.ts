@@ -3,7 +3,7 @@ import { Scene, Fp64Scene } from './scenes/index.js';
 import { debounce } from './helpers.js';
 import { Signal, signal } from '@preact/signals-core';
 import { Input } from './input.js';
-import { Color } from './color.js';
+import { Color } from '@jeditrader/geometry';
 
 export interface RendererFlags {
 	rerender: boolean;

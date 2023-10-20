@@ -8,7 +8,7 @@ import { BasicMaterial, PhongMaterial, NormalsMaterial, LineMaterial } from '../
 import { basicVert } from '@jeditrader/shaders';
 import { Mesh } from '../meshes/index.js';
 import { Sphere } from '@jeditrader/geometry';
-import { Color } from '../color.js';
+import { Color } from '@jeditrader/geometry';
 
 const maxLights = 100;
 type Light = {

@@ -10,7 +10,7 @@ import { Renderer } from '../renderer.js';
 import { Cone } from '@jeditrader/geometry';
 import { Mesh } from '../meshes/index.js';
 import { AxesMaterial } from '../materials/index.js';
-import { Color } from '../color.js';
+import { Color } from '@jeditrader/geometry';
 
 export interface ChartContext {
 	scene: Scene,

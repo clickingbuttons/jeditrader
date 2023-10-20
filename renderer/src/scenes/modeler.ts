@@ -6,7 +6,7 @@ import { Vec3, Mat4, Plane } from '@jeditrader/linalg';
 import { Scene } from './scene.js';
 import { signal, effect, computed } from '@preact/signals-core';
 import type { Material } from '../materials/index.js';
-import { Color } from '../color.js';
+import { Color } from '@jeditrader/geometry';
 
 export class Modeler extends Scene {
 	declare settings;
