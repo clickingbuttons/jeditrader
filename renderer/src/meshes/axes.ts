@@ -232,40 +232,26 @@ export class Axes extends Mesh {
 		]);
 		csg.polygons.forEach(p => p.vertices.forEach(v => v.normal = p.plane.normal.mulScalar(1e12)));
 		return {
-			planes: csg.polygons.map(p => p.plane),
+			edges: csg.polygons.map(p => p.edges()).flat(),
 			csg: csg.invert(),
 		};
 	}
 
 	viewWorldPolygon(scene: Scene): Polygon | undefined {
 		const range = this.range.value;
-		const { planes, csg } = this.viewPlanes(scene);
-		scene.materials.default.unbindAll();
-		scene.materials.default.bind(Mesh.fromCSG(this.device, csg));
+		const { edges, csg } = this.viewPlanes(scene);
+		// scene.materials.default.unbindAll();
+		// scene.materials.default.bind(Mesh.fromCSG(this.device, csg));
 
 		const thisPlane = new Plane(new Vec3(0, 0, 1), 0);
-		// const M = [
-		// 	[...thisPlane.normal, thisPlane.d],
-		// 	[...planes[2].normal, planes[2].d],
-		// 	[...planes[4].normal, planes[4].d],
-		// ];
-		// console.log(gaussElim(M));
-		// return undefined;
-		const lines: Line[] = [];
-		for (let i = 2; i < planes.length; i++) {
-			const p = planes[i];
-			const intersection = thisPlane.intersectPlane(p);
-			if (intersection instanceof Plane) return; // Coplanar
-			if (intersection instanceof Line) lines.push(intersection);
-		}
-		console.log(lines);
-		const edges = lines.map(l => new Edge(
-			l.point.add(l.dir.mulScalar(-10e13)),
-			l.point.add(l.dir.mulScalar(10e12))
-		));
-		console.log(edges)
+		const vertices: Vertex[] = [];
+		// edges.forEach(edge => {
+		// 	const intersection = thisPlane.intersectEdge(edge);
+		// 	if (intersection instanceof Vec3) vertices.push(new Vertex(intersection));
+		// });
 		scene.materials.line.unbindAll();
 		scene.materials.line.bind(new LineMesh(this.device, edges));
+		return undefined;
 
 		// const line = new Line(this.device, [edge]);
 		// scene.materials.line.bind(line);

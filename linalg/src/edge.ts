@@ -1,15 +1,15 @@
 import { Vec3 } from '@jeditrader/linalg';
 
 export class Edge {
-	p1: Vec3;
-	p2: Vec3;
+	a: Vec3;
+	b: Vec3;
 
-	constructor(p1: Vec3, p2: Vec3) {
-		this.p1 = p1;
-		this.p2 = p2;
+	constructor(a: Vec3, b: Vec3) {
+		this.a = a;
+		this.b = b;
 	}
 
 	dir(): Vec3 {
-		return this.p2.sub(this.p1);
+		return this.b.sub(this.a);
 	}
 }

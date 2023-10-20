@@ -22,22 +22,22 @@ it('distance to point', () => {
 });
 
 it('line intersection at point', () => {
-	const l = new Line(new Vec3(1), new Vec3(-1));
+	const l = new Line(new Vec3(-1), new Vec3(1));
 	expect(z0.intersectLine(l)).toEqual(new Vec3(0));
 });
 
 it('line intersection on line', () => {
-	const l = new Line(new Vec3(1, 0, 0), new Vec3(0));
+	const l = new Line(new Vec3(0), new Vec3(1, 0, 0));
 	expect(z0.intersectLine(l)).toEqual(l);
 });
 
 it('no line intersection', () => {
-	const l = new Line(new Vec3(1, 0, 0), new Vec3(1));
+	const l = new Line(new Vec3(1), new Vec3(1, 0, 0));
 	expect(z0.intersectLine(l)).toBeUndefined();
 });
 
 it('simple plane intersection on line', () => {
-	const l = new Line(new Vec3(-1, 0, 0), new Vec3(0));
+	const l = new Line(new Vec3(0), new Vec3(-1, 0, 0));
 	expect(z0.intersectPlane(y0)).toEqual(l);
 });
 

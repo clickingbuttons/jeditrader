@@ -1,5 +1,6 @@
 import { Vec3 } from '@jeditrader/linalg';
 import { Line } from './line.js';
+import { Edge } from './edge.js';
 
 export class Plane {
 	// https://mathworld.wolfram.com/HessianNormalForm.html
@@ -40,7 +41,7 @@ export class Plane {
 		return point.dot(this.normal) + this.d;
 	}
 
-	intersectLine(line: Line): Line | Vec3 | undefined {
+	private interectLineT(line: Line): number | undefined {
 		// https://en.wikipedia.org/wiki/Line%E2%80%93plane_intersection
 		const p0 = this.point();
 		const n = this.normal;
@@ -49,11 +50,26 @@ export class Plane {
 
 		const denom = l.dot(n);
 		if (denom === 0) {
-			if (p0.sub(l0).dot(n) == 0) return line;
+			if (p0.sub(l0).dot(n) == 0) return NaN;
 			else return;
 		}
-		const d = p0.sub(l0).dot(n) / denom;
-		return l0.add(l.mulScalar(d));
+		return p0.sub(l0).dot(n) / denom;
+	}
+
+	intersectLine(line: Line): Line | Vec3 | undefined {
+		const t = this.interectLineT(line);
+		if (Number.isNaN(t)) return line;
+		if (typeof(t) === 'number') return line.point.add(line.dir.mulScalar(t));
+
+		return t;
+	}
+
+	intersectEdge(edge: Edge): Edge | Vec3 | undefined {
+		const t = this.interectLineT(Line.fromPoints(edge.a, edge.b));
+		if (Number.isNaN(t)) return edge;
+		if (typeof(t) === 'number' && t >= 0 && t <= 1) return edge.a.add(edge.dir().mulScalar(t));
+
+		return;
 	}
 
 	intersectPlane(plane: Plane): Plane | Line | undefined {
@@ -75,7 +91,7 @@ export class Plane {
 		const c2 = (h2 - h1 * dot) / denom;
 		const point = n1.mulScalar(c1).add(n2.mulScalar(c2));
 
-		return new Line(n1.cross(n2), point);
+		return new Line(point, n1.cross(n2));
 	}
 
 	// clip(edge: Edge): Edge | undefined {

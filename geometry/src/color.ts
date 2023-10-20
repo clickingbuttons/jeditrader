@@ -1,6 +1,14 @@
-const colorDiv = document.createElement('div');
-document.body.appendChild(colorDiv);
 const colorRegex = /^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i;
+
+function getOrCreateColorDiv(): HTMLElement {
+	const id = 'colorDiv';
+	const existing = document.getElementById(id);
+	if (existing) return existing;
+	const res = document.createElement('div');
+	res.id = id;
+	document.body.appendChild(res);
+	return res;
+}
 
 // Currently using rgba8unorm
 export class Color extends Uint8Array {
@@ -31,9 +39,12 @@ export class Color extends Uint8Array {
 		if (split.length === 3) split.push(255);
 		if (split.length === 4) return new Color(split[0], split[1], split[2], split[3]);
 
-		colorDiv.style.color = input;
-		const m = getComputedStyle(colorDiv).color.match(colorRegex);
-		if (m) return new Color(+m[1] * 255, +m[2] * 255, +m[3] * 255);
+		if (document) {
+			const colorDiv = getOrCreateColorDiv();
+			colorDiv.style.color = input;
+			const m = getComputedStyle(colorDiv).color.match(colorRegex);
+			if (m) return new Color(+m[1] * 255, +m[2] * 255, +m[3] * 255);
+		}
 
 		return new Color(0, 0, 0);
 	}

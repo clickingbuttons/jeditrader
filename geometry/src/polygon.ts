@@ -1,6 +1,7 @@
 import { Plane } from './plane.js';
 import { Vertex } from './vertex.js';
 import { Color } from './color.js';
+import { Edge } from './edge.js';
 
 // Represents a convex polygon. The >= 3 vertices used to initialize a polygon must be coplanar and
 // form a convex counter-clockwise loop.
@@ -25,6 +26,21 @@ export class Polygon {
 
 	flip(): Polygon {
 		return new Polygon(this.vertices.reverse(), this.color);
+	}
+
+	edges(): Edge[] {
+		const res: Edge[] = [];
+
+		const len = this.vertices.length;
+		for (let i = 0; i < len; i++) {
+			const v1 = this.vertices[i];
+			v1.color = v1.color ?? this.color;
+			const v2 = this.vertices[(i + 1) % len];
+			v2.color = v2.color ?? this.color;
+			res.push(new Edge(v1, v2));
+		}
+
+		return res;
 	}
 }
 

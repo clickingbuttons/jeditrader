@@ -1,11 +1,3 @@
-import { Vec3 } from './vec3.js';
+import { Line } from './line.js';
 
-export class Ray {
-	point: Vec3;
-	dir: Vec3;
-
-	constructor(point: Vec3, dir: Vec3) {
-		this.point = point;
-		this.dir = dir;
-	}
-}
+export class Ray extends Line {}
