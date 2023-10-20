@@ -1,10 +1,12 @@
+import { Vec3 } from '@jeditrader/linalg';
+
 export type Range<T> = {
 	min: T;
 	max: T;
 }
 
 export const sampleCount = 4;
-export const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+export const presentationFormat = navigator?.gpu?.getPreferredCanvasFormat();
 export const depthFormat: GPUTextureFormat = 'depth32float';
 
 type TypedArray = Float64Array | Float32Array | Int32Array | Uint32Array | Uint8Array;
@@ -85,5 +87,16 @@ export function toF64(nums: Float64Array | number[] | Float64Array[]): Float32Ar
 	if (nums[0] instanceof Float64Array) return toF640(concatTypedArrays(nums as Float64Array[]));
 
 	return toF640(nums as Float64Array | number[]);
+}
+
+/// In-place
+/// TODO: proper convex hull algo
+export function sortCounterClockwise(v: Vec3[]) {
+	const center = v.reduce((acc, cur) => acc.add(cur), new Vec3(0, 0, 0)).divScalar(v.length);
+	v.sort((a, b) => {
+		const a1 = Math.atan2(a.x - center.x, a.y - center.y);
+		const a2 = Math.atan2(b.x - center.x, b.y - center.y);
+		return a2 - a1;
+	});
 }
 

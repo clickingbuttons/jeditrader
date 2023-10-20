@@ -2,6 +2,7 @@ import { Polygon } from './polygon.js';
 import { Node } from './node.js';
 import { Vec3 } from '@jeditrader/linalg';
 import { Color } from './color.js';
+import { Edge } from './edge.js';
 
 // Constructive Solid Geometry (CSG) is a modeling technique that uses Boolean
 // operations like union and intersection to combine 3D solids. This library
@@ -99,6 +100,10 @@ export class CSG {
 
 	invert(): CSG {
 		return new CSG(this.polygons.map(p => p.flip()));
+	}
+
+	edges(): Edge[] {
+		return this.polygons.map(p => p.edges()).flat();;
 	}
 
 	toIndexedTriangles() {

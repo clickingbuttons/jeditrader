@@ -82,4 +82,11 @@ export class Vector<T extends Float64Array> extends Float64Array {
 	abs(): T {
 		return this.ty(this.map(val => Math.abs(val)));
 	}
+
+	cmp(v: T): number {
+		for (let i = 0; i < v.length; i++) if (this[i] > v[i]) return 1;
+		for (let i = 0; i < v.length; i++) if (this[i] < v[i]) return -1;
+
+		return 0;
+	}
 };

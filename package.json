@@ -10,7 +10,7 @@
 		"build": "node build.mjs ",
 		"watch": "node watch.mjs",
 		"clean": "node clean.mjs",
-		"test": "jasmine --config=./jasmine.json"
+		"test": "node test.mjs"
 	},
 	"workspaces": [
 		"providers",

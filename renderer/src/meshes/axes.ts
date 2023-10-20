@@ -1,13 +1,13 @@
 import { Mesh } from './mesh.js';
-import { Vec3, Vec4, Mat4, clamp, Line, Edge } from '@jeditrader/linalg';
-import { createBuffer, Range } from '../util.js';
+import { Vec3, Vec4, Mat4, clamp } from '@jeditrader/linalg';
+import { createBuffer, Range, sortCounterClockwise } from '../util.js';
 import { getNext, Period } from '@jeditrader/providers';
 import { Labels } from '../labels.js';
 import { toymd } from '../helpers.js';
 import { signal, effect, computed, batch, Signal } from '@preact/signals-core';
 import { lodKeys, getLodIndex } from '../lod.js';
 import { Scene } from '../scenes/scene.js';
-import { Plane, Vertex, Polygon, CSG, Color } from '@jeditrader/geometry';
+import { Plane, Vertex, Polygon, CSG, Color, Edge } from '@jeditrader/geometry';
 import { AxesResources } from '../materials/axes.js';
 import { Line as LineMesh } from './line.js';
 
@@ -182,57 +182,44 @@ export class Axes extends Mesh {
 			[1, -1]
 		];
 		const rays = viewBounds.map(b => scene.rayCastNDC(b[0], b[1]));
-		const verts = rays.map(r => ({
-			near: r.point,
-			far: r.point.add(r.dir),
+		const v = rays.map(r => ({
+			near: new Vertex(r.point),
+			far: new Vertex(r.point.add(r.dir)),
 		}));
 		const csg = new CSG([
 			// near
-			new Polygon([
-				new Vertex(verts[0].near),
-				new Vertex(verts[1].near),
-				new Vertex(verts[2].near),
-				new Vertex(verts[3].near),
-			], new Color(255, 0, 0)),
+			new Polygon([v[0].near, v[1].near, v[2].near, v[3].near], new Color(255, 0, 0)),
 			// far
-			new Polygon([
-				new Vertex(verts[3].far),
-				new Vertex(verts[2].far),
-				new Vertex(verts[1].far),
-				new Vertex(verts[0].far),
-			], new Color(255, 255, 0)),
+			new Polygon([v[3].far , v[2].far , v[1].far , v[0].far ], new Color(255, 255, 0)),
 			// top
-			new Polygon([
-				new Vertex(verts[1].far ),
-				new Vertex(verts[2].far ),
-				new Vertex(verts[2].near),
-				new Vertex(verts[1].near),
-			], new Color(0, 255, 0)),
+			new Polygon([v[1].far , v[2].far , v[2].near, v[1].near], new Color(0, 255, 0)),
 			// bottom
-			new Polygon([
-				new Vertex(verts[0].near),
-				new Vertex(verts[3].near),
-				new Vertex(verts[3].far ),
-				new Vertex(verts[0].far ),
-			], new Color(0, 255, 255)),
+			new Polygon([v[0].near, v[3].near, v[3].far , v[0].far ], new Color(0, 255, 255)),
 			// left
-			new Polygon([
-				new Vertex(verts[1].far ),
-				new Vertex(verts[1].near),
-				new Vertex(verts[0].near),
-				new Vertex(verts[0].far ),
-			], new Color(0, 0, 255)),
+			new Polygon([v[1].far , v[1].near, v[0].near, v[0].far ], new Color(0, 0, 255)),
 			// right
-			new Polygon([
-				new Vertex(verts[2].near),
-				new Vertex(verts[2].far ),
-				new Vertex(verts[3].far ),
-				new Vertex(verts[3].near),
-			], new Color(255, 0, 255)),
+			new Polygon([v[2].near, v[2].far , v[3].far , v[3].near], new Color(255, 0, 255)),
 		]);
 		csg.polygons.forEach(p => p.vertices.forEach(v => v.normal = p.plane.normal.mulScalar(1e12)));
 		return {
-			edges: csg.polygons.map(p => p.edges()).flat(),
+			edges: [
+				// TODO: proper edge dedup in Polygon. problem: { a, b } != { b, a }. custom comparison
+				// will be O(n^2), sorting not working
+				new Edge(v[0].near, v[1].near),
+				new Edge(v[1].near, v[2].near),
+				new Edge(v[2].near, v[3].near),
+				new Edge(v[3].near, v[0].near),
+
+				new Edge(v[0].far, v[1].far),
+				new Edge(v[1].far, v[2].far),
+				new Edge(v[2].far, v[3].far),
+				new Edge(v[3].far, v[0].far),
+
+				new Edge(v[0].near, v[0].far),
+				new Edge(v[1].near, v[1].far),
+				new Edge(v[2].near, v[2].far),
+				new Edge(v[3].near, v[3].far),
+			],
 			csg: csg.invert(),
 		};
 	}
@@ -245,12 +232,16 @@ export class Axes extends Mesh {
 
 		const thisPlane = new Plane(new Vec3(0, 0, 1), 0);
 		const vertices: Vertex[] = [];
-		// edges.forEach(edge => {
-		// 	const intersection = thisPlane.intersectEdge(edge);
-		// 	if (intersection instanceof Vec3) vertices.push(new Vertex(intersection));
-		// });
+		edges.forEach(edge => {
+			const intersection = thisPlane.intersectEdge(edge);
+			if (intersection instanceof Vec3) vertices.push(new Vertex(intersection));
+		});
 		scene.materials.line.unbindAll();
 		scene.materials.line.bind(new LineMesh(this.device, edges));
+		if (vertices.length >= 3) {
+			sortCounterClockwise(vertices);
+			return new Polygon(vertices);
+		}
 		return undefined;
 
 		// const line = new Line(this.device, [edge]);
@@ -287,9 +278,6 @@ export class Axes extends Mesh {
 		const range = this.range.value;
 		const lodIndex = getLodIndex(this.eye.value.z);
 		const period = lodKeys[Math.max(0, lodIndex - 1)];
-
-		// const polygon = this.viewWorldPolygon(scene);
-		// console.log(polygon);
 
 		batch(() => {
 			this.verticalLines.value = this.getVerticalLines(period);
