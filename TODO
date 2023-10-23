@@ -1,9 +1,8 @@
-- labels always in view
-- choose camera
 - box select
 
 - capture cursor when dragging https://developer.mozilla.org/en-US/docs/Web/API/Pointer_Lock_API
-- orbit controls
+- better orbit controls
+	- choose camera
 - demo data provider
 	- ticker select
 - free data provider
@@ -11,6 +10,7 @@
 
 - volume surface
 
+- favicon
 - scatter plot
 - line plot
 - JS plot API
@@ -21,3 +21,4 @@ data
 - remove test tickers (how'd they get in there?!)
 - agg30m for premarket research
 - better agg1d conditions (consider using auctions = 17, 8)
+- cron

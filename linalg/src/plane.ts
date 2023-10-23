@@ -38,7 +38,7 @@ export class Plane {
 	}
 
 	distance(point: Vec3): number {
-		return point.dot(this.normal) + this.d;
+		return point.dot(this.normal) - this.d;
 	}
 
 	private interectLineT(line: Line): number | undefined {

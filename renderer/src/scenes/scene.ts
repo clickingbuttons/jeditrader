@@ -1,14 +1,13 @@
 import { Vec3, Vec4, Mat4, Ray, degToRad } from '@jeditrader/linalg';
 import { Camera, Controller, FPSController  } from '../camera/index.js';
 import { Input } from '../input.js';
-import { createBuffer, Range } from '../util.js';
+import { createBuffer } from '../util.js';
 import { effect, Signal, computed, signal, batch } from '@preact/signals-core';
 import { Renderer, RendererFlags } from '../renderer.js';
 import { BasicMaterial, PhongMaterial, NormalsMaterial, LineMaterial } from '../materials/index.js';
 import { basicVert } from '@jeditrader/shaders';
 import { Mesh } from '../meshes/index.js';
-import { Sphere } from '@jeditrader/geometry';
-import { Color } from '@jeditrader/geometry';
+import { Sphere, Color, Range } from '@jeditrader/geometry';
 
 const maxLights = 100;
 type Light = {

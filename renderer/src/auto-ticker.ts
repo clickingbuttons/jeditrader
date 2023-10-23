@@ -2,7 +2,7 @@ import { Vec3 } from '@jeditrader/linalg';
 import { signal, Signal } from '@preact/signals-core';
 import { Period, Aggregate, Trade, Provider, minDate, maxDate, getNext } from '@jeditrader/providers';
 import { OHLCV, Trades } from './meshes/index.js';
-import { Range } from './util.js';
+import { Range } from '@jeditrader/geometry';
 import { RendererFlags } from './renderer.js';
 import { lodKeys } from './lod.js';
 import { Scene } from './scenes/scene.js';

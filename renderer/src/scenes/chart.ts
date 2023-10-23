@@ -3,14 +3,13 @@ import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
 import { Provider, Period, getNext } from '@jeditrader/providers';
 import { AutoTicker } from '../auto-ticker.js';
 import { Scene } from './scene.js';
-import { Range } from '../util.js';
 import { Signal, computed } from '@preact/signals-core';
 import { getLod, Lod } from '../lod.js';
 import { Renderer } from '../renderer.js';
 import { Cone } from '@jeditrader/geometry';
 import { Mesh } from '../meshes/index.js';
 import { AxesMaterial } from '../materials/index.js';
-import { Color } from '@jeditrader/geometry';
+import { Color, Range } from '@jeditrader/geometry';
 
 export interface ChartContext {
 	scene: Scene,

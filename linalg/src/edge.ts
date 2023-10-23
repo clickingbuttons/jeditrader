@@ -1,4 +1,4 @@
-import { Vec3 } from '@jeditrader/linalg';
+import { Vec3, Line } from '@jeditrader/linalg';
 
 export class Edge {
 	a: Vec3;
@@ -11,5 +11,12 @@ export class Edge {
 
 	dir(): Vec3 {
 		return this.b.sub(this.a);
+	}
+
+	lineIntersection(l: Line): Vec3 | undefined {
+		const thisLine = Line.fromPoints(this.a, this.b);
+		const res = thisLine.intersection(l);
+		if (res?.every(e => e <= 1)) return res;
+		return;
 	}
 }

@@ -1,10 +1,5 @@
 import { Vec3 } from '@jeditrader/linalg';
 
-export type Range<T> = {
-	min: T;
-	max: T;
-}
-
 export const sampleCount = 4;
 export const presentationFormat = navigator?.gpu?.getPreferredCanvasFormat();
 export const depthFormat: GPUTextureFormat = 'depth32float';

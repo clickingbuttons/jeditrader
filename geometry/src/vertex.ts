@@ -1,5 +1,6 @@
 import { Vec3 } from '@jeditrader/linalg';
 import { Color } from './color.js';
+import type { Edge } from './edge.js';
 
 export class Vertex extends Vec3 {
 	normal?: Vec3;

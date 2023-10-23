@@ -1,15 +1,14 @@
 import { Mesh } from './mesh.js';
-import { Vec3, Vec4, Mat4, clamp } from '@jeditrader/linalg';
-import { createBuffer, Range, sortCounterClockwise } from '../util.js';
+import { Vec2, Vec3, Vec4, Mat4, clamp } from '@jeditrader/linalg';
+import { createBuffer } from '../util.js';
 import { getNext, Period } from '@jeditrader/providers';
 import { Labels } from '../labels.js';
 import { toymd } from '../helpers.js';
 import { signal, effect, computed, batch, Signal } from '@preact/signals-core';
 import { lodKeys, getLodIndex } from '../lod.js';
 import { Scene } from '../scenes/scene.js';
-import { Plane, Vertex, Polygon, CSG, Color, Edge } from '@jeditrader/geometry';
+import { Plane, Vertex, Polygon, Range, CSG } from '@jeditrader/geometry';
 import { AxesResources } from '../materials/axes.js';
-import { Line as LineMesh } from './line.js';
 
 // Unfortunately this is needed to prevent jitter when the camera is at z < 1000
 //  8┌─────────┐9
@@ -81,7 +80,7 @@ export class Axes extends Mesh {
 			...this.settings.backgroundColor.value,
 			...this.settings.lineColor.value,
 			...this.settings.hoverColor.value,
-			this.eyeX(this.hoverX.value), this.eyeY(this.hoverY.value),
+			this.modelEyeX(this.hoverX.value), this.modelEyeY(this.hoverY.value),
 			this.settings.lineThickness.value,
 			this.horizontalLines.value.length,
 			this.verticalLines.value.length,
@@ -89,6 +88,7 @@ export class Axes extends Mesh {
 	}
 
 	eye: Signal<Vec3>;
+	eyeDir: Signal<Vec3>;
 	settings;
 
 	verticalLines = signal([] as number[]);
@@ -115,6 +115,7 @@ export class Axes extends Mesh {
 		});
 
 		this.eye = scene.camera.eye;
+		this.eyeDir = scene.camera.dir;
 		this.labels = new Labels(scene);
 
 		this.settings = {
@@ -161,11 +162,11 @@ export class Axes extends Mesh {
 		});
 	}
 
-	eyeX(x: number) {
+	modelEyeX(x: number) {
 		return new Vec4(x, 0, 0, 1).transform(this.model.value).x - this.eye.value.x;
 	}
 
-	eyeY(y: number) {
+	modelEyeY(y: number) {
 		return new Vec4(0, y, 0, 1).transform(this.model.value).y - this.eye.value.y;
 	}
 
@@ -174,182 +175,68 @@ export class Axes extends Mesh {
 		scene.flags.rerender = true;
 	}
 
-	viewPlanes(scene: Scene) {
+	viewPlanes(scene: Scene): Plane[] {
 		const viewBounds = [
+			// [0, 0] is center
 			[-1, -1], // bottom left
-			[-1, 1],
-			[1, 1],
-			[1, -1]
+			[-1, 1], // top left
+			[1, 1], // top right
+			[1, -1] // bottom right
 		];
 		const rays = viewBounds.map(b => scene.rayCastNDC(b[0], b[1]));
 		const v = rays.map(r => ({
 			near: new Vertex(r.point),
 			far: new Vertex(r.point.add(r.dir)),
 		}));
-		const csg = new CSG([
+		// Useful for visual debugging
+		// const csg = new CSG([
+		// 	// near
+		// 	new Polygon([v[0].near, v[1].near, v[2].near, v[3].near], new Color(255, 0, 0)),
+		// 	// far
+		// 	new Polygon([v[3].far , v[2].far , v[1].far , v[0].far ], new Color(255, 255, 0)),
+		// 	// top
+		// 	new Polygon([v[1].far , v[2].far , v[2].near, v[1].near], new Color(0, 255, 0)),
+		// 	// bottom
+		// 	new Polygon([v[0].near, v[3].near, v[3].far , v[0].far ], new Color(0, 255, 255)),
+		// 	// left
+		// 	new Polygon([v[1].far , v[1].near, v[0].near, v[0].far ], new Color(0, 0, 255)),
+		// 	// right
+		// 	new Polygon([v[2].near, v[2].far , v[3].far , v[3].near], new Color(255, 0, 255)),
+		// ]);
+		// Make normals easier to see
+		// csg.polygons.forEach(p => p.vertices.forEach(v => v.normal = p.plane.normal.mulScalar(1e12)));
+		// const edges = [
+		// 	// TODO: proper edge dedup in Polygon. problem: { a, b } != { b, a }. custom comparison
+		// 	// will be O(n^2), sorting not working
+		// 	new Edge(v[0].near, v[1].near),
+		// 	new Edge(v[1].near, v[2].near),
+		// 	new Edge(v[2].near, v[3].near),
+		// 	new Edge(v[3].near, v[0].near),
+
+		// 	new Edge(v[0].far, v[1].far),
+		// 	new Edge(v[1].far, v[2].far),
+		// 	new Edge(v[2].far, v[3].far),
+		// 	new Edge(v[3].far, v[0].far),
+
+		// 	new Edge(v[0].near, v[0].far),
+		// 	new Edge(v[1].near, v[1].far),
+		// 	new Edge(v[2].near, v[2].far),
+		// 	new Edge(v[3].near, v[3].far),
+		// ];
+		return [
 			// near
-			new Polygon([v[0].near, v[1].near, v[2].near, v[3].near], new Color(255, 0, 0)),
+			Plane.fromPoints(v[0].near, v[1].near, v[2].near),
 			// far
-			new Polygon([v[3].far , v[2].far , v[1].far , v[0].far ], new Color(255, 255, 0)),
+			Plane.fromPoints(v[3].far , v[2].far , v[1].far ),
 			// top
-			new Polygon([v[1].far , v[2].far , v[2].near, v[1].near], new Color(0, 255, 0)),
+			Plane.fromPoints(v[1].far , v[2].far , v[2].near),
 			// bottom
-			new Polygon([v[0].near, v[3].near, v[3].far , v[0].far ], new Color(0, 255, 255)),
+			Plane.fromPoints(v[0].near, v[3].near, v[3].far ),
 			// left
-			new Polygon([v[1].far , v[1].near, v[0].near, v[0].far ], new Color(0, 0, 255)),
+			Plane.fromPoints(v[1].far , v[1].near, v[0].near),
 			// right
-			new Polygon([v[2].near, v[2].far , v[3].far , v[3].near], new Color(255, 0, 255)),
-		]);
-		csg.polygons.forEach(p => p.vertices.forEach(v => v.normal = p.plane.normal.mulScalar(1e12)));
-		return {
-			edges: [
-				// TODO: proper edge dedup in Polygon. problem: { a, b } != { b, a }. custom comparison
-				// will be O(n^2), sorting not working
-				new Edge(v[0].near, v[1].near),
-				new Edge(v[1].near, v[2].near),
-				new Edge(v[2].near, v[3].near),
-				new Edge(v[3].near, v[0].near),
-
-				new Edge(v[0].far, v[1].far),
-				new Edge(v[1].far, v[2].far),
-				new Edge(v[2].far, v[3].far),
-				new Edge(v[3].far, v[0].far),
-
-				new Edge(v[0].near, v[0].far),
-				new Edge(v[1].near, v[1].far),
-				new Edge(v[2].near, v[2].far),
-				new Edge(v[3].near, v[3].far),
-			],
-			csg: csg.invert(),
-		};
-	}
-
-	viewWorldPolygon(scene: Scene): Polygon | undefined {
-		const range = this.range.value;
-		const { edges, csg } = this.viewPlanes(scene);
-		// scene.materials.default.unbindAll();
-		// scene.materials.default.bind(Mesh.fromCSG(this.device, csg));
-
-		const thisPlane = new Plane(new Vec3(0, 0, 1), 0);
-		const vertices: Vertex[] = [];
-		edges.forEach(edge => {
-			const intersection = thisPlane.intersectEdge(edge);
-			if (intersection instanceof Vec3) vertices.push(new Vertex(intersection));
-		});
-		scene.materials.line.unbindAll();
-		scene.materials.line.bind(new LineMesh(this.device, edges));
-		if (vertices.length >= 3) {
-			sortCounterClockwise(vertices);
-			return new Polygon(vertices);
-		}
-		return undefined;
-
-		// const line = new Line(this.device, [edge]);
-		// scene.materials.line.bind(line);
-		// const vertices = [
-		// 	new Vec2(range.min.x, range.min.y),
-		// 	new Vec2(range.min.x, range.max.y),
-		// 	new Vec2(range.max.x, range.max.y),
-		// 	new Vec2(range.max.x, range.min.y),
-		// ]
-		// 	.map(v => new Vec4(v.x, v.y, 0, 1))
-		// 	.map(v => v.transform(this.model.value).xyz());
-		// const edges = vertices.map((v1, i) => {
-		// 	const v2 = vertices[(i + 1) % vertices.length];
-		// 	return new Edge(v1, v2);
-		// });
-
-		// let edge: Edge | undefined = edges[0];
-		// planes.forEach(p => { if (edge) edge = p.clip(edge); });
-		// scene.materials.line.unbindAll();
-		// if (edge) {
-		// 	const line = new Line(this.device, [edge]);
-		// 	scene.materials.line.bind(line);
-		// }
-		// .map(v => {
-		// 		let v2: Edge | undefined = v;
-		// 		planes.forEach(p => { if (v2) v2 = p.clip(v); });
-		// 		return v2;
-		// 	})
-		// 	.filter(Boolean);
-	}
-
-	updateLines(scene: Scene) {
-		const range = this.range.value;
-		const lodIndex = getLodIndex(this.eye.value.z);
-		const period = lodKeys[Math.max(0, lodIndex - 1)];
-
-		batch(() => {
-			this.verticalLines.value = this.getVerticalLines(period);
-			this.horizontalLines.value = this.getHorizontalLines();
-
-			this.device.queue.writeBuffer(this.resources.verticalLines.buffer, 0, new Float32Array(
-				this.verticalLines.value.map(x => this.eyeX(x))
-			));
-			this.device.queue.writeBuffer(this.resources.horizontalLines.buffer, 0, new Float32Array(
-				this.horizontalLines.value.map(y => this.eyeY(y))
-			));
-			scene.flags.rerender = true;
-		});
-
-		// Trace from topLeft to topRight
-		const verticalLabels = this.verticalLines.value
-			.concat(clamp(this.hoverX.value, range.min.x, range.max.x))
-			.map((l, i) => {
-				const isHover = i === this.verticalLines.value.length;
-				return {
-					text: toLabel(isHover ? lodKeys[lodIndex] : period, l),
-					pos: scene.sceneToClip(new Vec3(l, range.min.y, 0), this.model.value),
-					isHover,
-				};
-			});
-		const horizontalLabels = this.horizontalLines.value
-			.concat(clamp(this.hoverY.value, range.min.y, range.max.y))
-			.map((l, i) => {
-				const isHover = i === this.horizontalLines.value.length;
-				return {
-					text: '$' + l.toFixed(2),
-					pos: scene.sceneToClip(new Vec3(range.min.x, l, 0), this.model.value),
-					isHover,
-				};
-			});
-
-		this.labels.setLabels(
-			horizontalLabels.concat(verticalLabels).filter(l => l.pos.w > 0)
-		);
-	}
-
-	getGeometry() {
-		const eye = this.eye.value;
-		const scale = this.scale.value;
-		const range = this.range.value;
-
-		const camPos = new Vec4(eye).transform(this.modelInv.value);
-		const cameraZ = camPos.z;
-		const lod0 = cameraZ;
-		const lod1 = cameraZ * 16;
-
-		const points = [
-			new Vec3(camPos.x - lod0, camPos.y + lod0 / scale.y, 0),
-			new Vec3(camPos.x + lod0, camPos.y + lod0 / scale.y, 0),
-			new Vec3(camPos.x + lod0, camPos.y - lod0 / scale.y, 0),
-			new Vec3(camPos.x - lod0, camPos.y - lod0 / scale.y, 0),
-
-			new Vec3(camPos.x - lod1, camPos.y + lod1 / scale.y, 0),
-			new Vec3(camPos.x + lod1, camPos.y + lod1 / scale.y, 0),
-			new Vec3(camPos.x + lod1, camPos.y - lod1 / scale.y, 0),
-			new Vec3(camPos.x - lod1, camPos.y - lod1 / scale.y, 0),
+			Plane.fromPoints(v[2].near, v[2].far , v[3].far ),
 		];
-
-		return points
-			.map(p => p.clamp(range.min, range.max))
-			.concat([
-				new Vec3(range.min.x, range.max.y, 0),
-				new Vec3(range.max.x, range.max.y, 0),
-				new Vec3(range.max.x, range.min.y, 0),
-				new Vec3(range.min.x, range.min.y, 0),
-			])
-			.reduce((acc, cur) => acc.concat([...cur]), [] as number[]);
 	}
 
 	getVerticalLines(period: Period): number[] {
@@ -401,6 +288,117 @@ export class Axes extends Mesh {
 		return res;
 	}
 
+	rangeWorldPolygon(): Polygon {
+		const range = this.range.value;
+		const verts = [
+			new Vec2(range.min.x, range.min.y),
+			new Vec2(range.max.x, range.min.y),
+			new Vec2(range.max.x, range.max.y),
+			new Vec2(range.min.x, range.max.y),
+		];
+		return new Polygon(verts
+			.map(v => new Vec4(v.x, v.y, 0, 1))
+			.map(v => v.transform(this.model.value).xyz())
+			.map(v => new Vertex(v))
+		);
+	}
+
+	viewWorldPolygon(scene: Scene): Polygon | undefined {
+		return this.rangeWorldPolygon().clip(this.viewPlanes(scene));
+	}
+
+	updateLines(scene: Scene) {
+		const lodIndex = getLodIndex(this.eye.value.z);
+		const period = lodKeys[Math.max(0, lodIndex - 1)];
+
+		const poly = this.viewWorldPolygon(scene);
+		let range = this.range.value;
+		if (poly) {
+			const polyRange = poly.range();
+			range = {
+				min: new Vec4(polyRange.min, 1).transform(this.modelInv.value).xyz(),
+				max: new Vec4(polyRange.max, 1).transform(this.modelInv.value).xyz(),
+			};
+		}
+
+		batch(() => {
+			this.verticalLines.value = this.getVerticalLines(period);
+			this.horizontalLines.value = this.getHorizontalLines();
+
+			this.device.queue.writeBuffer(this.resources.verticalLines.buffer, 0, new Float32Array(
+				this.verticalLines.value.map(x => this.modelEyeX(x))
+			));
+			this.device.queue.writeBuffer(this.resources.horizontalLines.buffer, 0, new Float32Array(
+				this.horizontalLines.value.map(y => this.modelEyeY(y))
+			));
+			scene.flags.rerender = true;
+		});
+
+		// Trace from topLeft to topRight
+		const verticalLabels = this.verticalLines.value
+			.concat(clamp(this.hoverX.value, range.min.x, range.max.x))
+			.map((l, i) => {
+				const isHover = i === this.verticalLines.value.length;
+				const pos = scene.sceneToClip(new Vec3(l, range.min.y, 0), this.model.value);
+				if (pos.y < -1) pos.y = -1;
+				return {
+					text: toLabel(isHover ? lodKeys[lodIndex] : period, l),
+					pos,
+					isHover,
+					textAlign: 'center',
+				};
+			});
+		const horizontalLabels = this.horizontalLines.value
+			.concat(clamp(this.hoverY.value, range.min.y, range.max.y))
+			.map((l, i) => {
+				const isHover = i === this.horizontalLines.value.length;
+				const pos = scene.sceneToClip(new Vec3(range.min.x, l, 0), this.model.value);
+				if (pos.x < -1) pos.x = -1;
+				return {
+					text: '$' + l.toFixed(2),
+					pos,
+					isHover,
+				};
+			});
+
+		this.labels.setLabels(
+			horizontalLabels.concat(verticalLabels).filter(l => l.pos.w > 0)
+		);
+	}
+
+	getGeometry() {
+		const eye = this.eye.value;
+		const scale = this.scale.value;
+		const range = this.range.value;
+
+		const camPos = new Vec4(eye).transform(this.modelInv.value);
+		const cameraZ = camPos.z;
+		const lod0 = cameraZ;
+		const lod1 = cameraZ * 16;
+
+		const points = [
+			new Vec3(camPos.x - lod0, camPos.y + lod0 / scale.y, 0),
+			new Vec3(camPos.x + lod0, camPos.y + lod0 / scale.y, 0),
+			new Vec3(camPos.x + lod0, camPos.y - lod0 / scale.y, 0),
+			new Vec3(camPos.x - lod0, camPos.y - lod0 / scale.y, 0),
+
+			new Vec3(camPos.x - lod1, camPos.y + lod1 / scale.y, 0),
+			new Vec3(camPos.x + lod1, camPos.y + lod1 / scale.y, 0),
+			new Vec3(camPos.x + lod1, camPos.y - lod1 / scale.y, 0),
+			new Vec3(camPos.x - lod1, camPos.y - lod1 / scale.y, 0),
+		];
+
+		return points
+			.map(p => p.clamp(range.min, range.max))
+			.concat([
+				new Vec3(range.min.x, range.max.y, 0),
+				new Vec3(range.max.x, range.max.y, 0),
+				new Vec3(range.max.x, range.min.y, 0),
+				new Vec3(range.min.x, range.min.y, 0),
+			])
+			.reduce((acc, cur) => acc.concat([...cur]), [] as number[]);
+	}
+
 	viewToWorld(scene: Scene, x: number, y: number): Vec3 | undefined {
 		const ray = scene.rayCast(x, y);
 		// z + bt = 0
@@ -435,7 +433,6 @@ export class Axes extends Mesh {
 
 			this.model.value = this.model.value.mul(transform);
 		}
-
 		if (input.buttons.mouse1) {
 			const poly = this.viewWorldPolygon(scene);
 			scene.materials.noCull.unbindAll();

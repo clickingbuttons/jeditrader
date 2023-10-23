@@ -1,5 +1,6 @@
 import { signal, effect } from '@preact/signals-core';
 import { Scene } from './scenes/scene.js';
+import { clamp } from '@jeditrader/linalg';
 
 export interface Label {
 	text: string;
@@ -8,6 +9,7 @@ export interface Label {
 		y: number;
 	};
 	isHover: boolean;
+	textAlign?: CanvasTextAlign;
 }
 
 interface Rectangle {
@@ -57,7 +59,6 @@ export class Labels {
 		const padding = this.settings.paddingPx.value;
 		ctx.font = this.settings.font.value;
 		ctx.textBaseline = 'middle';
-		ctx.textAlign = 'center';
 		// Stoke for text shadow
 		ctx.strokeStyle = 'black';
 		ctx.lineWidth = 2;
@@ -69,11 +70,22 @@ export class Labels {
 			bottom: 0,
 		};
 		this.labels.forEach(l => {
-			const x = (1 + l.pos.x) / 2 * ctx.canvas.width;
-			const y = (1 - l.pos.y) / 2 * ctx.canvas.height;
 			const measure = ctx.measureText(l.text);
 			const width = measure.width;
 			const height = measure.actualBoundingBoxAscent + measure.actualBoundingBoxDescent;
+
+			// clamp to view
+			const x = clamp(
+				(1 + l.pos.x) / 2 * ctx.canvas.width,
+				padding,
+				ctx.canvas.width - width - padding
+			);
+			const y = clamp(
+				(1 - l.pos.y) / 2 * ctx.canvas.height,
+				padding,
+				ctx.canvas.height - height - padding
+			);
+
 			const rect: Rectangle = {
 				left: x - width / 2 - padding,
 				right: x + width / 2 + padding,
@@ -95,6 +107,7 @@ export class Labels {
 					rect.bottom - rect.top
 				);
 			}
+			ctx.textAlign = l.textAlign ?? 'left';
 			ctx.strokeText(l.text, x, y);
 			ctx.fillStyle = 'white';
 			ctx.fillText(l.text, x, y);
