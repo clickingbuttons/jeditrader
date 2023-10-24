@@ -8,7 +8,7 @@ export interface Label {
 		x: number;
 		y: number;
 	};
-	isHover: boolean;
+	isHover?: boolean;
 	textAlign?: CanvasTextAlign;
 }
 
@@ -73,6 +73,7 @@ export class Labels {
 			const measure = ctx.measureText(l.text);
 			const width = measure.width;
 			const height = measure.actualBoundingBoxAscent + measure.actualBoundingBoxDescent;
+			const align = l.textAlign ?? 'left';
 
 			// clamp to view
 			const x = clamp(
@@ -87,8 +88,8 @@ export class Labels {
 			);
 
 			const rect: Rectangle = {
-				left: x - width / 2 - padding,
-				right: x + width / 2 + padding,
+				left: align == 'center' ? x - width / 2 - padding : x - padding,
+				right: align == 'center' ? x + width / 2 + padding : x + width + padding,
 				top: y - height / 2 - padding,
 				bottom: y + height / 2 + padding,
 			};
@@ -107,7 +108,7 @@ export class Labels {
 					rect.bottom - rect.top
 				);
 			}
-			ctx.textAlign = l.textAlign ?? 'left';
+			ctx.textAlign = align;
 			ctx.strokeText(l.text, x, y);
 			ctx.fillStyle = 'white';
 			ctx.fillText(l.text, x, y);

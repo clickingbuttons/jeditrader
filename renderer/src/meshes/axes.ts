@@ -2,7 +2,7 @@ import { Mesh } from './mesh.js';
 import { Vec2, Vec3, Vec4, Mat4, clamp } from '@jeditrader/linalg';
 import { createBuffer } from '../util.js';
 import { getNext, Period } from '@jeditrader/providers';
-import { Labels } from '../labels.js';
+import { Labels, Label } from '../labels.js';
 import { toymd } from '../helpers.js';
 import { signal, effect, computed, batch, Signal } from '@preact/signals-core';
 import { lodKeys, getLodIndex } from '../lod.js';
@@ -334,11 +334,12 @@ export class Axes extends Mesh {
 			scene.flags.rerender = true;
 		});
 
-		// Trace from topLeft to topRight
 		const verticalLabels = this.verticalLines.value
+			.filter(x => x > range.min.x && x < range.max.x)
+			.reverse()
 			.concat(clamp(this.hoverX.value, range.min.x, range.max.x))
-			.map((l, i) => {
-				const isHover = i === this.verticalLines.value.length;
+			.map((l, i, arr) => {
+				const isHover = i === arr.length - 1;
 				const pos = scene.sceneToClip(new Vec3(l, range.min.y, 0), this.model.value);
 				if (pos.y < -1) pos.y = -1;
 				return {
@@ -346,24 +347,22 @@ export class Axes extends Mesh {
 					pos,
 					isHover,
 					textAlign: 'center',
-				};
+				} as Label;
 			});
 		const horizontalLabels = this.horizontalLines.value
+			.filter(y => y > range.min.y && y < range.max.y)
 			.concat(clamp(this.hoverY.value, range.min.y, range.max.y))
-			.map((l, i) => {
-				const isHover = i === this.horizontalLines.value.length;
+			.map((l, i, arr) => {
 				const pos = scene.sceneToClip(new Vec3(range.min.x, l, 0), this.model.value);
 				if (pos.x < -1) pos.x = -1;
 				return {
 					text: '$' + l.toFixed(2),
 					pos,
-					isHover,
-				};
+					isHover: i === arr.length - 1,
+				} as Label;
 			});
 
-		this.labels.setLabels(
-			horizontalLabels.concat(verticalLabels).filter(l => l.pos.w > 0)
-		);
+		this.labels.setLabels(verticalLabels.concat(horizontalLabels));
 	}
 
 	getGeometry() {
