@@ -43,7 +43,7 @@ export class Color extends Uint8Array {
 			const colorDiv = getOrCreateColorDiv();
 			colorDiv.style.color = input;
 			const m = getComputedStyle(colorDiv).color.match(colorRegex);
-			if (m) return new Color(+m[1] * 255, +m[2] * 255, +m[3] * 255);
+			if (m) return new Color(+m[1], +m[2], +m[3]);
 		}
 
 		return new Color(0, 0, 0);
@@ -71,5 +71,9 @@ export class Color extends Uint8Array {
 
 	lerp(v: Color, t: number): Color {
 		return Color.fromArray(this.map((val, i) => val + t * (v[i] - val)));
+	}
+
+	pack(): number {
+		return (this.a << 24) + (this.b << 16) + (this.g << 8) + this.r;
 	}
 }

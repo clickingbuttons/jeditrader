@@ -19,6 +19,7 @@ function htmlConfig() {
 		<meta charset="utf-8">
 		<title>JediTrader Chart</title>
 		<link rel="stylesheet" type="text/css" href="minireset.css" />
+		<link rel="icon" type="image/svg+xml" href="favicon.svg" />
 		${stylesheets.map(f => `<link rel="stylesheet" href="${f}"></script>`).join('\n')}
 	</head>
 	<body class="dark">

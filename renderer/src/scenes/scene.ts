@@ -7,7 +7,7 @@ import { Renderer, RendererFlags } from '../renderer.js';
 import { BasicMaterial, PhongMaterial, NormalsMaterial, LineMaterial } from '../materials/index.js';
 import { basicVert } from '@jeditrader/shaders';
 import { Mesh } from '../meshes/index.js';
-import { Sphere, Color, Range } from '@jeditrader/geometry';
+import { Sphere, Color, Range, Plane, Vertex } from '@jeditrader/geometry';
 
 const maxLights = 100;
 type Light = {
@@ -240,5 +240,69 @@ export class Scene {
 			this.camera.eye.value = eye.xyz();
 			this.camera.dir.value = center.sub(eye).xyz().normalize();
 		});
+	}
+
+	viewPlanes(): Plane[] {
+		const viewBounds = [
+			// [0, 0] is center
+			[-1, -1], // bottom left
+			[-1, 1], // top left
+			[1, 1], // top right
+			[1, -1] // bottom right
+		];
+		const rays = viewBounds.map(b => this.rayCastNDC(b[0], b[1]));
+		const v = rays.map(r => ({
+			near: new Vertex(r.point),
+			far: new Vertex(r.point.add(r.dir)),
+		}));
+		// Useful for visual debugging
+		// const csg = new CSG([
+		// 	// near
+		// 	new Polygon([v[0].near, v[1].near, v[2].near, v[3].near], new Color(255, 0, 0)),
+		// 	// far
+		// 	new Polygon([v[3].far , v[2].far , v[1].far , v[0].far ], new Color(255, 255, 0)),
+		// 	// top
+		// 	new Polygon([v[1].far , v[2].far , v[2].near, v[1].near], new Color(0, 255, 0)),
+		// 	// bottom
+		// 	new Polygon([v[0].near, v[3].near, v[3].far , v[0].far ], new Color(0, 255, 255)),
+		// 	// left
+		// 	new Polygon([v[1].far , v[1].near, v[0].near, v[0].far ], new Color(0, 0, 255)),
+		// 	// right
+		// 	new Polygon([v[2].near, v[2].far , v[3].far , v[3].near], new Color(255, 0, 255)),
+		// ]);
+		// Make normals easier to see
+		// csg.polygons.forEach(p => p.vertices.forEach(v => v.normal = p.plane.normal.mulScalar(1e12)));
+		// const edges = [
+		// 	// TODO: proper edge dedup in Polygon. problem: { a, b } != { b, a }. custom comparison
+		// 	// will be O(n^2), sorting not working
+		// 	new Edge(v[0].near, v[1].near),
+		// 	new Edge(v[1].near, v[2].near),
+		// 	new Edge(v[2].near, v[3].near),
+		// 	new Edge(v[3].near, v[0].near),
+
+		// 	new Edge(v[0].far, v[1].far),
+		// 	new Edge(v[1].far, v[2].far),
+		// 	new Edge(v[2].far, v[3].far),
+		// 	new Edge(v[3].far, v[0].far),
+
+		// 	new Edge(v[0].near, v[0].far),
+		// 	new Edge(v[1].near, v[1].far),
+		// 	new Edge(v[2].near, v[2].far),
+		// 	new Edge(v[3].near, v[3].far),
+		// ];
+		return [
+			// near
+			Plane.fromPoints(v[0].near, v[1].near, v[2].near),
+			// far
+			Plane.fromPoints(v[3].far , v[2].far , v[1].far ),
+			// top
+			Plane.fromPoints(v[1].far , v[2].far , v[2].near),
+			// bottom
+			Plane.fromPoints(v[0].near, v[3].near, v[3].far ),
+			// left
+			Plane.fromPoints(v[1].far , v[1].near, v[0].near),
+			// right
+			Plane.fromPoints(v[2].near, v[2].far , v[3].far ),
+		];
 	}
 }

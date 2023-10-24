@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg width="89.336mm" height="60.42mm" version="1.1" viewBox="0 0 11.167 7.5525" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+ <defs>
+  <radialGradient id="radialGradient38" cx="32.491" cy="10.852" r="5.5732" gradientTransform="matrix(1.2712 0 0 .16069 -8.6944 9.5173)" gradientUnits="userSpaceOnUse">
+   <stop stop-color="#bf1d1e" offset=".55189"/>
+   <stop stop-color="#bf1d1e" stop-opacity="0" offset="1"/>
+  </radialGradient>
+  <clipPath id="clipPath38">
+   <rect x="26.921" y="7.9618" width="11.16" height="7.5407" fill="#bf1d1e" stroke-width=".265"/>
+  </clipPath>
+ </defs>
+ <g transform="translate(-26.915 -7.9437)">
+  <path d="m27.524 7.9437v0.79013h3.1042v2.2335h0.93689v-3.0236zm4.6912 0.011369v0.79013h2.4386v2.2221h0.94826v-2.2221h2.4386v-0.79013zm-1.587 3.7631v1.1927c0 1.2192-0.47415 1.7611-1.5353 1.7611-0.57573 0-1.1739-0.31581-1.5916-0.98185l-0.58704 0.57568c0.508 0.84667 1.3773 1.2304 2.2014 1.2304 1.8401 0 2.4495-1.1291 2.4495-2.5063v-1.2718zm4.0256 0v3.6427h0.94826v-3.6427z" stroke-width=".265"/>
+  <path d="m26.893 10.366v1.7911h11.31v-1.7911z" clip-path="url(#clipPath38)" fill="url(#radialGradient38)" stroke-width=".58842"/>
+ </g>
+</svg>

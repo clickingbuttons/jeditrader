@@ -9,6 +9,7 @@ const defaultButtons = {
 	alt: false,
 
 	camTilt: false,
+	select: false,
 };
 
 function keyMap(key: string): keyof Input['buttons'] | undefined {
@@ -17,6 +18,7 @@ function keyMap(key: string): keyof Input['buttons'] | undefined {
 	if (['s', 'S', 'ArrowDown'].includes(key)) return 'down';
 	if (['d', 'D', 'ArrowRight'].includes(key)) return 'right';
 	if (key == ' ') return 'space';
+	if (key == 'mouse0') return 'select';
 	if (key == 'mouse2') return 'camTilt';
 }
 

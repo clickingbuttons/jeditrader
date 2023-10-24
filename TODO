@@ -1,21 +1,20 @@
+- WGSL STRUCT GEN
 - box select
+	- [x] axes
+	- [ ] candlestick frag
 
-- capture cursor when dragging https://developer.mozilla.org/en-US/docs/Web/API/Pointer_Lock_API
 - better orbit controls
 	- choose camera
-- demo data provider
-	- ticker select
-- free data provider
-	- choose LODs
+- ticker select
 
-- volume surface
-
-- favicon
 - scatter plot
 - line plot
-- JS plot API
+- volume surface
+
 - HTTP+ws API
 - scripting language support
+
+- demo data provider (brownian)
 
 data
 - remove test tickers (how'd they get in there?!)

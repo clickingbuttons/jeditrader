@@ -7,8 +7,12 @@ import { toymd } from '../helpers.js';
 import { signal, effect, computed, batch, Signal } from '@preact/signals-core';
 import { lodKeys, getLodIndex } from '../lod.js';
 import { Scene } from '../scenes/scene.js';
-import { Plane, Vertex, Polygon, Range, CSG } from '@jeditrader/geometry';
+import { Vertex, Polygon, Range, Color } from '@jeditrader/geometry';
 import { AxesResources } from '../materials/axes.js';
+import {
+  makeShaderDataDefinitions,
+  makeStructuredView,
+} from 'webgpu-utils';
 
 // Unfortunately this is needed to prevent jitter when the camera is at z < 1000
 //  8┌─────────┐9
@@ -72,19 +76,43 @@ function toLabel(period: Period, ms: number): string {
 	}
 }
 
+const code = `
+struct Axes {
+	backgroundColor: u32,
+	lineColor: u32,
+	hoverColor: u32,
+	selectColor: u32,
+	hover: vec2f,
+	selectStart: vec2f,
+	lineThickness: f32,
+	horizontalLinesLen: u32,
+	verticalLinesLen: u32,
+	selecting: u32,
+}
+`;
+const defs = makeShaderDataDefinitions(code);
+const myUniformValues = makeStructuredView(defs.structs.Axes);
+console.log(defs, myUniformValues)
+
 export class Axes extends Mesh {
 	declare resources: AxesResources;
 
 	uniformData() {
-		return new Float32Array([
-			...this.settings.backgroundColor.value,
-			...this.settings.lineColor.value,
-			...this.settings.hoverColor.value,
-			this.modelEyeX(this.hoverX.value), this.modelEyeY(this.hoverY.value),
-			this.settings.lineThickness.value,
-			this.horizontalLines.value.length,
-			this.verticalLines.value.length,
-		]);
+		myUniformValues.set({
+			backgroundColor: this.settings.backgroundColor.value.pack(),
+			lineColor: this.settings.lineColor.value.pack(),
+			hoverColor: this.settings.hoverColor.value.pack(),
+			selectColor: this.settings.selectColor.value.pack(),
+			hover: [this.modelEyeX(this.hoverX.value), this.modelEyeY(this.hoverY.value)],
+			selectStart: [
+				this.modelEyeX(this.selectStart.value?.x ?? 0),
+				this.modelEyeY(this.selectStart.value?.y ?? 0),
+			],
+			lineThickness: this.settings.lineThickness.value,
+			horizontalLinesLen: this.horizontalLines.value.length,
+			verticalLinesLen: this.verticalLines.value.length,
+			selecting: +Boolean(this.selectStart.value),
+		});
 	}
 
 	eye: Signal<Vec3>;
@@ -107,6 +135,8 @@ export class Axes extends Mesh {
 	model = signal(Mat4.scale(this.scale.value));
 	modelInv = computed(() => this.model.value.inverse());
 
+	selectStart: Signal<null | Vec3> = signal(null);
+
 	constructor(scene: Scene) {
 		const { device } = scene;
 
@@ -119,19 +149,19 @@ export class Axes extends Mesh {
 		this.labels = new Labels(scene);
 
 		this.settings = {
-			backgroundColor: signal([.3, .3, .3, 1]),
-			lineColor: signal([0, 0, 0, 1]),
-			hoverColor: signal([1, .6, .6, 1]),
+			backgroundColor: signal(new Color(77, 77, 77)),
+			lineColor: signal(new Color(0, 0, 0)),
+			hoverColor: signal(new Color(255, 133, 133)),
+			selectColor: signal(new Color(146, 197, 237)),
 			lineThickness: signal(2),
 			labels: this.labels.settings,
 		};
 
 		this.resources.axes = {
-			buffer: createBuffer({
-				device,
+			buffer: device.createBuffer({
+				size: myUniformValues.arrayBuffer.byteLength,
 				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-				data: this.uniformData(),
-			})
+			}),
 		};
 		this.resources.horizontalLines = {
 			buffer: createBuffer({
@@ -171,72 +201,9 @@ export class Axes extends Mesh {
 	}
 
 	updateUniform(scene: Scene) {
-		this.device.queue.writeBuffer(this.resources.axes.buffer, 0, this.uniformData());
+		this.uniformData();
+		this.device.queue.writeBuffer(this.resources.axes.buffer, 0, myUniformValues.arrayBuffer);
 		scene.flags.rerender = true;
-	}
-
-	viewPlanes(scene: Scene): Plane[] {
-		const viewBounds = [
-			// [0, 0] is center
-			[-1, -1], // bottom left
-			[-1, 1], // top left
-			[1, 1], // top right
-			[1, -1] // bottom right
-		];
-		const rays = viewBounds.map(b => scene.rayCastNDC(b[0], b[1]));
-		const v = rays.map(r => ({
-			near: new Vertex(r.point),
-			far: new Vertex(r.point.add(r.dir)),
-		}));
-		// Useful for visual debugging
-		// const csg = new CSG([
-		// 	// near
-		// 	new Polygon([v[0].near, v[1].near, v[2].near, v[3].near], new Color(255, 0, 0)),
-		// 	// far
-		// 	new Polygon([v[3].far , v[2].far , v[1].far , v[0].far ], new Color(255, 255, 0)),
-		// 	// top
-		// 	new Polygon([v[1].far , v[2].far , v[2].near, v[1].near], new Color(0, 255, 0)),
-		// 	// bottom
-		// 	new Polygon([v[0].near, v[3].near, v[3].far , v[0].far ], new Color(0, 255, 255)),
-		// 	// left
-		// 	new Polygon([v[1].far , v[1].near, v[0].near, v[0].far ], new Color(0, 0, 255)),
-		// 	// right
-		// 	new Polygon([v[2].near, v[2].far , v[3].far , v[3].near], new Color(255, 0, 255)),
-		// ]);
-		// Make normals easier to see
-		// csg.polygons.forEach(p => p.vertices.forEach(v => v.normal = p.plane.normal.mulScalar(1e12)));
-		// const edges = [
-		// 	// TODO: proper edge dedup in Polygon. problem: { a, b } != { b, a }. custom comparison
-		// 	// will be O(n^2), sorting not working
-		// 	new Edge(v[0].near, v[1].near),
-		// 	new Edge(v[1].near, v[2].near),
-		// 	new Edge(v[2].near, v[3].near),
-		// 	new Edge(v[3].near, v[0].near),
-
-		// 	new Edge(v[0].far, v[1].far),
-		// 	new Edge(v[1].far, v[2].far),
-		// 	new Edge(v[2].far, v[3].far),
-		// 	new Edge(v[3].far, v[0].far),
-
-		// 	new Edge(v[0].near, v[0].far),
-		// 	new Edge(v[1].near, v[1].far),
-		// 	new Edge(v[2].near, v[2].far),
-		// 	new Edge(v[3].near, v[3].far),
-		// ];
-		return [
-			// near
-			Plane.fromPoints(v[0].near, v[1].near, v[2].near),
-			// far
-			Plane.fromPoints(v[3].far , v[2].far , v[1].far ),
-			// top
-			Plane.fromPoints(v[1].far , v[2].far , v[2].near),
-			// bottom
-			Plane.fromPoints(v[0].near, v[3].near, v[3].far ),
-			// left
-			Plane.fromPoints(v[1].far , v[1].near, v[0].near),
-			// right
-			Plane.fromPoints(v[2].near, v[2].far , v[3].far ),
-		];
 	}
 
 	getVerticalLines(period: Period): number[] {
@@ -304,7 +271,7 @@ export class Axes extends Mesh {
 	}
 
 	viewWorldPolygon(scene: Scene): Polygon | undefined {
-		return this.rangeWorldPolygon().clip(this.viewPlanes(scene));
+		return this.rangeWorldPolygon().clip(scene.viewPlanes());
 	}
 
 	updateLines(scene: Scene) {
@@ -431,6 +398,13 @@ export class Axes extends Mesh {
 				.translate(origin.mulScalar(-1));
 
 			this.model.value = this.model.value.mul(transform);
+		}
+		if (input.buttons.select && !this.selectStart.value) {
+			console.log('selectStart', hoverAxesPos);
+			this.selectStart.value = hoverAxesPos;
+		} else if (!input.buttons.select && this.selectStart.value) {
+			console.log('selectEnd', hoverAxesPos);
+			this.selectStart.value = null;
 		}
 	}
 
