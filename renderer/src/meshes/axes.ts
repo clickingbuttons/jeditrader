@@ -433,14 +433,6 @@ export class Axes extends Mesh {
 
 			this.model.value = this.model.value.mul(transform);
 		}
-		if (input.buttons.mouse1) {
-			const poly = this.viewWorldPolygon(scene);
-			scene.materials.noCull.unbindAll();
-			if (poly) {
-				const mesh = Mesh.fromCSG(this.device, new CSG([poly]));
-				scene.materials.noCull.bind(mesh);
-			}
-		}
 	}
 
 	render() {

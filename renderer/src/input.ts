@@ -8,9 +8,7 @@ const defaultButtons = {
 	ctrl: false,
 	alt: false,
 
-	mouse0: false,
-	mouse1: false,
-	mouse2: false,
+	camTilt: false,
 };
 
 function keyMap(key: string): keyof Input['buttons'] | undefined {
@@ -18,8 +16,8 @@ function keyMap(key: string): keyof Input['buttons'] | undefined {
 	if (['a', 'A', 'ArrowLeft'].includes(key)) return 'left';
 	if (['s', 'S', 'ArrowDown'].includes(key)) return 'down';
 	if (['d', 'D', 'ArrowRight'].includes(key)) return 'right';
-	if (key === ' ') return 'space';
-	return undefined;
+	if (key == ' ') return 'space';
+	if (key == 'mouse2') return 'camTilt';
 }
 
 export class Input {
@@ -80,12 +78,16 @@ export class Input {
 	mousedown(ev: MouseEvent) {
 		this.canvas.focus();
 		ev.preventDefault();
-		this.buttons[`mouse${ev.button as 0 | 1 | 2}`] = true;
+		const key = keyMap(`mouse${ev.button}`);
+		if (key) this.buttons[key] = true;
+		if (key == 'camTilt' && !document.pointerLockElement) this.canvas.requestPointerLock();
 	}
 
 	mouseup(ev: MouseEvent) {
 		ev.preventDefault();
-		this.buttons[`mouse${ev.button as 0 | 1 | 2}`] = false;
+		const key = keyMap(`mouse${ev.button}`);
+		if (key) this.buttons[key] = false;
+		if (key == 'camTilt' && document.pointerLockElement) document.exitPointerLock();
 	}
 
 	mouseleave() { this.buttons = { ...defaultButtons }; }

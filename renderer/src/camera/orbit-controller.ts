@@ -29,7 +29,7 @@ export class OrbitController implements Controller {
 
 	update(dt: DOMHighResTimeStamp, input: Input): void {
 		let dirChange = false;
-		if (input.buttons.mouse2) {
+		if (input.buttons.camTilt) {
 			this.phi.value -= input.movementX / 1e3;
 			const epsilon = 0.3;
 			this.theta.value = clamp(
