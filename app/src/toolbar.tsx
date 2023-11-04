@@ -56,7 +56,7 @@ export function Toolbar({
 
 			{renderer &&
 				<span class="toolbar-fps">
-					{renderer.dUpdate.value}ms / {renderer.dRender.value}ms
+					{renderer.dUpdate.value.toFixed(2)}ms / {renderer.dRender.value.toFixed(2)}ms
 				</span>
 			}
 			<div class="toolbar-buttons" >
