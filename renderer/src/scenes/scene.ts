@@ -5,7 +5,7 @@ import { createBuffer } from '../util.js';
 import { effect, Signal, computed, signal, batch } from '@preact/signals-core';
 import { Renderer, RendererFlags } from '../renderer.js';
 import { BasicMaterial, PhongMaterial, NormalsMaterial, LineMaterial } from '../materials/index.js';
-import { basicVert } from '@jeditrader/shaders';
+import { phongFrag } from '@jeditrader/shaders';
 import { Mesh } from '../meshes/index.js';
 import { Sphere, Color, Range, Plane, Vertex } from '@jeditrader/geometry';
 
@@ -67,7 +67,7 @@ export class Scene {
 			data: this.viewData(),
 		});
 		const lights = createBuffer({ device: this.device, data: new Uint8Array(lightSize * maxLights), });
-		const bindGroupLayout = basicVert.bindGroupLayouts['g_scene'];
+		const bindGroupLayout = phongFrag.bindGroupLayouts['g_scene'];
 		const layout = this.device.createBindGroupLayout({
 			entries: Object.values(bindGroupLayout)
 		});

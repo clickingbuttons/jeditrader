@@ -1,6 +1,6 @@
-use './scene.wgsl'::{ view, view32 };
-use './basic.vert.wgsl'::{ projected, VertexInput, position64, getNormal, getColor, model64 };
-use './fp64.wgsl'::{ vec4_64, vec4_sum64, mul64, vec4_div64, fp64 };
+// import { view, view32 } from './scene.wgsl';
+// import { projected, VertexInput, position64, getNormal, getColor, model64 } from './basic.vert.wgsl';
+// import { vec4_64, vec4_sum64, mul64, vec4_div64, fp64 } from './fp64.wgsl';
 
 struct LineVertexOutput {
 	@builtin(position) position: vec4f,

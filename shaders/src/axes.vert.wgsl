@@ -1,7 +1,7 @@
-use './fp64.wgsl'::{ toVec4 };
-use './basic.vert.wgsl'::{ projected, VertexInput, position64 };
+// import { toVec4 } from './fp64.wgsl';
+// import { projected, VertexInput, position64 } from './basic.vert.wgsl';
 
-@export struct VertexOutput {
+struct VertexOutput {
 	@builtin(position) position: vec4f,
 	@location(0) uv: vec2f,
 };

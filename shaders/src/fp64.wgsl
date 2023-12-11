@@ -1,7 +1,8 @@
 // Whitepaper: https://andrewthall.org/papers/dfp64_qf128.pdf
 // WGSL port of https://github.com/visgl/luma.gl/blob/291a2fdfb1cfdb15405032b3dcbfbe55133ead61/modules/shadertools/src/modules/math/fp64/fp64-arithmetic.glsl.ts
+// import { view } from './scene.wgsl';
 
-@export struct fp64 {
+struct fp64 {
 	high: f32,
 	low: f32,
 }
@@ -51,7 +52,7 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	return fp64(x, y);
 }
 
-@export fn sum64(a: fp64, b: fp64) -> fp64 {
+fn sum64(a: fp64, b: fp64) -> fp64 {
 	var s = twoSum(a.high, b.high);
 	var t = twoSum(a.low, b.low);
 	s.low += t.high;
@@ -61,7 +62,7 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	return s;
 }
 
-@export fn sub64(a: fp64, b: fp64) -> fp64 {
+fn sub64(a: fp64, b: fp64) -> fp64 {
 	var s = twoSub(a.high, b.high);
 	var t = twoSub(a.low, b.low);
 	s.low += t.high;
@@ -71,7 +72,7 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	return fp64(s.high, s.low);
 }
 
-@export fn mul64(a: fp64, b: fp64) -> fp64 {
+fn mul64(a: fp64, b: fp64) -> fp64 {
 	var p = twoProd(a.high, b.high);
 	p.low += a.high * b.low;
 	p.low += a.low * b.high;
@@ -79,7 +80,7 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	return p;
 }
 
-@export fn div64(a: fp64, b: fp64) -> fp64 {
+fn div64(a: fp64, b: fp64) -> fp64 {
 	let xn = 1.0 / b.high;
 	let yn = mul64(a, fp64(xn, xn));
 	let diff = (sub64(a, mul64(b, yn))).high;
@@ -87,7 +88,7 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	return sum64(yn, prod);
 }
 
-@export fn vec4_sum64(a: array<fp64, 4>, b: array<fp64, 4>) -> array<fp64, 4> {
+fn vec4_sum64(a: array<fp64, 4>, b: array<fp64, 4>) -> array<fp64, 4> {
 	return array<fp64, 4>(
 		sum64(a[0], b[0]),
 		sum64(a[1], b[1]),
@@ -96,7 +97,7 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	);
 }
 
-@export fn vec4_sub64(a: array<fp64, 4>, b: array<fp64, 4>) -> array<fp64, 4> {
+fn vec4_sub64(a: array<fp64, 4>, b: array<fp64, 4>) -> array<fp64, 4> {
 	return array<fp64, 4>(
 		sub64(a[0], b[0]),
 		sub64(a[1], b[1]),
@@ -105,7 +106,7 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	);
 }
 
-@export fn vec4_mul64(a: array<fp64, 4>, b: array<fp64, 4>) -> array<fp64, 4> {
+fn vec4_mul64(a: array<fp64, 4>, b: array<fp64, 4>) -> array<fp64, 4> {
 	return array<fp64, 4>(
 		mul64(a[0], b[0]),
 		mul64(a[1], b[1]),
@@ -114,7 +115,7 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	);
 }
 
-@export fn vec4_div64(a: array<fp64, 4>, b: array<fp64, 4>) -> array<fp64, 4> {
+fn vec4_div64(a: array<fp64, 4>, b: array<fp64, 4>) -> array<fp64, 4> {
 	return array<fp64, 4>(
 		div64(a[0], b[0]),
 		div64(a[1], b[1]),
@@ -123,7 +124,7 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	);
 }
 
-@export fn vec4_dot64(a: array<fp64, 4>, b: array<fp64, 4>) -> fp64 {
+fn vec4_dot64(a: array<fp64, 4>, b: array<fp64, 4>) -> fp64 {
 	var v = array<fp64, 4>();
 
 	v[0] = mul64(a[0], b[0]);
@@ -134,7 +135,7 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	return sum64(sum64(v[0], v[1]), sum64(v[2], v[3]));
 }
 
-@export fn mat4_vec4_mul64(b: array<fp64, 16>, a: array<fp64, 4>) -> array<fp64, 4> {
+fn mat4_vec4_mul64(b: array<fp64, 16>, a: array<fp64, 4>) -> array<fp64, 4> {
 	var res = array<fp64, 4>();
 	var tmp = array<fp64, 4>();
 
@@ -148,7 +149,7 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	return res;
 }
 
-@export fn toVec4(v: array<fp64, 4>) -> vec4f {
+fn toVec4(v: array<fp64, 4>) -> vec4f {
 	return vec4f(
 		v[0].high + v[0].low,
 		v[1].high + v[1].low,
@@ -157,7 +158,7 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	);
 }
 
-@export fn mat64(high: mat4x4f, low: mat4x4f) -> array<fp64, 16> {
+fn mat64(high: mat4x4f, low: mat4x4f) -> array<fp64, 16> {
 	return array<fp64, 16>(
 		fp64(high[0][0], low[0][0]),
 		fp64(high[0][1], low[0][1]),
@@ -181,7 +182,7 @@ fn twoProd(a: f32, b: f32) -> fp64 {
 	);
 }
 
-@export fn vec4_64(high: vec4f, low: vec4f) -> array<fp64, 4> {
+fn vec4_64(high: vec4f, low: vec4f) -> array<fp64, 4> {
 	return array<fp64, 4>(
 		fp64(high[0], low[0]),
 		fp64(high[1], low[1]),

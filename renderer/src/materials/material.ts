@@ -88,7 +88,7 @@ export class Material {
 				entryPoint: 'main',
 				buffers: Object.values(this.vertexLayouts),
 				constants: {
-					wireframe: +wireframe,
+					...(vertCode.includes('override wireframe') && { wireframe: +wireframe })
 				},
 			},
 			fragment: {
@@ -128,7 +128,7 @@ export class Material {
 	}
 
 	static throwMissingKey(key: string, binding: MaterialBinding) {
-		throw new Error(`expected resource "${key}" in resources when binding to material "${this.name}" (have keys ${Object.keys(binding.resources)})`);
+		throw new Error(`expected resource "${key}" when binding to material "${this.name}" (have ${Object.keys(binding.resources)})`);
 	}
 
 	bindResource(binding: MaterialBinding): Binding {

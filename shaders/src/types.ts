@@ -1,3 +1,4 @@
+import type { View } from './view.js';
 //{
 //	"g_view": {
 //		scene: GPUBindGroupLayoutEntry;
@@ -13,21 +14,30 @@
 // Group order is sensitive thanks to GPUPipelineLayoutDescriptor
 export type BindGroupLayouts = {
 	[groupName: string]: {
-		[bindingName: string]: GPUBindGroupLayoutEntry;
+		[bindingName: string]: GPUBindGroupLayoutEntry
+			// & {
+			// 	buffer: GPUBufferBindingLayout & {
+			// 		createBuffer(device: GPUDevice, size: number): GPUBuffer,
+			// 		createView(size: number): View,
+			// 	}
+			// };
+			//	createBuffer(device: GPUDevice, size: number = 32): GPUBuffer {
+			//		return device.createBuffer({
+			//			size,
+			//			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+			//		});
+			//	},
+			//	createView(size: number = 32): View {
+			//		return new View(size, {
+			//			backgroundColor: { offset: 0, type: 'u32' }
+			//		});
+			//	},
 	}
 };
 
 //{
-//	"g_view": {
-//		scene: GPUBindGroupLayoutEntry;
-//	},
-//	"mesh": {
-//		strides: GPUBindGroupLayoutEntry;
-//		positions: GPUBindGroupLayoutEntry;
-//		indices: GPUBindGroupLayoutEntry;
-//		models: GPUBindGroupLayoutEntry;
-//		colors: GPUBindGroupLayoutEntry;
-//	}
+//	pos: GPUVertexBufferLayout,
+//	color: GPUVertexBufferLayout,
 //}
 // Group order is sensitive thanks to GPUPipelineLayoutDescriptor
 export type VertexLayouts = {

@@ -113,6 +113,7 @@ export class Axes extends Mesh {
 			verticalLinesLen: this.verticalLines.value.length,
 			selecting: +Boolean(this.selectStart.value),
 		});
+		return myUniformValues.arrayBuffer;
 	}
 
 	eye: Signal<Vec3>;
@@ -201,8 +202,7 @@ export class Axes extends Mesh {
 	}
 
 	updateUniform(scene: Scene) {
-		this.uniformData();
-		this.device.queue.writeBuffer(this.resources.axes.buffer, 0, myUniformValues.arrayBuffer);
+		this.device.queue.writeBuffer(this.resources.axes.buffer, 0, this.uniformData());
 		scene.flags.rerender = true;
 	}
 

@@ -1,7 +1,8 @@
 import { Material, MaterialOptions, defaultOptions } from './material.js';
-import { axesVert, AxesVertResources, axesFrag, AxesFragResources } from '@jeditrader/shaders';
+import { BasicVertResources, axesVert, AxesVertResources, axesFrag, AxesFragResources } from '@jeditrader/shaders';
 
 export type AxesResources =
+	& BasicVertResources.Mesh
 	& AxesVertResources.Mesh
 	& AxesFragResources.Axes;
 

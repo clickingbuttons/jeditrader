@@ -1,0 +1,60 @@
+{
+	"g_scene": {
+		"view": {
+			"binding": "0",
+			"buffer": {
+				"type": "uniform"
+			}
+		}
+	},
+	"mesh": {
+		"positions": {
+			"binding": "2",
+			"buffer": {
+				"type": "read-only-storage"
+			}
+		},
+		"inModel": {
+			"binding": "3",
+			"buffer": {
+				"type": "read-only-storage"
+			}
+		},
+		"models": {
+			"binding": "4",
+			"buffer": {
+				"type": "read-only-storage"
+			}
+		},
+		"normals": {
+			"binding": "7",
+			"buffer": {
+				"type": "read-only-storage"
+			}
+		},
+		"indices": {
+			"binding": "1",
+			"buffer": {
+				"type": "read-only-storage"
+			}
+		},
+		"instanceColors": {
+			"binding": "6",
+			"buffer": {
+				"type": "read-only-storage"
+			}
+		},
+		"strides": {
+			"binding": "0",
+			"buffer": {
+				"type": "uniform"
+			}
+		},
+		"colors": {
+			"binding": "5",
+			"buffer": {
+				"type": "read-only-storage"
+			}
+		}
+	}
+}

@@ -14,8 +14,7 @@
 	"author": "clickingbuttons",
 	"license": "MIT",
 	"devDependencies": {
-		"@use-gpu/shader": "^0.10.1",
 		"chokidar": "^3.5.3",
-		"webgpu-utils": "^0.14.0"
+		"wgslink": "^0.1.0"
 	}
 }

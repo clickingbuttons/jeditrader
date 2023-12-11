@@ -2,11 +2,21 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { spawn } from 'node:child_process';
 
-const tsc = spawn('./node_modules/.bin/tsc', ['--build', '--watch']);
+const tsc = spawn('./node_modules/.bin/tsc', [
+	'--build',
+	'--watch',
+	'--preserveWatchOutput',
+	'--pretty',
+	'--assumeChangesOnlyAffectDirectDependencies',
+]);
 tsc.stdout.on('data', data => {
-	// Dumb terminal clear character that ruins output.
-	if (data[0] == 0x1b && data[1] == 0x63) return;
-	console.log(`[tsc] ${data.toString().trim()}`);
+	const str = data.toString().trim();
+	// We know, tsc...
+	if (
+		str.includes('Starting incremental compilation...') ||
+		str.includes('Starting compilation in watch mode...')
+	) return;
+	console.log(`[tsc] ${str}`);
 });
 tsc.stderr.on('data', data => console.error(`[tsc] ${data.toString().trim()}`));
 

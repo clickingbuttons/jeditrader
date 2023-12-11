@@ -20,7 +20,7 @@
 		"esbuild": "^0.18.15",
 		"esbuild-copy-static-files": "^0.1.0",
 		"esbuild-plugin-template": "^0.0.3",
-		"esbuild-scripts": "^0.0.5"
+		"esbuild-scripts": "^0.0.7"
 	},
 	"dependencies": {
 		"@jeditrader/linalg": "^0.0.1",

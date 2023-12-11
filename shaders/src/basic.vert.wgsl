@@ -1,5 +1,5 @@
-use './scene.wgsl'::{ view, view32, wireframe };
-use './fp64.wgsl'::{ fp64, mat4_vec4_mul64, vec4_sub64, vec4_64, toVec4 };
+// import { view, view32, wireframe } from './scene.wgsl';
+// import { fp64, mat4_vec4_mul64, vec4_sub64, vec4_64, toVec4 } from './fp64.wgsl';
 
 struct Strides {
 	instance: u32,
@@ -14,20 +14,18 @@ struct Strides {
 @group(mesh) @binding(6) var<storage> instanceColors: array<u32>;
 @group(mesh) @binding(7) var<storage> normals: array<f32>;
 
-@export struct VertexInput {
+struct VertexInput {
 	@builtin(vertex_index) vertex: u32,
 	@builtin(instance_index) instance: u32,
 }
-@export struct VertexOutput {
+struct VertexOutput {
 	@builtin(position) position: vec4f,
 	@location(0) color: vec4f,
 	@location(1) worldPos: vec4f,
 	@location(2) normal: vec3f,
 }
 
-@export fn model64(arg: VertexInput) -> array<fp64, 16> {
-	let NO_SHAKE = VertexInput();
-	let NO_SHAKE2 = VertexOutput();
+fn model64(arg: VertexInput) -> array<fp64, 16> {
 	var index = 0u;
 	if (arg.instance < arrayLength(&models)) {
 		index = arg.instance;
@@ -50,7 +48,7 @@ fn vertIndex(arg: VertexInput, useWireframe: bool) -> u32 {
 	return indices[arg.vertex];
 }
 
-@export fn getColor(arg: VertexInput) -> vec4f {
+fn getColor(arg: VertexInput) -> vec4f {
 	let index = vertIndex(arg, wireframe);
 	let c1 = unpack4x8unorm(colors[index]);
 	let c2 = unpack4x8unorm(instanceColors[arg.instance]);
@@ -58,7 +56,7 @@ fn vertIndex(arg: VertexInput, useWireframe: bool) -> u32 {
 	return c1 * c2;
 }
 
-@export fn getNormal(arg: VertexInput) -> vec3f {
+fn getNormal(arg: VertexInput) -> vec3f {
 	var index = vertIndex(arg, false);
 
 	return vec3f(
@@ -68,7 +66,7 @@ fn vertIndex(arg: VertexInput, useWireframe: bool) -> u32 {
 	);
 }
 
-@export fn position64(arg: VertexInput) -> array<fp64, 4> {
+fn position64(arg: VertexInput) -> array<fp64, 4> {
 	let index = arg.instance * strides.instance + vertIndex(arg, wireframe) * 3u;
 
 	return array<fp64, 4>(
@@ -87,7 +85,7 @@ struct Position {
 	proj: vec4f,
 }
 
-@export fn projected(arg: VertexInput, pos: array<fp64, 4>) -> Position {
+fn projected(arg: VertexInput, pos: array<fp64, 4>) -> Position {
 	var res = Position();
 
 	res.model = mat4_vec4_mul64(model64(arg), pos);

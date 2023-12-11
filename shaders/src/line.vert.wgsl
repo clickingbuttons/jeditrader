@@ -1,5 +1,5 @@
-use './fp64.wgsl'::{ fp64, vec4_sub64, vec4_64, toVec4 };
-use './scene.wgsl'::{ view, view32, wireframe };
+// import { fp64, vec4_sub64, vec4_64, toVec4 } from './fp64.wgsl';
+// import { view, view32, wireframe } from './scene.wgsl';
 
 @group(line) @binding(0) var<storage> positions: array<fp64>;
 @group(line) @binding(1) var<storage> colors: array<u32>;
@@ -41,8 +41,6 @@ fn projected(pos: array<fp64, 4>) -> Position {
 }
 
 @vertex fn main(arg: VertexInput) -> VertexOutput {
-	let NO_SHAKE = VertexInput();
-	let NO_SHAKE2 = wireframe;
 	let p = projected(position64(arg));
 	return VertexOutput(p.proj, unpack4x8unorm(colors[arg.vertex]));
 }

@@ -1,4 +1,4 @@
-use './scene.wgsl'::{ PointLight, view, lights };
+// import { PointLight, view, lights } from './scene.wgsl';
 
 @fragment fn main(
 	@builtin(position) position: vec4f,
