@@ -6,3 +6,4 @@ export * from './settings.js';
 export * from './debug.js';
 export * from './box.js';
 export * from './arrow-up.js';
+export * from './three-lines.js';

@@ -1,6 +1,5 @@
 import { h, JSX } from 'preact';
-import { Renderer, Color, Scene } from '@jeditrader/renderer';
-import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
+import { Renderer, Scene } from '@jeditrader/renderer';
 import { Signal, signal as newSignal } from '@preact/signals';
 import './settings.css';
 
@@ -20,66 +19,12 @@ function InputNumber({ value, onChange, ...props }: InputNumberProps) {
 	);
 }
 
-interface InputNumbersProps<T> {
-	value: T;
-	onChange: (v: T) => void;
-}
-
-interface Vector<T> extends Float64Array {
-	clone(): T;
-}
-
-function InputNumbers<T extends Vector<T>>({ value, onChange }: InputNumbersProps<T>) {
-	return (
-		<>
-			{[...value].map((v, i) =>
-				<InputNumber
-					value={v}
-					onChange={n => {
-						const newVal = value.clone();
-						newVal[i] = n;
-						onChange(newVal);
-					}}
-				/>
-			)}
-		</>
-	);
-}
-
-function InputVec3({ value, onChange }: { value: Vec3, onChange: (v: Vec3) => void }) {
-	return <InputNumbers value={value} onChange={onChange} />;
-}
-
-function InputVec4({ value, onChange }: { value: Vec4, onChange: (v: Vec4) => void }) {
-	return <InputNumbers value={value} onChange={onChange} />;
-}
-
-function InputMat4({ value, onChange }: { value: Mat4, onChange: (v: Mat4) => void }) {
-	return <InputNumbers value={value} onChange={onChange} />;
-}
-
 interface SettingInputProps {
 	signal: Signal<any>;
 	options?: string[];
 }
 
 function SettingInput({ signal, options }: SettingInputProps) {
-	if (signal.value instanceof Color) return (
-		<span>
-			<input
-				type="color"
-				value={signal.value.hex()}
-				onChange={ev => signal.value = Color.parse(ev.currentTarget.value)}
-			/>
-			<InputNumber
-				value={signal.value[3]}
-				onChange={alpha => {
-					signal.value[3] = alpha;
-					signal.value = signal.value.slice();
-				}}
-			/>
-		</span>
-	);
 	if (typeof signal.value === 'boolean') return (
 		<input
 			type="checkbox"
@@ -93,16 +38,15 @@ function SettingInput({ signal, options }: SettingInputProps) {
 			onChange={n => signal.value = n}
 		/>
 	);
-	if (signal.value instanceof Vec3) return (
-		<InputVec3 value={signal.value} onChange={v => signal.value = v} />
-	);
-	if (signal.value instanceof Vec4) return (
-		<InputVec4 value={signal.value} onChange={v => signal.value = v} />
-	);
-	if (signal.value instanceof Mat4) return (
-		<InputMat4 value={signal.value} onChange={v => signal.value = v} />
-	);
 	if (typeof signal.value === 'string') {
+		if (signal.value.startsWith('#'))
+			return (
+				<input
+					type="color"
+					value={signal.value}
+					onChange={ev => signal.value = ev.currentTarget.value}
+				/>
+			);
 		if (options) return (
 			<select
 				value={signal.value}
@@ -212,13 +156,11 @@ function getSettings(o: object, startLevel: number) {
 
 interface SettingsProps extends JSX.HTMLAttributes<HTMLTableElement> {
 	renderer: Renderer | null;
-	scene: Scene | null; // To force renderer on scene selection
 }
 
-export function Settings({ renderer, scene, style }: SettingsProps) {
+export function Settings({ renderer, style }: SettingsProps) {
 	if (!renderer) return null;
-
-	scene = scene ?? renderer.scene;
+	const scene = renderer.scene;
 	return (
 		<table class="settings" style={style}>
 			<tr><h2>Renderer</h2></tr>

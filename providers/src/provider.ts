@@ -14,18 +14,18 @@ export type Trade = {
 	conditions: number[];
 }
 
-export type Period = 'year' | 'month' | 'week' | 'day' | 'hour4' | 'hour' | 'minute5' | 'minute' | 'second' | 'trade';
+export type Period = 'year' | 'month' | 'week' | 'day' | 'hour4' | 'hour' | 'minute5' | 'minute' | 'second' | 'ns';
 export interface Provider {
-	year(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
-	month(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
-	week(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
-	day(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
-	hour4(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
-	hour(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
-	minute5(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
-	minute(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
-	second(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void): void;
-	trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void): void;
+	year(ticker: string, from: Date, to: Date, onChunk: (aggs: Aggregate[]) => void): void;
+	month(ticker: string, from: Date, to: Date, onChunk: (aggs: Aggregate[]) => void): void;
+	week(ticker: string, from: Date, to: Date, onChunk: (aggs: Aggregate[]) => void): void;
+	day(ticker: string, from: Date, to: Date, onChunk: (aggs: Aggregate[]) => void): void;
+	hour4(ticker: string, from: Date, to: Date, onChunk: (aggs: Aggregate[]) => void): void;
+	hour(ticker: string, from: Date, to: Date, onChunk: (aggs: Aggregate[]) => void): void;
+	minute5(ticker: string, from: Date, to: Date, onChunk: (aggs: Aggregate[]) => void): void;
+	minute(ticker: string, from: Date, to: Date, onChunk: (aggs: Aggregate[]) => void): void;
+	second(ticker: string, from: Date, to: Date, onChunk: (aggs: Aggregate[]) => void): void;
+	trade(ticker: string, from: Date, to: Date, onChunk: (trades: Trade[]) => void): void;
 }
 
 // https://stackoverflow.com/questions/11526504/minimum-and-maximum-date
@@ -129,7 +129,7 @@ export function getNext(
 			res.setUTCMilliseconds(0);
 		}
 		break;
-	case 'trade':
+	case 'ns':
 		res.setUTCMilliseconds(d.getTime() + 1 * multiplier);
 		break;
 	default:

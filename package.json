@@ -14,9 +14,6 @@
 	},
 	"workspaces": [
 		"providers",
-		"shaders",
-		"linalg",
-		"geometry",
 		"renderer",
 		"app"
 	],

@@ -1,105 +1,68 @@
-import { Axes } from '../meshes/axes.js';
-import { Vec3, Vec4, Mat4 } from '@jeditrader/linalg';
-import { Provider, Period, getNext } from '@jeditrader/providers';
-import { AutoTicker } from '../auto-ticker.js';
+import type { Input } from '../input.js';
+import type { Renderer } from '../renderer.js';
+import { Signal, computed } from '@preact/signals';
 import { Scene } from './scene.js';
-import { Signal, computed } from '@preact/signals-core';
-import { getLod, Lod } from '../lod.js';
-import { Renderer } from '../renderer.js';
-import { Cone } from '@jeditrader/geometry';
-import { Mesh } from '../meshes/index.js';
-import { AxesMaterial } from '../materials/index.js';
-import { Color, Range } from '@jeditrader/geometry';
+import { Axes, Range } from '../axes.js';
+import { Grid } from '../grid.js';
 
-export interface ChartContext {
-	scene: Scene,
-	autoLod: Signal<Period>;
-	range: Signal<Range<Vec3>>;
+function lerp(i: number, from: number, to: number) {
+	return (i - from) / (to - from);
 }
 
-export class Chart extends Scene {
-	declare settings;
-	declare materials;
+function lerpArray(arr: number[], range: Range<number>) {
+	return arr.map(i => lerp(i, range.from, range.to))
+}
 
-	axes: Axes;
-	tickers: AutoTicker[] = [];
+export class ChartScene extends Scene {
+	canvasUI: HTMLCanvasElement;
+	xAxes: Axes;
+	yAxes: Axes;
+	grid: Grid;
 
-	autoLod: Signal<Period>;
-
-	constructor(renderer: Renderer, provider: Provider) {
+	constructor(renderer: Renderer) {
 		super(renderer);
-		this.autoLod = computed(() => getLod(this.camera.eye.value.z));
+		this.canvasUI = renderer.canvasUI;
+		this.xAxes = new Axes(renderer, new Date(2010, 0).getTime(), new Date(2020, 0).getTime(), 'time');
+		this.yAxes = new Axes(renderer, 0, 10, 'dollars');
+		const xTickPerc = computed(() => lerpArray(this.xAxes.ticks.value, this.xAxes.range.value));
+		const yTickPerc = computed(() => lerpArray(this.yAxes.ticks.value, this.yAxes.range.value));
+		this.grid = new Grid(xTickPerc, yTickPerc);
+	}
 
-		const superMaterials = this.materials as Scene['materials'];
-		this.materials = {
-			// Draw axes first.
-			axes: new AxesMaterial(this.device),
-			...superMaterials,
-		};
+	panRange(range: Signal<Range<number>>, movement: number, px: number) {
+		const newRange = range.value;
+		const movePerc = movement / px;
+		const moved = (newRange.to - newRange.from) * movePerc;
+		newRange.from -= moved;
+		newRange.to -= moved;
+		range.value = { ...newRange };
+	}
 
-		// Test cube.
-		{
-			const radius = 1e10;
-			const mesh = Mesh.fromCSG(this.device, new Cone(), {
-				model: Mat4.scale(new Vec3(radius))
-			});
-			this.materials.default.bind(mesh);
+	zoomRange(range: Signal<Range<number>>, percFrom: number, percTo: number) {
+		const newRange = range.value;
+		const distance = newRange.to - newRange.from;
+		newRange.from -= distance * percFrom;
+		newRange.to += distance * percTo;
+		range.value = { ...newRange };
+	}
+
+	update(dt: DOMHighResTimeStamp, input: Input) {
+		if (input.buttons.mouse0) {
+			this.panRange(this.xAxes.range, input.movementX, this.canvasUI.width);
+			this.panRange(this.yAxes.range, -input.movementY, this.canvasUI.height);
 		}
-
-		this.axes = new Axes(this);
-		this.materials.axes.bind(this.axes);
-
-		this.axes.range.subscribe(range => {
-			this.fitInView(range);
-
-			const avg = range.max.add(range.min).divScalar(2);
-			const z = this.camera.eye.value.z;
-			this.lights.value = [new Vec4(avg.x, avg.y, 0, 1)].map(v => {
-					const res =v.transform(this.axes.model.value).xyz();
-					res.z = z;
-					return res;
-				})
-				.map(pos => ({
-					color: Color.white,
-					pos,
-				}));
-		});
-
-		this.tickers = [
-			new AutoTicker(this, this.autoLod, this.axes.range, this.axes.resources.inModel, provider),
-		];
-		this.materials.phong.bind(...Object.values(this.tickers[0].lods));
-
-		const superSettings = this.settings as Scene['settings'];
-		this.settings = {
-			...superSettings,
-			axes: this.axes.settings,
-		};
+		if (input.wheelY) {
+			const percX = input.posX / this.canvasUI.width;
+			const percY = 1 - input.posY / this.canvasUI.height;
+			const zoomPerc = input.wheelY > 0 ? .1 : -.1;
+			this.zoomRange(this.xAxes.range, percX * zoomPerc, (1 - percX) * zoomPerc);
+			this.zoomRange(this.yAxes.range, percY * zoomPerc, (1 - percY) * zoomPerc);
+		}
 	}
 
-	fitInView(range: Range<Vec3>) {
-		return super.fitInView(range, this.axes.model.value);
+	render(ctx: CanvasRenderingContext2D, ctxUI: CanvasRenderingContext2D) {
+		this.grid.render(ctx);
+		this.xAxes.render(ctxUI, 'bottom');
+		this.yAxes.render(ctxUI, 'left');
 	}
-
-	update(dt: DOMHighResTimeStamp) {
-		this.axes.update(this);
-		super.update(dt);
-	}
-
-	render(pass: GPURenderPassEncoder) {
-		super.render(pass);
-		this.axes.render();
-	}
-
-	getLod(): Lod {
-		if (this.tickers.length === 0 || this.tickers[0].autoLodEnabled.value) return 'auto';
-		return this.tickers[0].lod.value;
-	}
-
-	setLod(lod: Lod) {
-		this.tickers.forEach(t => {
-			t.autoLodEnabled.value = lod === 'auto';
-			t.lod.value = lod === 'auto' ? this.autoLod.value : lod;
-		});
-	}
-};
+}

@@ -1,11 +1,12 @@
 import { JSX } from 'preact';
 import { StateUpdater } from 'preact/hooks';
 import { SymbolPicker } from './select.js';
-import { LightMode, DarkMode, Settings, Box, ArrowUp } from './icons/index.js';
-import { lods, Lod, Chart as ChartScene, Renderer, Scene } from '@jeditrader/renderer';
+import { LightMode, DarkMode, ThreeLines, Box, ArrowUp } from './icons/index.js';
+import { Renderer } from '@jeditrader/renderer';
 import { Signal } from '@preact/signals';
 import './toolbar.css';
 
+/*
 function LodSelect({ chart }: { chart: ChartScene }) {
 	return (
 		<select
@@ -23,6 +24,7 @@ function LodSelect({ chart }: { chart: ChartScene }) {
 		</select>
 	);
 }
+*/
 
 interface ToolbarProps extends JSX.HTMLAttributes<HTMLDivElement> {
 	renderer: Renderer | null;
@@ -39,41 +41,22 @@ export function Toolbar({
 	style,
 }: ToolbarProps) {
 	const scene = renderer?.scene;
-	const chart: ChartScene | null = scene instanceof ChartScene ? scene : null;
+	// const chart: ChartScene | null = scene instanceof ChartScene ? scene : null;
 	return (
 		<div class="toolbar" style={style}>
-			{chart && chart.tickers.length > 0 &&
+			{/*chart && chart.tickers.length > 0 &&
 				<SymbolPicker
 					value={chart.tickers[0].ticker}
 					onChange={newTicker => renderer && (chart.tickers[0].ticker.value = newTicker)}
 					disabled={!renderer}
 				/>
-			}
+			*/}
 
 			<div class="toolbar-spacer" />
 
-			{chart && <LodSelect chart={chart} />}
+			{/*chart && <LodSelect chart={chart} />*/}
 
-			{renderer &&
-				<span class="toolbar-fps">
-					{renderer.dUpdate.value.toFixed(2)}ms / {renderer.dRender.value.toFixed(2)}ms
-				</span>
-			}
 			<div class="toolbar-buttons" >
-				<button
-					title="Toggle normals"
-					onClick={() => scene?.toggleNormals()}
-					disabled={!scene}
-				>
-					<ArrowUp />
-				</button>
-				<button
-					title="Toggle wireframe"
-					onClick={() => scene?.toggleWireframe()}
-					disabled={!scene}
-				>
-					<Box />
-				</button>
 				<button
 					title={`Activate ${dark.value ? 'light' : 'dark'} mode`}
 					onClick={() => dark.value = !dark.value}
@@ -84,7 +67,7 @@ export function Toolbar({
 					title="Toggle settings drawer"
 					onClick={() => setShowSettings(!showSettings)}
 				>
-					<Settings />
+					<ThreeLines />
 				</button>
 			</div>
 		</div>
