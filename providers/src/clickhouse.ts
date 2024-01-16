@@ -1,6 +1,6 @@
 import { Aggregate, Period, Provider, Trade } from './provider.js';
 
-const periodMap = {
+const timespans = {
 	'second': 'agg1s',
 	'minute': 'agg1m',
 	'minute5': 'agg5m',
@@ -10,7 +10,7 @@ const periodMap = {
 	'week': 'agg1w',
 	'month': 'agg1mo',
 	'year': 'agg1y',
-} as { [p in Period]: string };
+};
 const clickhouseMinDate = new Date(0);
 
 type ClickhouseAggregate = {
@@ -39,7 +39,7 @@ export class Clickhouse implements Provider {
 
 	private agg(
 		ticker: string,
-		period: Period,
+		timespan: keyof typeof timespans,
 		from: Date,
 		to: Date,
 		onData: (aggs: Aggregate[]) => void
@@ -52,7 +52,7 @@ export class Clickhouse implements Provider {
 				close,
 				toFloat64(volume) as volume,
 				vwap
-			 FROM us_equities.${periodMap[period]}
+			 FROM us_equities.${timespans[timespan]}
 			 WHERE ticker='${ticker}' AND ts BETWEEN toDateTime(${from.getTime() / 1e3}) AND toDateTime(${to.getTime() / 1e3})
 			 ORDER BY ts
 			 FORMAT JSON

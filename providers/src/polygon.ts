@@ -52,7 +52,7 @@ export class Polygon implements Provider {
 	private agg(
 		ticker: string,
 		multiplier: number,
-		period: Period,
+		timespan: 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year',
 		from: Date,
 		to: Date,
 		onData: (aggs: Aggregate[]) => void
@@ -86,7 +86,7 @@ export class Polygon implements Provider {
 			}
 		}
 
-		let url = `${Polygon.aggsUrl}/${ticker}/range/${multiplier}/${period}/${from.getTime()}/${to.getTime()}?`;
+		let url = `${Polygon.aggsUrl}/${ticker}/range/${multiplier}/${timespan}/${from.getTime()}/${to.getTime()}?`;
 		fetch(url + `&apiKey=${this.apiKey}&limit=10000`)
 				.then(res => res.json())
 				.then(handleResp);
