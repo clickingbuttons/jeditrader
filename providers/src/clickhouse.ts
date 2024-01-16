@@ -1,4 +1,4 @@
-import { Aggregate, Period, Provider, Trade } from './provider.js';
+import { Aggregate, Provider, Trade } from './provider.js';
 
 const timespans = {
 	'second': 'agg1s',

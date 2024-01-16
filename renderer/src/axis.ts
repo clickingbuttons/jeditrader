@@ -24,8 +24,8 @@ function clamp(n: number, min: number, max: number): number {
 }
 
 // We round to previous duration which may be up to 100_000 years
-const maxDate = 8640000000000000 - 100_000 * 365 * 24 * 60 * 60 * 1000;
-const minDate = -maxDate;
+export const maxDate = 8640000000000000 - 100_000 * 365 * 24 * 60 * 60 * 1000;
+export const minDate = -maxDate;
 const year0 = new Date().setFullYear(0);
 
 function clampTimeRange(from: number, to: number) {
@@ -36,14 +36,22 @@ function clampTimeRange(from: number, to: number) {
 	return res;
 }
 
-function countableRatio(ratio: number, countable: number[] = [5, 10, 25, 50, 100, 200, 250, 1000]): number {
-	if (ratio <= 1) return 1;
+const decimalCount = [1, 5, 10, 25, 50, 100, 200, 250, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9];
+function closest(n: number, arr: number[]): number {
+	return arr.reduce((acc, cur) => Math.abs(cur - n) < Math.abs(acc - n) ? cur : acc);
+}
 
-	for (let i = 0; i < countable.length - 1; i++) {
-		if (ratio < (countable[i] + countable[i + 1]) / 2) return countable[i];
+function countableNumbers(duration: DurationUnit): number[] {
+	switch (duration) {
+		case 'years': return decimalCount;
+		case 'months': return [1, 4, 6, 12];
+		case 'weeks': return [1];
+		case 'days': return [1];
+		case 'hours': return [1, 2, 6, 12, 24];
+		case 'minutes':
+		case 'seconds': return [1, 5, 10, 15, 30, 60];
+		case 'milliseconds': return decimalCount;
 	}
-
-	return 10 ** Math.floor(Math.ceil(Math.log10(ratio)));
 }
 
 function truncate(n: number, step: number) {
@@ -87,11 +95,31 @@ export class Axis {
 	getPx(): number {
 		switch (this.side) {
 		case 'top':
-		case 'bottom':
-			return this.ctx.canvas.width;
+		case 'bottom': return this.ctx.canvas.width;
 		case 'left':
-		case 'right':
-			return this.ctx.canvas.height;
+		case 'right': return this.ctx.canvas.height;
+		}
+	}
+
+	getDurationPercentUsage(duration: Duration) {
+		const start = this.range.value.from;
+		const end = this.range.value.to;
+		const px = this.getPx();
+		const ms = duration.ms();
+		const nTicks = (end - start) / ms;
+		const pxPer = px / nTicks;
+		const res = this.minPxBetweenLines / pxPer;
+		return res;
+	}
+
+	getFitDuration(lowered: Duration) {
+		const countable = countableNumbers(lowered.unit);
+		for (let i = 0; i < countable.length; i++) {
+			const newDuration = new Duration(lowered.unit, lowered.count);
+			newDuration.count = countable[i];
+
+			const usage = this.getDurationPercentUsage(newDuration);
+			if (usage < 1) return newDuration;
 		}
 	}
 
@@ -101,15 +129,18 @@ export class Axis {
 		const duration = Duration.fromInterval(start, end);
 		if (start == end || this.unit !== 'time') return duration
 
-		const part = duration.maxDuration() as DurationUnit;
-		const px = this.getPx();
-		const pxPer = px / (duration[part] ?? 1);
+		if (duration.couldLower()) {
+			const lowered = duration.lower();
+			const fit = this.getFitDuration(lowered);
+			if (fit) return fit;
+		}
+		const fit = this.getFitDuration(duration);
+		if (fit) return fit;
 
-		let countable = undefined;
-		if (part === 'hours') countable = [2, 4, 6, 8, 12, 24]
-		duration[part] = countableRatio(this.minPxBetweenLines / pxPer, countable);
-
-		return duration;
+		const raised = duration.raise();
+		const countable = countableNumbers(raised.unit);
+		raised.count = closest(raised.count, countable);
+		return raised;
 	}
 
 	getInterval(duration?: DurationUnit) {
@@ -118,50 +149,50 @@ export class Axis {
 
 		let start = startDate.getTime();
 		let end = endDate.getTime();
-		let step = duration ? (this.duration.value[duration] ?? 1) : 1;
+		let step = this.duration.value.count;
 
 		switch (duration) {
 			case 'years': {
 				start = startDate.setFullYear(truncate(startDate.getFullYear(), step));
-				end = endDate.setFullYear(truncate(endDate.getFullYear() + 1, step));
+				end = endDate.setFullYear(truncate(endDate.getFullYear(), step) + step);
 				break;
 			}
 			case 'months': {
-				start = startDate.setMonth(truncate(startDate.getMonth(), step));
-				end = endDate.setMonth(truncate(endDate.getMonth() + 1, step));
+				start = startDate.setMonth(0);
+				end = endDate.setMonth(12);
 				break;
 			}
 			case 'weeks': {
 				// week of month
-				start = startOfWeek(startDate).getTime();
-				end = endOfWeek(endDate).getTime() + 1;
 				step = 1;
+				start = startOfWeek(startDate).getTime();
+				end = endOfWeek(endDate).getTime() + step;
 				break;
 			}
 			case 'days': {
 				start = startDate.setDate(truncate(startDate.getDate(), step));
-				end = endDate.setDate(truncate(endDate.getDate() + 1, step));
+				end = endDate.setDate(truncate(endDate.getDate(), step) + step);
 				break;
 			}
 			case 'hours': {
 				start = startDate.setHours(truncate(startDate.getHours(), step));
-				end = endDate.setHours(truncate(endDate.getHours() + 1, step));
+				end = endDate.setHours(truncate(endDate.getHours(), step) + step);
 				break;
 			}
 			case 'minutes': {
 				start = startDate.setMinutes(truncate(startDate.getMinutes(), step));
-				end = endDate.setMinutes(truncate(endDate.getMinutes() + 1, step));
+				end = endDate.setMinutes(truncate(endDate.getMinutes(), step) + step);
 				break;
 			}
 			case 'seconds': {
 				step *= 1000;
 				start = truncate(start, step);
-				end = truncate(end + 1000, step);
+				end = truncate(end, step) + step;
 				break;
 			}
 			case 'milliseconds': {
 				start = truncate(start, step);
-				end = truncate(end + 1, step);
+				end = truncate(end, step) + step;
 				break;
 			}
 		}
@@ -174,10 +205,9 @@ export class Axis {
 
 	getTimeTicks(): number[] {
 		const duration = this.duration.value;
-		const maxDuration = duration.maxDuration();
-		const { step, interval } = this.getInterval(maxDuration);
+		const { step, interval } = this.getInterval(duration.unit);
 
-		switch (maxDuration) {
+		switch (duration.unit) {
 			case 'years': return eachYearOfInterval(interval, { step }).map(d => d.getTime());
 			case 'months': return eachMonthOfInterval(interval, { step }).map(d => d.getTime());
 			case 'weeks': return eachWeekOfInterval(interval, { step }).map(d => d.getTime());
@@ -195,13 +225,13 @@ export class Axis {
 		}
 	}
 
-	getLogTicks(): number[] {
+	getPow10Ticks(): number[] {
 		const min = this.range.value.from;
 		const max = this.range.value.to;
-		let step = 10 ** Math.floor(Math.log10(max - min) - 1);
+		let step = 10 ** Math.round(Math.log10(max - min) - 2);
 		const px = this.getPx();
 		const pxPer = px / ((max - min) / step);
-		const ratio = countableRatio(this.minPxBetweenLines / pxPer);
+		const ratio = closest(this.minPxBetweenLines / pxPer, decimalCount);
 		step *= ratio;
 		const evenStart = Math.floor(min / step) * step;
 
@@ -214,8 +244,7 @@ export class Axis {
 	getTicks(): number[] {
 		switch (this.unit) {
 			case 'time': return this.getTimeTicks();
-			case 'dollars': return this.getLogTicks();
-			default: return [];
+			default: return this.getPow10Ticks();
 		}
 	}
 
@@ -260,8 +289,7 @@ export class Axis {
 
 		ctxUI.font = this.font;
 		ctxUI.fillStyle = 'white';
-		const maxDuration = this.duration.value.maxDuration();
-		const { format, formatCtx } = this.timeLabelFormat(maxDuration);
+		const { format, formatCtx } = this.timeLabelFormat(this.duration.value.unit);
 
 		const heightMetrics = ctxUI.measureText('0');
 		const height = heightMetrics.fontBoundingBoxAscent + heightMetrics.fontBoundingBoxDescent;
@@ -333,6 +361,7 @@ export class Axis {
 			ctxUI.fillText(label, textX, textY);
 		}
 
+		// grid
 		ctx.strokeStyle = 'gray';
 		ctx.stroke();
 	}

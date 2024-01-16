@@ -1,6 +1,22 @@
-import { Aggregate, Period, Provider, Trade } from './provider.js';
+import { Aggregate, Provider, Trade } from './provider.js';
+import type { Duration, DurationUnit } from './duration.js';
 
 const polygonMinDate = new Date(0);
+
+type Timespan = 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year';
+
+function toTimespan(d: DurationUnit): Timespan {
+	switch (d) {
+	case 'years': return 'year';
+	case 'months': return 'month';
+	case 'weeks': return 'week';
+	case 'days': return 'day';
+	case 'hours': return 'hour';
+	case 'minutes': return 'minute';
+	case 'seconds':
+	case 'milliseconds': return 'second';
+	}
+}
 
 interface PolygonAgg {
 	t: number;
@@ -49,13 +65,13 @@ export class Polygon implements Provider {
 		this.apiKey = apiKey;
 	}
 
-	private agg(
+	private fetchAggs(
 		ticker: string,
 		multiplier: number,
-		timespan: 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year',
+		timespan: Timespan,
 		from: Date,
 		to: Date,
-		onData: (aggs: Aggregate[]) => void
+		onChunk: (aggs: Aggregate[]) => void
 	) {
 		if (from < polygonMinDate) from = polygonMinDate;
 
@@ -77,7 +93,7 @@ export class Polygon implements Provider {
 					} as Aggregate;
 					aggs.push(newAgg);
 				}
-				onData(aggs);
+				onChunk(aggs);
 			}
 			if (res.next_url) {
 				fetch(res.next_url + `&apiKey=${apiKey}&limit=10000`)
@@ -92,43 +108,12 @@ export class Polygon implements Provider {
 				.then(handleResp);
 	}
 
-	year(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 1, 'year', from, to, onData);
+	agg(ticker: string, from: Date, to: Date, duration: Duration, onData: (aggs: Aggregate[]) => void) {
+		const timespan = toTimespan(duration.unit);
+		return this.fetchAggs(ticker, duration.count, timespan, from, to, onData);
 	}
 
-	month(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 1, 'month', from, to, onData);
-	}
-
-	week(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 1, 'week', from, to, onData);
-	}
-
-	day(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 1, 'day', from, to, onData);
-	}
-
-	hour4(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 4, 'hour', from, to, onData);
-	}
-
-	hour(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 1, 'hour', from, to, onData);
-	}
-
-	minute5(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 5, 'minute', from, to, onData);
-	}
-
-	minute(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 1, 'minute', from, to, onData);
-	}
-
-	second(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 1, 'second', from, to, onData);
-	}
-
-	trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void) {
+	trade(ticker: string, from: Date, to: Date, onChunk: (trades: Trade[]) => void) {
 		if (from < polygonMinDate) from = polygonMinDate;
 
 		const apiKey = this.apiKey;
@@ -146,7 +131,7 @@ export class Polygon implements Provider {
 					} as Trade;
 					trades.push(newTrade);
 				}
-				onData(trades);
+				onChunk(trades);
 			}
 			if (res.next_url) {
 				fetch(res.next_url + `&apiKey=${apiKey}&limit=10000`)

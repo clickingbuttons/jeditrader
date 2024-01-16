@@ -11,7 +11,9 @@ export class ChartScene extends Scene {
 	constructor(renderer: Renderer) {
 		super(renderer);
 		this.canvasUI = renderer.canvasUI;
-		this.xAxis = new Axis(renderer, new Date(2010, 0).getTime(), new Date(2020, 0).getTime(), 'time', 'bottom');
+		const to = new Date();
+		const from = new Date(to).setFullYear(to.getFullYear() - 10);
+		this.xAxis = new Axis(renderer, from, to.getTime(), 'time', 'bottom');
 		this.yAxis = new Axis(renderer, 0, 10, 'dollars', 'left');
 
 		renderer.width.subscribe(() => this.panRange(this.xAxis, 0, 1));

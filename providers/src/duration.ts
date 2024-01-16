@@ -1,63 +1,75 @@
 import { intervalToDuration } from 'date-fns';
 
-export type DurationUnit =
-	'years' |
-	'months' |
-	'weeks' |
-	'days' |
-	'hours' |
-	'minutes' |
-	'seconds' |
-	'milliseconds';
+export const durations = {
+	years: undefined,
+	months: undefined,
+	weeks: undefined,
+	days: undefined,
+	hours: undefined,
+	minutes: undefined,
+	seconds: undefined,
+	milliseconds: undefined,
+};
+export type DurationUnit = keyof typeof durations;
 
 export class Duration {
-	years?: number;
-	months?: number;
-	weeks?: number;
-	days?: number;
-	hours?: number;
-	minutes?: number;
-	seconds?: number;
-	milliseconds?: number;
+	constructor(
+		public unit: DurationUnit,
+		public count: number,
+	) {}
 
 	static fromInterval(start: number, end: number): Duration {
 		const duration = intervalToDuration({ start, end });
-		const res = new Duration();
-		Object.assign(res, duration);
-		if (Object.keys(duration).length === 0) res.milliseconds = end - start;
-		if (res.years == 1 && (!res.months || res.months <= 6)) {
-			res.years = undefined;
-			res.months = (res.months ?? 0) + 12;
-		} else if (res.months && res.months <= 2) {
-			res.weeks = res.months * 6;
-			res.months = undefined;
-		} else if (res.days && res.days >= 21) {
-			res.weeks = res.days / 7;
-			res.days = undefined;
-		} else if (res.days && res.days <= 2) {
-			res.hours = (res.hours ?? 0) + res.days * 24;
-			res.days = undefined;
-		} else if (res.hours && res.hours <= 2) {
-			res.minutes = (res.minutes ?? 0) + res.hours * 60;
-			res.hours = undefined;
-		} else if (res.minutes && res.minutes <= 2) {
-			res.seconds = (res.seconds ?? 0) + res.minutes * 60;
-			res.minutes = undefined;
-		} else if (res.seconds && res.seconds <= 2) {
-			res.milliseconds = (res.milliseconds ?? 0) + res.seconds * 1000;
-			res.seconds = undefined;
+		const units = Object.keys(durations);
+		for (let i = 0; i < units.length; i++) {
+			const unit = units[i] as DurationUnit;
+			if (unit in duration) return new Duration(unit, (duration as any)[unit]);
 		}
-		return res;
+
+		return new Duration('milliseconds', end - start);
 	}
 
-	maxDuration(): DurationUnit | undefined {
-		if (this.years) return 'years';
-		else if (this.months) return 'months';
-		else if (this.weeks) return 'weeks';
-		else if (this.days) return 'days';
-		else if (this.hours) return 'hours';
-		else if (this.minutes) return 'minutes';
-		else if (this.seconds) return 'seconds';
-		else if (this.milliseconds) return 'milliseconds';
+	couldLower(): boolean {
+		if (this.unit !== 'milliseconds' && this.count <= 2) return true;
+		return false;
+	}
+
+	lower(): Duration {
+		switch (this.unit) {
+		case 'years': return new Duration('months', this.count * 12);
+		case 'months': return new Duration('weeks', this.count * 4);
+		case 'weeks': return new Duration('days', this.count * 7);
+		case 'days': return new Duration('hours', this.count * 24);
+		case 'hours': return new Duration('minutes', this.count * 60);
+		case 'minutes': return new Duration('seconds', this.count * 60);
+		case 'seconds': return new Duration('milliseconds', this.count * 1000);
+		default: return new Duration(this.unit, this.count);
+		}
+	}
+
+	raise(): Duration {
+		switch (this.unit) {
+		case 'months': return new Duration('years', this.count / 12);
+		case 'weeks': return new Duration('months', this.count / 4);
+		case 'days': return new Duration('weeks', this.count / 7);
+		case 'hours': return new Duration('days', this.count / 24);
+		case 'minutes': return new Duration('hours', this.count / 60);
+		case 'seconds': return new Duration('minutes', this.count / 60);
+		case 'milliseconds': return new Duration('seconds', this.count / 1000);
+		default: return new Duration(this.unit, this.count);
+		}
+	}
+
+	ms(): number {
+		switch (this.unit) {
+		case 'years': return this.count * 365.25 * 24 * 60 * 60 * 1000;
+		case 'months': return this.count * 30.5 * 24 * 60 * 60 * 1000;
+		case 'weeks': return this.count * 7 * 24 * 60 * 60 * 1000;
+		case 'days': return this.count * 24 * 60 * 60 * 1000;
+		case 'hours': return this.count * 60 * 60 * 1000;
+		case 'minutes': return this.count * 60 * 1000;
+		case 'seconds': return this.count * 1000;
+		case 'milliseconds': return this.count;
+		}
 	}
 }

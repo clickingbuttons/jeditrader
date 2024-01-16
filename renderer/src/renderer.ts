@@ -2,6 +2,7 @@ import { Scene, TickerScene } from './scenes/index.js';
 import { debounce } from './helpers.js';
 import { Signal, signal } from '@preact/signals-core';
 import { Input } from './input.js';
+import { Polygon } from '@jeditrader/providers';
 
 export interface RendererFlags {
 	rerender: boolean;
@@ -29,6 +30,15 @@ function getContext(canvas: HTMLCanvasElement) {
 	const res = canvas.getContext('2d');
 	if (res) return res;
 	throw new Error('Cannot get 2d context for ' + canvas);
+}
+
+function apiKey(name: string) {
+	const stored = localStorage.getItem(name);
+	if (stored) return stored;
+	let key;
+	while (!key) key = window.prompt(`Enter ${name} API key`);
+	localStorage.setItem(name, key);
+	return key;
 }
 
 export class Renderer {
@@ -59,7 +69,9 @@ export class Renderer {
 		this.height = signal(canvas.height);
 		new ResizeObserver(debounce(this.onResize.bind(this))).observe(canvasUI);
 
-		this.scene = new TickerScene(this); // Init last
+		const key = apiKey('Polygon');
+		const polygon = new Polygon(key);
+		this.scene = new TickerScene(this, 'F', polygon); // Init last
 	}
 
 	onResize(ev: any) {
