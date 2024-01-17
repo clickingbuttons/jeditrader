@@ -46,7 +46,9 @@ export class ChartScene extends Scene {
 			const percY = 1 - input.posY / this.canvasUI.height;
 			const zoomPerc = input.wheelY > 0 ? .1 : -.1;
 			const aspectRatio = this.canvasUI.width / this.canvasUI.height;
-			this.zoomRange(this.xAxis, percX * zoomPerc, (1 - percX) * zoomPerc);
+			if (!input.buttons.shift) {
+				this.zoomRange(this.xAxis, percX * zoomPerc, (1 - percX) * zoomPerc);
+			}
 			this.zoomRange(this.yAxis, percY * zoomPerc, (1 - percY) * zoomPerc / aspectRatio);
 		}
 	}

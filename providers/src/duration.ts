@@ -41,4 +41,16 @@ export class Duration {
 		case 'milliseconds': return this.count;
 		}
 	}
+
+	clone(): Duration {
+		return new Duration(this.count, this.unit);
+	}
+
+	toString(): string {
+		return `${this.count} ${this.unit}`;
+	}
+
+	eq(other: Duration): boolean {
+		return this.unit === other.unit && this.count === other.count;
+	}
 }

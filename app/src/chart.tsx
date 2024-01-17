@@ -20,6 +20,8 @@ export function Chart() {
 			if (!r) return;
 			setRenderer(r);
 			r.run();
+
+			dark.subscribe(() => r.flags.rerender = true);
 		});
 	}, []);
 

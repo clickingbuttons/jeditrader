@@ -1,9 +1,10 @@
 import type { Renderer } from '../renderer.js';
-import { Provider, DurationUnit, Aggregate, Duration } from '@jeditrader/providers';
+import { signal } from '@preact/signals-core';
+import { Provider, Aggregate, Duration } from '@jeditrader/providers';
 import { ChartScene } from './chart.js';
-import { minDate, maxDate } from '../axis.js';
-
-type AggDuration = 'years' | 'months' | 'weeks' | 'days' | 'hours' | 'minutes' | 'seconds';
+import { lods } from '../axis.js';
+import { getVar, minDate, maxDate } from '../helpers.js';
+import { SpanCache } from '../span-cache.js';
 
 function getFill(agg: Aggregate) {
 	if (agg.close > agg.open) return 'green';
@@ -13,47 +14,36 @@ function getFill(agg: Aggregate) {
 
 export class TickerScene extends ChartScene {
 	minPxBetweenPoints = 4;
-	aggs = {
-		years: [],
-		months: [],
-		weeks: [],
-		days: [],
-		hours: [],
-		minutes: [],
-		seconds: [],
-	} as { [k in AggDuration]: Aggregate[] };
+	duration = signal(new Duration(1, 'years'));
+	cache: SpanCache;
 
 	constructor(
-		public renderer: Renderer,
+		renderer: Renderer,
 		public ticker: string,
 		public provider: Provider,
 	) {
 		super(renderer);
-		const trivialDurations = [
-			new Duration(1, 'years'),
-			new Duration(1, 'months'),
-		];
-		trivialDurations.forEach(d =>
-			this.provider.agg(
-				this.ticker,
-				new Date(minDate),
-				new Date(maxDate),
-				d,
-				aggs => this.onChunk(aggs, d.unit as 'years' | 'months')
-			)
-		);
-		// this.xAxis.ticks.subscribe(newTicks => {
-		// 	const start = new Date(newTicks[0]);
-		// 	const end = new Date(newTicks[newTicks.length - 1]);
-		// 	const duration = Duration.fromInterval(start.getTime(), end.getTime());
-		// 	console.log('aggs', start, end, duration);
-		// 	this.provider.agg(this.ticker, start, end, duration, this.onChunk.bind(this));
-		// });
-	}
+		this.cache = new SpanCache(ticker, provider);
+		const rerender = () => renderer.flags.rerender = true
 
-	onChunk(aggs: Aggregate[], duration: AggDuration) {
-		this.aggs[duration].push(...aggs);
-		this.renderer.flags.rerender = true;
+		lods
+			.map(l => l.step)
+			.filter(d => d.ms() >= new Duration(1, 'months').ms())
+			.forEach(d =>
+				this.cache.ensure(d, minDate, maxDate)
+					.then(() => this.duration.value.eq(d) && rerender())
+			);
+
+		this.xAxis.ticks.subscribe(newTicks => {
+			const start = newTicks[0];
+			const end = newTicks[newTicks.length - 1];
+			const axisLod = this.xAxis.duration.value;
+			const axisLodIndex = lods.findIndex(l => l.step.unit == axisLod.unit && l.step.count == axisLod.count);
+			let dataLod = lods[Math.min(axisLodIndex + 1, lods.length - 1)].step.clone();
+			if (dataLod.unit === 'milliseconds') dataLod = new Duration(1, 'seconds');
+			this.cache.ensure(dataLod, start, end).then(rerender);
+			this.duration.value = dataLod;
+		});
 	}
 
 	render(ctx: CanvasRenderingContext2D, ctxUI: CanvasRenderingContext2D) {
@@ -66,26 +56,30 @@ export class TickerScene extends ChartScene {
 		const axisWidth = this.xAxis.getPx();
 		const axisHeight = this.yAxis.getPx();
 
-		const aggDuration: AggDuration = 'years';
-		const duration = new Duration(1, aggDuration);
-		const widthPerc = duration.ms() / xSpan;
-		const widthPx = axisWidth * widthPerc;
+		const aggDuration = this.duration.value;
+		const widthPerc = this.duration.value.ms() / xSpan;
 
-		for (let i = 0; i < this.aggs[aggDuration].length; i++) {
-			const agg = this.aggs[aggDuration][i];
-			const xPerc = (agg.time.getTime() - xRange.from) / xSpan;
+		const ticks = this.xAxis.ticks.value;
+		const start = ticks[0];
+		const end = ticks[ticks.length - 1];
+		const aggs = this.cache.get(aggDuration, start, end);
+
+		for (let agg of aggs) {
+			const xPerc = (agg.time - xRange.from) / xSpan + widthPerc / 2;
+			if (xPerc < -widthPerc || xPerc > 1 + widthPerc) continue;
 			{
 				const yPerc = 1 - (agg.high - yRange.from) / ySpan;
 				const heightPerc = (agg.high - agg.low) / ySpan;
-				ctx.fillStyle = 'black';
+				ctx.fillStyle = `rgb(${getVar('--fg') ?? '0, 0, 0'})`;
 				ctx.fillRect(
-					xPerc * axisWidth - 2,
+					xPerc * axisWidth - 1,
 					yPerc * axisHeight,
-					2,
+					3,
 					heightPerc * axisHeight
 				);
 			}
 			{
+				const widthPx = axisWidth * widthPerc;
 				const yPerc = 1 - (agg.open - yRange.from) / ySpan;
 				const heightPerc = (agg.open - agg.close) / ySpan;
 				ctx.fillStyle = getFill(agg);

@@ -1,6 +1,7 @@
 import type { Renderer } from './renderer.js';
 import { Duration, DurationUnit } from '@jeditrader/providers';
 import { signal, Signal, computed } from '@preact/signals';
+import { getVar, minDate, maxDate } from './helpers.js';
 import {
 	eachMinuteOfInterval,
 	eachDayOfInterval,
@@ -23,9 +24,6 @@ function clamp(n: number, min: number, max: number): number {
 	return n;
 }
 
-// We round to previous duration which may be up to 100_000 years
-export const maxDate = 8640000000000000 - 100_000 * 365 * 24 * 60 * 60 * 1000;
-export const minDate = -maxDate;
 const year0 = new Date().setFullYear(0);
 
 function clampTimeRange(from: number, to: number) {
@@ -41,7 +39,7 @@ function closest(n: number, arr: number[]): number {
 	return arr.reduce((acc, cur) => Math.abs(cur - n) < Math.abs(acc - n) ? cur : acc);
 }
 
-const lods = [
+export const lods = [
 	{ ms: new Duration(200_000, 'years').ms(), step: new Duration(100_000, 'years') },
 	{ ms: new Duration(100_000, 'years').ms(), step: new Duration(50_000, 'years') },
 	{ ms: new Duration(20_000, 'years').ms(), step: new Duration(10_000, 'years') },
@@ -296,7 +294,7 @@ export class Axis {
 		const range = this.range.value.to - this.range.value.from
 
 		ctxUI.font = this.font;
-		ctxUI.fillStyle = 'white';
+		ctxUI.fillStyle = `rgb(${getVar('--fg') ?? '0, 0, 0'})`;
 		const { format, formatCtx } = this.timeLabelFormat(this.duration.value.unit);
 
 		const heightMetrics = ctxUI.measureText('0');

@@ -1,4 +1,4 @@
-import { Aggregate, Period, Provider, Trade } from './provider.js';
+import { Aggregate, Provider, Trade } from './provider.js';
 
 // Avoid dep on @jeditrader/linalg
 export class Vec2 extends Float64Array {
@@ -52,34 +52,5 @@ export function generate(acc: { [k: number]: Vec2 }, depth: number, start: Vec2,
 	generate(acc, depth - 1, last, end, turns)
 }
 
-export class Demo implements Provider {
-	year(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-	}
-
-	month(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-	}
-
-	week(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-	}
-
-	day(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-	}
-
-	hour4(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-	}
-
-	hour(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-	}
-
-	minute5(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-	}
-
-	minute(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-	}
-
-	second(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-	}
-
-	trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void) {
-	}
+export class Demo {
 }

@@ -1,16 +1,16 @@
+import { Duration, DurationUnit } from './duration.js';
 import { Aggregate, Provider, Trade } from './provider.js';
 
 const timespans = {
-	'second': 'agg1s',
-	'minute': 'agg1m',
-	'minute5': 'agg5m',
-	'hour': 'agg1h',
-	'hour4': 'agg4h',
-	'day': 'agg1d',
-	'week': 'agg1w',
-	'month': 'agg1mo',
-	'year': 'agg1y',
-};
+	years: 'agg1y',
+	months: 'agg1mo',
+	weeks: 'agg1w',
+	days: 'agg1d',
+	hours: 'agg1h',
+	minutes: 'agg1m',
+	seconds: 'agg1s',
+	milliseconds: 'agg1s',
+} as { [k in DurationUnit]: string };
 const clickhouseMinDate = new Date(0);
 
 type ClickhouseAggregate = {
@@ -37,13 +37,13 @@ export class Clickhouse implements Provider {
 		this.url = url;
 	}
 
-	private agg(
+	async agg(
 		ticker: string,
-		timespan: keyof typeof timespans,
 		from: Date,
 		to: Date,
-		onData: (aggs: Aggregate[]) => void
-	) {
+		duration: Duration,
+		onChunk: (aggs: Aggregate[]) => void
+	): Promise<void> {
 		if (from < clickhouseMinDate) from = clickhouseMinDate;
 		const query = `SELECT toUnixTimestamp(ts) as time,
 				open,
@@ -52,13 +52,13 @@ export class Clickhouse implements Provider {
 				close,
 				toFloat64(volume) as volume,
 				vwap
-			 FROM us_equities.${timespans[timespan]}
+			 FROM us_equities.${timespans[duration.unit]}
 			 WHERE ticker='${ticker}' AND ts BETWEEN toDateTime(${from.getTime() / 1e3}) AND toDateTime(${to.getTime() / 1e3})
 			 ORDER BY ts
 			 FORMAT JSON
 		`;
 
-		fetch(`${this.url}/?query=${query}&add_http_cors_header=1`)
+		return fetch(`${this.url}/?query=${query}&add_http_cors_header=1`)
 			.then(res => res.json())
 			.then(res => res.data as ClickhouseAggregate[])
 			.then(res => {
@@ -68,77 +68,41 @@ export class Clickhouse implements Provider {
 					var agg = res[i];
 					newAgg = {
 						...agg,
-						time: new Date(agg.time * 1000),
+						time: agg.time * 1000,
 					} as Aggregate;
 					aggs.push(newAgg);
 				}
-				onData(aggs);
+				onChunk(aggs);
 			});
 	}
 
-	year(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'year', from, to, onData);
-	}
+	// trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void) {
+	// 	if (from < clickhouseMinDate) from = clickhouseMinDate;
+	// 	const query = `SELECT toUnixTimestamp64Nano(ts) as epochNS,
+	// 			price,
+	// 			size,
+	// 			conditions
+	// 		 FROM us_equities.trades
+	// 		 WHERE ticker='${ticker}' AND ts BETWEEN toDateTime(${from.getTime() / 1e3}) AND toDateTime(${to.getTime() / 1e3})
+	// 		 ORDER BY ts
+	// 		 FORMAT JSON
+	// 	`;
 
-	month(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'month', from, to, onData);
-	}
-
-	week(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'week', from, to, onData);
-	}
-
-	day(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'day', from, to, onData);
-	}
-
-	hour4(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'hour4', from, to, onData);
-	}
-
-	hour(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'hour', from, to, onData);
-	}
-
-	minute5(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'minute5', from, to, onData);
-	}
-
-	minute(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'minute', from, to, onData);
-	}
-
-	second(ticker: string, from: Date, to: Date, onData: (aggs: Aggregate[]) => void) {
-		return this.agg(ticker, 'second', from, to, onData);
-	}
-
-	trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void) {
-		if (from < clickhouseMinDate) from = clickhouseMinDate;
-		const query = `SELECT toUnixTimestamp64Nano(ts) as epochNS,
-				price,
-				size,
-				conditions
-			 FROM us_equities.trades
-			 WHERE ticker='${ticker}' AND ts BETWEEN toDateTime(${from.getTime() / 1e3}) AND toDateTime(${to.getTime() / 1e3})
-			 ORDER BY ts
-			 FORMAT JSON
-		`;
-
-		fetch(`${this.url}/?query=${query}&add_http_cors_header=1`)
-			.then(res => res.json())
-			.then(res => res.data as ClickhouseTrade[])
-			.then(res => {
-				var trades: Trade[] = [];
-				var newTrade: Trade;
-				for (var i = 0; i < res.length; i++) {
-					var trade = res[i];
-					newTrade = {
-						...trade,
-						epochNS: +trade.epochNS,
-					} as Trade;
-					trades.push(newTrade);
-				}
-				onData(trades);
-			});
-	}
+	// 	fetch(`${this.url}/?query=${query}&add_http_cors_header=1`)
+	// 		.then(res => res.json())
+	// 		.then(res => res.data as ClickhouseTrade[])
+	// 		.then(res => {
+	// 			var trades: Trade[] = [];
+	// 			var newTrade: Trade;
+	// 			for (var i = 0; i < res.length; i++) {
+	// 				var trade = res[i];
+	// 				newTrade = {
+	// 					...trade,
+	// 					epochNS: +trade.epochNS,
+	// 				} as Trade;
+	// 				trades.push(newTrade);
+	// 			}
+	// 			onData(trades);
+	// 		});
+	// }
 }
