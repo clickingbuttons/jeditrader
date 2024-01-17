@@ -5,19 +5,6 @@ import { minDate, maxDate } from '../axis.js';
 
 type AggDuration = 'years' | 'months' | 'weeks' | 'days' | 'hours' | 'minutes' | 'seconds';
 
-function lowerDuration(d: DurationUnit) {
-	switch (d) {
-	case 'years': return 'months';
-	case 'months': return 'weeks';
-	case 'weeks': return 'days';
-	case 'days': return 'hours';
-	case 'hours': return 'minutes';
-	case 'minutes':
-	case 'seconds':
-	case 'milliseconds': return 'seconds';
-	}
-}
-
 function getFill(agg: Aggregate) {
 	if (agg.close > agg.open) return 'green';
 	else if (agg.close < agg.open) return 'red';
@@ -43,8 +30,8 @@ export class TickerScene extends ChartScene {
 	) {
 		super(renderer);
 		const trivialDurations = [
-			new Duration('years', 1),
-			new Duration('months', 1),
+			new Duration(1, 'years'),
+			new Duration(1, 'months'),
 		];
 		trivialDurations.forEach(d =>
 			this.provider.agg(
@@ -80,7 +67,7 @@ export class TickerScene extends ChartScene {
 		const axisHeight = this.yAxis.getPx();
 
 		const aggDuration: AggDuration = 'years';
-		const duration = new Duration(aggDuration, 1);
+		const duration = new Duration(1, aggDuration);
 		const widthPerc = duration.ms() / xSpan;
 		const widthPx = axisWidth * widthPerc;
 

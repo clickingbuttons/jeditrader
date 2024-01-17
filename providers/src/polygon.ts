@@ -110,6 +110,7 @@ export class Polygon implements Provider {
 
 	agg(ticker: string, from: Date, to: Date, duration: Duration, onData: (aggs: Aggregate[]) => void) {
 		const timespan = toTimespan(duration.unit);
+		console.log('?', duration, timespan);
 		return this.fetchAggs(ticker, duration.count, timespan, from, to, onData);
 	}
 

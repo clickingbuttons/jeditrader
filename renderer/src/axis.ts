@@ -36,23 +36,46 @@ function clampTimeRange(from: number, to: number) {
 	return res;
 }
 
-const decimalCount = [1, 5, 10, 25, 50, 100, 200, 250, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9];
+const decimalCount = [1, 5, 10, 25, 50, 100, 250, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9];
 function closest(n: number, arr: number[]): number {
 	return arr.reduce((acc, cur) => Math.abs(cur - n) < Math.abs(acc - n) ? cur : acc);
 }
 
-function countableNumbers(duration: DurationUnit): number[] {
-	switch (duration) {
-		case 'years': return decimalCount;
-		case 'months': return [1, 4, 6, 12];
-		case 'weeks': return [1];
-		case 'days': return [1];
-		case 'hours': return [1, 2, 6, 12, 24];
-		case 'minutes':
-		case 'seconds': return [1, 5, 10, 15, 30, 60];
-		case 'milliseconds': return decimalCount;
-	}
-}
+const lods = [
+	{ ms: new Duration(200_000, 'years').ms(), step: new Duration(100_000, 'years') },
+	{ ms: new Duration(100_000, 'years').ms(), step: new Duration(50_000, 'years') },
+	{ ms: new Duration(20_000, 'years').ms(), step: new Duration(10_000, 'years') },
+	{ ms: new Duration(10_000, 'years').ms(), step: new Duration(5_000, 'years') },
+	{ ms: new Duration(2_000, 'years').ms(), step: new Duration(1_000, 'years') },
+	{ ms: new Duration(1_000, 'years').ms(), step: new Duration(500, 'years') },
+	{ ms: new Duration(200, 'years').ms(), step: new Duration(100, 'years') },
+	{ ms: new Duration(100, 'years').ms(), step: new Duration(50, 'years') },
+	{ ms: new Duration(50, 'years').ms(), step: new Duration(25, 'years') },
+	{ ms: new Duration(20, 'years').ms(), step: new Duration(10, 'years') },
+	{ ms: new Duration(10, 'years').ms(), step: new Duration(5, 'years') },
+	{ ms: new Duration(5, 'years').ms(), step: new Duration(1, 'years') },
+	{ ms: new Duration(1, 'years').ms(), step: new Duration(6, 'months') },
+	{ ms: new Duration(8, 'months').ms(), step: new Duration(4, 'months') },
+	{ ms: new Duration(2, 'months').ms(), step: new Duration(1, 'months') },
+	{ ms: new Duration(2, 'weeks').ms(), step: new Duration(1, 'weeks') },
+	{ ms: new Duration(2, 'days').ms(), step: new Duration(1, 'days') },
+	{ ms: new Duration(12, 'hours').ms(), step: new Duration(6, 'hours') },
+	{ ms: new Duration(4, 'hours').ms(), step: new Duration(2, 'hours') },
+	{ ms: new Duration(2, 'hours').ms(), step: new Duration(1, 'hours') },
+	{ ms: new Duration(60, 'minutes').ms(), step: new Duration(30, 'minutes') },
+	{ ms: new Duration(30, 'minutes').ms(), step: new Duration(15, 'minutes') },
+	{ ms: new Duration(10, 'minutes').ms(), step: new Duration(5, 'minutes') },
+	{ ms: new Duration(5, 'minutes').ms(), step: new Duration(1, 'minutes') },
+	{ ms: new Duration(20, 'seconds').ms(), step: new Duration(10, 'seconds') },
+	{ ms: new Duration(10, 'seconds').ms(), step: new Duration(5, 'seconds') },
+	{ ms: new Duration(5, 'seconds').ms(), step: new Duration(1, 'seconds') },
+	{ ms: new Duration(200, 'milliseconds').ms(), step: new Duration(100, 'milliseconds') },
+	{ ms: new Duration(100, 'milliseconds').ms(), step: new Duration(50, 'milliseconds') },
+	{ ms: new Duration(50, 'milliseconds').ms(), step: new Duration(25, 'milliseconds') },
+	{ ms: new Duration(20, 'milliseconds').ms(), step: new Duration(10, 'milliseconds') },
+	{ ms: new Duration(10, 'milliseconds').ms(), step: new Duration(5, 'milliseconds') },
+	{ ms: 0, step: new Duration(1, 'milliseconds') },
+];
 
 function truncate(n: number, step: number) {
 	return Math.floor(n / step) * step;
@@ -112,46 +135,31 @@ export class Axis {
 		return res;
 	}
 
-	getFitDuration(lowered: Duration) {
-		const countable = countableNumbers(lowered.unit);
-		for (let i = 0; i < countable.length; i++) {
-			const newDuration = new Duration(lowered.unit, lowered.count);
-			newDuration.count = countable[i];
-
-			const usage = this.getDurationPercentUsage(newDuration);
-			if (usage < 1) return newDuration;
-		}
-	}
-
 	getDuration(): Duration {
 		const start = this.range.value.from;
 		const end = this.range.value.to;
 		const duration = Duration.fromInterval(start, end);
 		if (start == end || this.unit !== 'time') return duration
 
-		if (duration.couldLower()) {
-			const lowered = duration.lower();
-			const fit = this.getFitDuration(lowered);
-			if (fit) return fit;
+		let lodIndex = 0;
+		for (let i = 0; i < lods.length; i++) {
+			const { ms } = lods[i];
+			if (duration.ms() >= ms) lodIndex = i;
 		}
-		const fit = this.getFitDuration(duration);
-		if (fit) return fit;
-
-		const raised = duration.raise();
-		const countable = countableNumbers(raised.unit);
-		raised.count = closest(raised.count, countable);
-		return raised;
+		while (this.getDurationPercentUsage(lods[lodIndex].step) > 1 && lodIndex > 0) lodIndex--;
+		return lods[lodIndex].step;
 	}
 
-	getInterval(duration?: DurationUnit) {
+	getInterval() {
 		const startDate = new Date(this.range.value.from);
 		const endDate = new Date(this.range.value.to);
+		const duration = this.duration.value;
 
 		let start = startDate.getTime();
 		let end = endDate.getTime();
-		let step = this.duration.value.count;
+		let step = duration.count;
 
-		switch (duration) {
+		switch (duration.unit) {
 			case 'years': {
 				start = startDate.setFullYear(truncate(startDate.getFullYear(), step));
 				end = endDate.setFullYear(truncate(endDate.getFullYear(), step) + step);
@@ -205,7 +213,7 @@ export class Axis {
 
 	getTimeTicks(): number[] {
 		const duration = this.duration.value;
-		const { step, interval } = this.getInterval(duration.unit);
+		const { step, interval } = this.getInterval();
 
 		switch (duration.unit) {
 			case 'years': return eachYearOfInterval(interval, { step }).map(d => d.getTime());
