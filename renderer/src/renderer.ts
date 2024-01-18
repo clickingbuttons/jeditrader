@@ -2,7 +2,7 @@ import { Scene, TickerScene } from './scenes/index.js';
 import { debounce } from './helpers.js';
 import { Signal, signal } from '@preact/signals-core';
 import { Input } from './input.js';
-import { Polygon } from '@jeditrader/providers';
+import { Polygon, Clickhouse } from '@jeditrader/providers';
 
 export interface RendererFlags {
 	rerender: boolean;
@@ -69,9 +69,10 @@ export class Renderer {
 		this.height = signal(canvas.height);
 		new ResizeObserver(debounce(this.onResize.bind(this))).observe(canvasUI);
 
-		const key = apiKey('Polygon');
-		const polygon = new Polygon(key);
-		this.scene = new TickerScene(this, 'F', polygon); // Init last
+		// const key = apiKey('Polygon');
+		// const polygon = new Polygon(key);
+		const clickhouse = new Clickhouse('http://localhost:8123');
+		this.scene = new TickerScene(this, 'F', clickhouse); // Init last
 	}
 
 	onResize(ev: any) {

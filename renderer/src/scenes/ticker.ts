@@ -31,10 +31,26 @@ export class TickerScene extends ChartScene {
 		this.cache = new SpanCache(ticker, provider);
 		const rerender = () => renderer.flags.rerender = true
 
-		lowLods.map(l => l.step).forEach(d =>
-			this.cache.ensure(d, minDate, maxDate)
-				.then(() => this.duration.value.eq(d) && rerender())
-		);
+		// These are small and fine to load all of
+		lowLods.map(l => l.step).forEach(d => {
+			this.cache.ensure(d, minDate, maxDate).then(() => {
+				if (!this.duration.value.eq(d)) return;
+
+				// Set axis range based on data
+				const timeRange = { from: maxDate, to: minDate };
+				const priceRange = { from: Number.POSITIVE_INFINITY, to: Number.NEGATIVE_INFINITY };
+				const aggs = this.cache.get(d);
+				for (let agg of aggs) {
+					if (agg.time < timeRange.from) timeRange.from = agg.time;
+					if (agg.time > timeRange.to) timeRange.to = agg.time;
+
+					if (agg.low < priceRange.from) priceRange.from = agg.low;
+					if (agg.high > priceRange.to) priceRange.to = agg.high;
+				}
+				this.xAxis.range.value = { ...timeRange };
+				this.yAxis.range.value = { ...priceRange };
+			})
+		});
 
 		this.xAxis.range.subscribe(newRange => {
 			const axisLod = this.xAxis.duration.value;
@@ -79,9 +95,9 @@ export class TickerScene extends ChartScene {
 		const ticks = this.xAxis.ticks.value;
 		const start = ticks[0];
 		const end = ticks[ticks.length - 1];
-		const aggs = this.cache.get(aggDuration, start, end);
 		const wickWidth = this.settings.bar.wickWidth.value;
 
+		const aggs = this.cache.get(aggDuration, start, end);
 		for (let agg of aggs) {
 			const xPerc = (agg.time - xRange.from) / xSpan + widthPerc / 2;
 			if (xPerc < -widthPerc || xPerc > 1 + widthPerc) continue;

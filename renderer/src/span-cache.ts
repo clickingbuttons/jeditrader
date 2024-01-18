@@ -21,7 +21,7 @@ export class SpanCache {
 		public provider: Provider,
 	) {}
 
-	*get(duration: Duration, from: number, to: number): Iterable<Aggregate> {
+	*get(duration: Duration, from: number = this.min, to: number = this.max): Iterable<Aggregate> {
 		if (from < this.min) from = this.min;
 		if (to > this.max) to = this.max;
 

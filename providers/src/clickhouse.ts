@@ -31,11 +31,9 @@ type ClickhouseTrade = {
 }
 
 export class Clickhouse implements Provider {
-	url: string;
-
-	constructor(url: string) {
-		this.url = url;
-	}
+	constructor(
+		public url: string,
+	) {}
 
 	async agg(
 		ticker: string,
@@ -45,35 +43,32 @@ export class Clickhouse implements Provider {
 		onChunk: (aggs: Aggregate[]) => void
 	): Promise<void> {
 		if (from < clickhouseMinDate) from = clickhouseMinDate;
-		const query = `SELECT toUnixTimestamp(ts) as time,
-				open,
-				high,
-				low,
-				close,
-				toFloat64(volume) as volume,
-				vwap
-			 FROM us_equities.${timespans[duration.unit]}
-			 WHERE ticker='${ticker}' AND ts BETWEEN toDateTime(${from.getTime() / 1e3}) AND toDateTime(${to.getTime() / 1e3})
-			 ORDER BY ts
-			 FORMAT JSON
-		`;
+		const query = `
+WITH
+	toStartOfInterval(ts, INTERVAL ${duration.count} ${duration.unit.substring(0, duration.unit.length - 1)}) as timespan,
+	sum(t.volume) AS v
+SELECT
+	toUnixTimestamp(timespan) AS time,
+	argMin(open, ts) AS open,
+	max(high) AS high,
+	min(low) AS low,
+	argMax(close, ts) AS close,
+	toFloat64(v) AS volume,
+	sum(liquidity) / v AS vwap
 
-		return fetch(`${this.url}/?query=${query}&add_http_cors_header=1`)
-			.then(res => res.json())
-			.then(res => res.data as ClickhouseAggregate[])
-			.then(res => {
-				var aggs: Aggregate[] = [];
-				var newAgg: Aggregate;
-				for (var i = 0; i < res.length; i++) {
-					var agg = res[i];
-					newAgg = {
-						...agg,
-						time: agg.time * 1000,
-					} as Aggregate;
-					aggs.push(newAgg);
-				}
-				onChunk(aggs);
-			});
+FROM us_equities.${timespans[duration.unit]} as t
+WHERE ticker='${ticker}' AND ts BETWEEN toDateTime(${from.getTime() / 1e3}) AND toDateTime(${to.getTime() / 1e3})
+GROUP BY timespan
+ORDER BY time ASC
+FORMAT JSON
+`;
+		const resp = await fetch(`${this.url}/?add_http_cors_header=1`, { method: 'POST', body: query });
+		if (resp.status !== 200) throw new Error(await resp.text());
+
+		const json = await resp.json()
+		const data = json.data as ClickhouseAggregate[];
+		for (var i = 0; i < data.length; i++) data[i].time *= 1000;
+		onChunk(data);
 	}
 
 	// trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void) {
