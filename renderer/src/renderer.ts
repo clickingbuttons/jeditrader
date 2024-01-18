@@ -70,9 +70,9 @@ export class Renderer {
 		new ResizeObserver(debounce(this.onResize.bind(this))).observe(canvasUI);
 
 		// const key = apiKey('Polygon');
-		// const polygon = new Polygon(key);
-		const clickhouse = new Clickhouse('http://localhost:8123');
-		this.scene = new TickerScene(this, 'F', clickhouse); // Init last
+		// const provider = new Polygon(key);
+		const provider = new Clickhouse('http://localhost:8123');
+		this.scene = new TickerScene(this, 'F', provider); // Init last
 	}
 
 	onResize(ev: any) {

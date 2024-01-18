@@ -1,5 +1,5 @@
 import { Duration, DurationUnit } from './duration.js';
-import { Aggregate, Provider, Trade } from './provider.js';
+import { Aggregate, Provider, Ticker, Trade } from './provider.js';
 
 const timespans = {
 	years: 'agg1y',
@@ -35,6 +35,12 @@ export class Clickhouse implements Provider {
 		public url: string,
 	) {}
 
+	private async doQuery(query: string) {
+		const resp = await fetch(`${this.url}/?add_http_cors_header=1`, { method: 'POST', body: query });
+		if (resp.status !== 200) throw new Error(await resp.text());
+		return resp;
+	}
+
 	async agg(
 		ticker: string,
 		from: Date,
@@ -62,13 +68,28 @@ GROUP BY timespan
 ORDER BY time ASC
 FORMAT JSON
 `;
-		const resp = await fetch(`${this.url}/?add_http_cors_header=1`, { method: 'POST', body: query });
-		if (resp.status !== 200) throw new Error(await resp.text());
-
+		const resp = await this.doQuery(query);
 		const json = await resp.json()
 		const data = json.data as ClickhouseAggregate[];
 		for (var i = 0; i < data.length; i++) data[i].time *= 1000;
 		onChunk(data);
+	}
+
+	async tickers(like: string, limit: number): Promise<Ticker[]> {
+		const query = `
+SELECT DISTINCT
+	ticker,
+	name
+FROM tickers
+WHERE name LIKE '%${like}%' OR ticker LIKE '%${like}%'
+LIMIT ${limit}
+FORMAT JSON
+`;
+		const resp = await this.doQuery(query);
+
+		const json = await resp.json()
+		const data = json.data as Ticker[];
+		return data;
 	}
 
 	// trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void) {

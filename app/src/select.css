@@ -17,6 +17,7 @@
 	z-index: 99;
 	max-height: calc(100vh - 100px);
 	overflow-y: auto;
+	background: rgba(var(--bg-overlay));
 }
 
 .select-item {

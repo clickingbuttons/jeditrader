@@ -2,7 +2,7 @@ import { JSX } from 'preact';
 import { StateUpdater } from 'preact/hooks';
 import { SymbolPicker } from './select.js';
 import { LightMode, DarkMode, ThreeLines, Box, ArrowUp } from './icons/index.js';
-import { Renderer } from '@jeditrader/renderer';
+import { Renderer, TickerScene } from '@jeditrader/renderer';
 import { Signal } from '@preact/signals';
 import './toolbar.css';
 
@@ -41,16 +41,20 @@ export function Toolbar({
 	style,
 }: ToolbarProps) {
 	const scene = renderer?.scene;
-	// const chart: ChartScene | null = scene instanceof ChartScene ? scene : null;
+	const chart: TickerScene | null = scene instanceof TickerScene ? scene : null;
 	return (
 		<div class="toolbar" style={style}>
-			{/*chart && chart.tickers.length > 0 &&
+			{chart &&
 				<SymbolPicker
-					value={chart.tickers[0].ticker}
-					onChange={newTicker => renderer && (chart.tickers[0].ticker.value = newTicker)}
+					value={chart.ticker}
+					provider={chart.provider}
+					onChange={newTicker => {
+						if (!renderer || !chart) return;
+						renderer.scene = new TickerScene(renderer, newTicker, chart.provider);
+					}}
 					disabled={!renderer}
 				/>
-			*/}
+			}
 
 			<div class="toolbar-spacer" />
 

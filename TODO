@@ -1,0 +1,18 @@
+[x] rendering options
+[x] try lod + 2
+[x] try labels under data
+[x] clickhouse
+[x] align data fetch to ticks -- check alignment...
+[x] focus data on load
+[x] zoom in aspect ratio
+[x] hover
+[x] ticker selector
+
+volume
+
+price multi decimal labels
+nanoseconds
+trades
+
+clickhouse high lod aggs
+clickhouse pipeline

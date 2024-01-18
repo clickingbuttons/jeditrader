@@ -16,6 +16,10 @@ export type Trade = {
 	size: number;
 	conditions: number[];
 }
+export type Ticker = {
+	ticker: string,
+	name: string,
+};
 
 export interface Provider {
 	agg(
@@ -25,5 +29,7 @@ export interface Provider {
 		duration: Duration,
 		onChunk: (aggs: Aggregate[]) => void,
 	): Promise<void>;
+
+	tickers(like: string, limit: number): Promise<Ticker[]>;
 	// trade(ticker: string, from: Date, to: Date): Stream<Trade[]>;
 }

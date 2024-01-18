@@ -418,7 +418,7 @@ export class Axis {
 				break;
 			}
 
-			ctxUI.strokeStyle = 'black';
+			ctxUI.strokeStyle = `rgb(${getVar('--fg')})`;
 			ctxUI.stroke();
 
 			const axisVal = this.toAxisSpace(val);

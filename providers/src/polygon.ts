@@ -1,4 +1,4 @@
-import { Aggregate, Provider, Trade } from './provider.js';
+import { Aggregate, Provider, Ticker, Trade } from './provider.js';
 import type { Duration, DurationUnit } from './duration.js';
 
 type Timespan = 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year';
@@ -53,9 +53,30 @@ interface PolygonTradesResult {
 	next_url?: string;
 }
 
+interface PolygonTicker {
+	ticker: string;
+	name: string;
+	market: string;
+	locale: string;
+	primary_exchange: string;
+	type: string;
+	active: string;
+	currency_name: string;
+	cik: string;
+	composite_figi: string;
+	share_class_figi: string;
+	last_updated_utc: string;
+};
+
+interface PolygonTickersResponse {
+	status: string;
+	request_id: string;
+	results: PolygonTicker[];
+	count?: number;
+};
+
 export class Polygon implements Provider {
 	static baseUrl = 'https://api.polygon.io';
-	static aggsUrl = `${Polygon.baseUrl}/v2/aggs/ticker`;
 	static minDate = new Date(0);
 
 	constructor(
@@ -72,7 +93,7 @@ export class Polygon implements Provider {
 		const timespan = toTimespan(duration.unit);
 		if (from < Polygon.minDate) from = Polygon.minDate;
 
-		const url = `${Polygon.aggsUrl}/${ticker}/range/${duration.count}/${timespan}/${from.getTime()}/${to.getTime()}?`;
+		const url = `${Polygon.baseUrl}/v2/aggs/ticker/${ticker}/range/${duration.count}/${timespan}/${from.getTime()}/${to.getTime()}?`;
 		const urlExtra = `&apiKey=${this.apiKey}&limit=10000`;
 		let resp: PolygonAggsResult = await fetch(url + urlExtra)
 			.then(res => res.json());
@@ -97,6 +118,13 @@ export class Polygon implements Provider {
 				return;
 			}
 		} while(resp.next_url);
+	}
+
+	async tickers(like: string, limit: number): Promise<Ticker[]> {
+		const url = `${Polygon.baseUrl}/v3/reference/tickers?search=${like}&limit=${limit}&apiKey=${this.apiKey}`;
+		let resp: PolygonTickersResponse = await fetch(url)
+			.then(res => res.json());
+		return resp.results;
 	}
 
 	// trade(ticker: string, from: Date, to: Date, onChunk: (trades: Trade[]) => void) {
