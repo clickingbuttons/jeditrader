@@ -9,7 +9,6 @@
 	--bg-overlay: var(--color-2), 0.5;
 	--fg: var(--color-5);
 	--border-color: 221, 221, 221;
-
 	--horz-line-color: 240, 243, 250;
 }
 
@@ -47,5 +46,5 @@ button {
 }
 
 a, a:visited, a:hover, a:active {
-  color: inherit;
+	color: inherit;
 }

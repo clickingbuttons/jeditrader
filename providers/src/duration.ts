@@ -32,7 +32,7 @@ export class Duration {
 	ms(): number {
 		switch (this.unit) {
 		case 'years': return this.count * 365.25 * 24 * 60 * 60 * 1000;
-		case 'months': return this.count * 30.5 * 24 * 60 * 60 * 1000;
+		case 'months': return this.count * (365.25 / 12) * 24 * 60 * 60 * 1000;
 		case 'weeks': return this.count * 7 * 24 * 60 * 60 * 1000;
 		case 'days': return this.count * 24 * 60 * 60 * 1000;
 		case 'hours': return this.count * 60 * 60 * 1000;

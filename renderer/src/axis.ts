@@ -74,9 +74,63 @@ export const lods = [
 	{ ms: new Duration(10, 'milliseconds').ms(), step: new Duration(5, 'milliseconds') },
 	{ ms: 0, step: new Duration(1, 'milliseconds') },
 ];
+export const lowLods = lods.filter(d => d.step.ms() >= new Duration(1, 'months').ms());
 
 function truncate(n: number, step: number) {
 	return Math.floor(n / step) * step;
+}
+
+export function getInterval(start: number, end: number, duration: Duration) {
+	const startDate = new Date(start);
+	const endDate = new Date(end);
+	let step = duration.count;
+
+	switch (duration.unit) {
+		case 'years': {
+			start = startDate.setFullYear(truncate(startDate.getFullYear(), step));
+			end = endDate.setFullYear(truncate(endDate.getFullYear(), step) + step);
+			break;
+		}
+		case 'months': {
+			start = startDate.setMonth(0);
+			end = endDate.setMonth(12);
+			break;
+		}
+		case 'weeks': {
+			// week of month
+			start = startOfWeek(startDate).getTime();
+			end = endOfWeek(endDate).getTime() + step;
+			break;
+		}
+		case 'days': {
+			start = startDate.setDate(truncate(startDate.getDate(), step));
+			end = endDate.setDate(truncate(endDate.getDate(), step) + step);
+			break;
+		}
+		case 'hours': {
+			start = startDate.setHours(truncate(startDate.getHours(), step));
+			end = endDate.setHours(truncate(endDate.getHours(), step) + step);
+			break;
+		}
+		case 'minutes': {
+			start = startDate.setMinutes(truncate(startDate.getMinutes(), step));
+			end = endDate.setMinutes(truncate(endDate.getMinutes(), step) + step);
+			break;
+		}
+		case 'seconds': {
+			step *= 1000;
+			start = truncate(start, step);
+			end = truncate(end, step) + step;
+			break;
+		}
+		case 'milliseconds': {
+			start = truncate(start, step);
+			end = truncate(end, step) + step;
+			break;
+		}
+	}
+
+	return { start, end };
 }
 
 export class Axis {
@@ -148,70 +202,10 @@ export class Axis {
 		return lods[lodIndex].step;
 	}
 
-	getInterval() {
-		const startDate = new Date(this.range.value.from);
-		const endDate = new Date(this.range.value.to);
-		const duration = this.duration.value;
-
-		let start = startDate.getTime();
-		let end = endDate.getTime();
-		let step = duration.count;
-
-		switch (duration.unit) {
-			case 'years': {
-				start = startDate.setFullYear(truncate(startDate.getFullYear(), step));
-				end = endDate.setFullYear(truncate(endDate.getFullYear(), step) + step);
-				break;
-			}
-			case 'months': {
-				start = startDate.setMonth(0);
-				end = endDate.setMonth(12);
-				break;
-			}
-			case 'weeks': {
-				// week of month
-				step = 1;
-				start = startOfWeek(startDate).getTime();
-				end = endOfWeek(endDate).getTime() + step;
-				break;
-			}
-			case 'days': {
-				start = startDate.setDate(truncate(startDate.getDate(), step));
-				end = endDate.setDate(truncate(endDate.getDate(), step) + step);
-				break;
-			}
-			case 'hours': {
-				start = startDate.setHours(truncate(startDate.getHours(), step));
-				end = endDate.setHours(truncate(endDate.getHours(), step) + step);
-				break;
-			}
-			case 'minutes': {
-				start = startDate.setMinutes(truncate(startDate.getMinutes(), step));
-				end = endDate.setMinutes(truncate(endDate.getMinutes(), step) + step);
-				break;
-			}
-			case 'seconds': {
-				step *= 1000;
-				start = truncate(start, step);
-				end = truncate(end, step) + step;
-				break;
-			}
-			case 'milliseconds': {
-				start = truncate(start, step);
-				end = truncate(end, step) + step;
-				break;
-			}
-		}
-
-		return {
-			interval: { start, end },
-			step,
-		};
-	}
-
 	getTimeTicks(): number[] {
 		const duration = this.duration.value;
-		const { step, interval } = this.getInterval();
+		const interval = getInterval(this.range.value.from, this.range.value.to, duration);
+		let step = duration.count;
 
 		switch (duration.unit) {
 			case 'years': return eachYearOfInterval(interval, { step }).map(d => d.getTime());
@@ -221,6 +215,8 @@ export class Axis {
 			case 'hours': return eachHourOfInterval(interval, { step }).map(d => d.getTime());
 			case 'minutes': return eachMinuteOfInterval(interval, { step }).map(d => d.getTime());
 			case 'seconds':
+				step *= 1000;
+				// intentional fall-through
 			case 'milliseconds': {
 				let i = 0;
 				const res = Array((interval.end - interval.start) / step);
@@ -368,7 +364,7 @@ export class Axis {
 		}
 
 		// grid
-		ctx.strokeStyle = 'gray';
+		ctx.strokeStyle = `rgb(${getVar('--horz-line-color') ?? '10, 10, 10, 0.5'})`;
 		ctx.stroke();
 	}
 }
