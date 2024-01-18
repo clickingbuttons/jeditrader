@@ -91,6 +91,7 @@ export class Input {
 	mouseleave() { this.buttons = { ...defaultButtons }; }
 
 	wheel(ev: WheelEvent) {
+		ev.preventDefault(); // Prevent ctrl + wheel
 		this.wheelX = ev.deltaX;
 		this.wheelY = ev.deltaY;
 	}

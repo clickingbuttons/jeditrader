@@ -148,6 +148,9 @@ export class Axis {
 	duration: Signal<Duration>;
 	ticks: Signal<number[]>;
 
+	// In canvas space
+	crosshair = signal<number | undefined>(undefined);
+
 	constructor(renderer: Renderer, from: number, to: number, unit: Unit, side: Side) {
 		this.ctx = renderer.contextUI;
 		this.unit = unit;
@@ -156,6 +159,7 @@ export class Axis {
 		this.duration = computed(this.getDuration.bind(this));
 		this.ticks = computed(this.getTicks.bind(this));
 		this.ticks.subscribe(() => renderer.flags.rerender = true);
+		this.crosshair.subscribe(() => renderer.flags.rerender = true);
 	}
 
 	clampRange(from: number, to: number) {
@@ -176,7 +180,7 @@ export class Axis {
 		}
 	}
 
-	getDurationPercentUsage(duration: Duration) {
+	private getDurationPercentUsage(duration: Duration) {
 		const start = this.range.value.from;
 		const end = this.range.value.to;
 		const px = this.getPx();
@@ -187,7 +191,7 @@ export class Axis {
 		return res;
 	}
 
-	getDuration(): Duration {
+	private getDuration(): Duration {
 		const start = this.range.value.from;
 		const end = this.range.value.to;
 		const duration = Duration.fromInterval(start, end);
@@ -202,7 +206,7 @@ export class Axis {
 		return lods[lodIndex].step;
 	}
 
-	getTimeTicks(): number[] {
+	private getTimeTicks(): number[] {
 		const duration = this.duration.value;
 		const interval = getInterval(this.range.value.from, this.range.value.to, duration);
 		let step = duration.count;
@@ -227,7 +231,7 @@ export class Axis {
 		}
 	}
 
-	getPow10Ticks(): number[] {
+	private getPow10Ticks(): number[] {
 		const min = this.range.value.from;
 		const max = this.range.value.to;
 		let step = 10 ** Math.round(Math.log10(max - min) - 2);
@@ -285,12 +289,68 @@ export class Axis {
 		}
 	}
 
+	toAxisSpace(n: number) {
+		let perc = n / this.getPx();
+		if (!this.isLeftToRight()) perc = 1 - perc;
+		const range = this.range.value;
+		return range.from + perc * (range.to - range.from);
+	}
+
+	layoutVal(
+		tickPerc: number,
+		heightMetrics: TextMetrics,
+		metrics: TextMetrics,
+		ctxUI: CanvasRenderingContext2D
+	) {
+		var lineX, lineY;
+		switch (this.side) {
+		case 'top':
+			lineX = tickPerc * ctxUI.canvas.width;
+			lineY = metrics.fontBoundingBoxAscent;
+			return {
+				lineX,
+				lineY,
+				textX: lineX - metrics.width / 2,
+				textY: lineY + this.paddingPx,
+			};
+		case 'bottom':
+			lineX = tickPerc * ctxUI.canvas.width;
+			lineY = ctxUI.canvas.height;
+			return {
+				lineX,
+				lineY,
+				textX: lineX - metrics.width / 2,
+				textY: lineY - this.paddingPx * 2,
+			};
+		case 'left':
+			lineX = -metrics.width;
+			lineY = (1 - tickPerc) * ctxUI.canvas.height;
+			return {
+				lineX,
+				lineY,
+				textX: this.paddingPx,
+				textY: lineY + heightMetrics.fontBoundingBoxDescent,
+			};
+		case 'right':
+			lineX = ctxUI.canvas.width;
+			lineY = (1 - tickPerc) * ctxUI.canvas.height;
+			return {
+				lineX,
+				lineY,
+				textX: lineX - metrics.width - this.paddingPx,
+				textY: lineY + heightMetrics.fontBoundingBoxDescent,
+			};
+		}
+	}
+
 	render(ctx: CanvasRenderingContext2D, ctxUI: CanvasRenderingContext2D) {
 		const ticks = this.ticks.value;
 		const range = this.range.value.to - this.range.value.from
 
 		ctxUI.font = this.font;
-		ctxUI.fillStyle = `rgb(${getVar('--fg') ?? '0, 0, 0'})`;
+		const fgFill = `rgb(${getVar('--fg') ?? '0, 0, 0'})`;
+		const bgFill = `rgb(${getVar('--bg') ?? '255, 255, 255'})`;
+		ctxUI.fillStyle = fgFill;
 		const { format, formatCtx } = this.timeLabelFormat(this.duration.value.unit);
 
 		const heightMetrics = ctxUI.measureText('0');
@@ -308,46 +368,20 @@ export class Axis {
 			if (!first && formatCtx) label = this.label(ticks[i], formatCtx);
 
 			const metrics = ctxUI.measureText(label);
-			let x = 0;
-			let y = 0;
-			let textX = 0;
-			let textY = 0;
-			switch (this.side) {
-				case 'top':
-					x = tickPerc * ctxUI.canvas.width;
-					y = metrics.fontBoundingBoxAscent;
-					textX = x - metrics.width / 2;
-					textY = y + this.paddingPx;
-					break;
-				case 'bottom':
-					x = tickPerc * ctxUI.canvas.width;
-					y = ctxUI.canvas.height;
-					textX = x - metrics.width / 2;
-					textY = y - this.paddingPx * 2;
-					break;
-				case 'left':
-					x = -metrics.width;
-					y = (1 - tickPerc) * ctxUI.canvas.height;
-					textX = this.paddingPx;
-					textY = y + heightMetrics.fontBoundingBoxDescent;
-					break;
-				case 'right':
-					x = ctxUI.canvas.width;
-					y = (1 - tickPerc) * ctxUI.canvas.height;
-					textX = x - metrics.width - this.paddingPx;
-					textY = y + heightMetrics.fontBoundingBoxDescent;
-					break;
-			}
+			let { lineX, lineY, textX, textY } = this.layoutVal(tickPerc, heightMetrics, metrics, ctxUI);
+
 			// grid
 			switch (this.side) {
-				case 'top':
-				case 'bottom':
-					ctx.moveTo(x, 0);
-					ctx.lineTo(x, ctx.canvas.height);
-				case 'left':
-				case 'right':
-					ctx.moveTo(0, y);
-					ctx.lineTo(ctx.canvas.width, y);
+			case 'top':
+			case 'bottom':
+				ctx.moveTo(lineX, 0);
+				ctx.lineTo(lineX, ctx.canvas.height);
+				break;
+			case 'left':
+			case 'right':
+				ctx.moveTo(0, lineY);
+				ctx.lineTo(ctx.canvas.width, lineY);
+				break;
 			}
 
 			if (
@@ -366,5 +400,45 @@ export class Axis {
 		// grid
 		ctx.strokeStyle = `rgb(${getVar('--horz-line-color') ?? '10, 10, 10, 0.5'})`;
 		ctx.stroke();
+
+		// crosshair
+		if (this.crosshair.value) {
+			const val = this.crosshair.value;
+			ctxUI.beginPath();
+			switch (this.side) {
+			case 'top':
+			case 'bottom':
+				ctxUI.moveTo(val, 0);
+				ctxUI.lineTo(val, ctxUI.canvas.height);
+				break;
+			case 'left':
+			case 'right':
+				ctxUI.moveTo(0, val);
+				ctxUI.lineTo(ctx.canvas.width, val);
+				break;
+			}
+
+			ctxUI.strokeStyle = 'black';
+			ctxUI.stroke();
+
+			const axisVal = this.toAxisSpace(val);
+			const tickPerc = (axisVal - this.range.value.from) / range;
+			const label = this.label(axisVal, format);
+			const metrics = ctxUI.measureText(label);
+
+			let { textX, textY } = this.layoutVal(tickPerc, heightMetrics, metrics, ctxUI);
+			textX = clamp(textX, this.paddingPx, ctxUI.canvas.width - metrics.width - this.paddingPx);
+
+			ctxUI.fillStyle = bgFill;
+			ctxUI.fillRect(
+				textX - this.paddingPx,
+				textY + metrics.fontBoundingBoxDescent + this.paddingPx,
+				metrics.width + this.paddingPx * 2,
+				-height - this.paddingPx * 2,
+			);
+
+			ctxUI.fillStyle = fgFill;
+			ctxUI.fillText(label, textX, textY);
+		}
 	}
 }

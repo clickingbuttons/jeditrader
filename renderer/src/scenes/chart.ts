@@ -15,10 +15,10 @@ export class ChartScene extends Scene {
 		const from = new Date(to).setFullYear(to.getFullYear() - 10);
 		this.xAxis = new Axis(renderer, from, to.getTime(), 'time', 'bottom');
 		this.yAxis = new Axis(renderer, 0, 10, 'dollars', 'left');
+		this.yAxis.clipBottom = true;
 
 		renderer.width.subscribe(() => this.panRange(this.xAxis, 0, 1));
 		renderer.height.subscribe(() => this.panRange(this.xAxis, 0, 1));
-		this.yAxis.clipBottom = true;
 	}
 
 	panRange(axis: Axis, movement: number, px: number) {
@@ -50,6 +50,13 @@ export class ChartScene extends Scene {
 				this.zoomRange(this.xAxis, percX * zoomPerc, (1 - percX) * zoomPerc);
 			}
 			this.zoomRange(this.yAxis, percY * zoomPerc, (1 - percY) * zoomPerc / aspectRatio);
+		}
+		if (input.buttons.ctrl) {
+			if (this.xAxis.crosshair.value != input.posX) this.xAxis.crosshair.value = input.posX;
+			if (this.yAxis.crosshair.value != input.posY) this.yAxis.crosshair.value = input.posY;
+		} else {
+			if (this.xAxis.crosshair.value != undefined) this.xAxis.crosshair.value = undefined;
+			if (this.yAxis.crosshair.value != undefined) this.yAxis.crosshair.value = undefined;
 		}
 	}
 

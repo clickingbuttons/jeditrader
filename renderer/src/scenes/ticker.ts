@@ -80,7 +80,8 @@ export class TickerScene extends ChartScene {
 	}
 
 	render(ctx: CanvasRenderingContext2D, ctxUI: CanvasRenderingContext2D) {
-		super.render(ctx, ctxUI);
+		this.xAxis.render(ctx, ctxUI);
+		this.yAxis.render(ctx, ctxUI);
 
 		const xRange = this.xAxis.range.value;
 		const yRange = this.yAxis.range.value;
@@ -92,9 +93,8 @@ export class TickerScene extends ChartScene {
 		const aggDuration = this.duration.value;
 		const widthPerc = this.duration.value.ms() / xSpan;
 
-		const ticks = this.xAxis.ticks.value;
-		const start = ticks[0];
-		const end = ticks[ticks.length - 1];
+		const start = xRange.from - this.duration.value.ms();
+		const end = xRange.to + this.duration.value.ms();
 		const wickWidth = this.settings.bar.wickWidth.value;
 
 		const aggs = this.cache.get(aggDuration, start, end);
