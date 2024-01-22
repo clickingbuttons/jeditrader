@@ -6,6 +6,7 @@
 [x] focus data on load
 [x] zoom in aspect ratio
 [x] hover
+	- [ ] show all candle data in tooltip
 [x] ticker selector
 
 volume
@@ -14,5 +15,18 @@ price multi decimal labels
 nanoseconds
 trades
 
+vwap
+drawings
+
 clickhouse high lod aggs
 clickhouse pipeline
+
+show LOD in toolbar
+more settings
+settings a11y
+persistent settings
+zoom axes click and drag
+provider select
+loading state (gray background?)
+
+css modules

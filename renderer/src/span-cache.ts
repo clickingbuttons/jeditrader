@@ -21,7 +21,7 @@ export class SpanCache {
 		public provider: Provider,
 	) {}
 
-	*get(duration: Duration, from: number = this.min, to: number = this.max): Iterable<Aggregate> {
+	*get(duration: Duration, from: number = this.min, to: number = this.max): IterableIterator<Aggregate> {
 		if (from < this.min) from = this.min;
 		if (to > this.max) to = this.max;
 
@@ -47,6 +47,7 @@ export class SpanCache {
 	async ensure(duration: Duration, from: number, to: number): Promise<void> {
 		if (from < this.min) from = this.min;
 		if (to > this.max) to = this.max;
+		if (to > new Date().getTime()) to = new Date().getTime();
 
 		const key = duration.toString();
 		this.aggs[key] ??= [];
@@ -74,7 +75,7 @@ export class SpanCache {
 			if (from <= spans[i].from && to >= spans[i].to) contained.push(spans[i]);
 		}
 
-		if (to - from < duration.ms()) return;
+		if (to - from < duration.ms() || from >= to) return;
 
 		const promises: Promise<void>[] = [];
 		for (let i = 0; i < contained.length + 1; i++) {

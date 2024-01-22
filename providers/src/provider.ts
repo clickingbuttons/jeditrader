@@ -9,6 +9,7 @@ export type Aggregate = {
 	close: number;
 	volume: number;
 	vwap: number;
+	count: number;
 }
 export type Trade = {
 	epochNS: number;

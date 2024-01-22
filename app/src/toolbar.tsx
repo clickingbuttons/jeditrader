@@ -6,26 +6,6 @@ import { Renderer, TickerScene } from '@jeditrader/renderer';
 import { Signal } from '@preact/signals';
 import './toolbar.css';
 
-/*
-function LodSelect({ chart }: { chart: ChartScene }) {
-	return (
-		<select
-			value={chart.getLod()}
-			onChange={ev => {
-				if (!chart) return;
-				chart.setLod(ev.currentTarget.value as Lod);
-			}}
-		>
-			{lods.map(l =>
-				<option value={l}>
-					{l === 'auto' ? `auto (${chart.autoLod.value})` : l}
-				</option>
-			)}
-		</select>
-	);
-}
-*/
-
 interface ToolbarProps extends JSX.HTMLAttributes<HTMLDivElement> {
 	renderer: Renderer | null;
 	showSettings: boolean;
@@ -42,6 +22,8 @@ export function Toolbar({
 }: ToolbarProps) {
 	const scene = renderer?.scene;
 	const chart: TickerScene | null = scene instanceof TickerScene ? scene : null;
+	const agg = chart?.crosshair.value;
+
 	return (
 		<div class="toolbar" style={style}>
 			{chart &&
@@ -58,7 +40,23 @@ export function Toolbar({
 
 			<div class="toolbar-spacer" />
 
-			{/*chart && <LodSelect chart={chart} />*/}
+			{agg &&
+				<div>
+					{new Date(agg.time).toISOString()}{' '}
+					O: {agg.open}{' '}
+					H: {agg.high}{' '}
+					L: {agg.low}{' '}
+					C: {agg.close}{' '}
+					V: {agg.volume}{' '}
+					LQ: {agg.volume * agg.vwap}
+				</div>
+			}
+
+			{chart &&
+				<div>
+					{chart.duration.value.toString()}
+				</div>
+			}
 
 			<div class="toolbar-buttons" >
 				<button

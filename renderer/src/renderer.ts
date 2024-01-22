@@ -69,9 +69,9 @@ export class Renderer {
 		this.height = signal(canvas.height);
 		new ResizeObserver(debounce(this.onResize.bind(this))).observe(canvasUI);
 
-		// const key = apiKey('Polygon');
-		// const provider = new Polygon(key);
-		const provider = new Clickhouse('http://localhost:8123');
+		const key = apiKey('Polygon');
+		const provider = new Polygon(key);
+		// const provider = new Clickhouse('http://localhost:8123');
 		this.scene = new TickerScene(this, 'F', provider); // Init last
 	}
 

@@ -4,6 +4,10 @@
 	flex-wrap: wrap;
 }
 
+.toolbar > * {
+	margin: 0 10px;
+}
+
 .multiplier {
 	width: 42px;
 }

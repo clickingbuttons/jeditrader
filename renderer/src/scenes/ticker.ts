@@ -3,7 +3,7 @@ import { signal } from '@preact/signals-core';
 import { Provider, Aggregate, Duration } from '@jeditrader/providers';
 import { ChartScene } from './chart.js';
 import { lods, lowLods, getInterval } from '../axis.js';
-import { getVar, minDate, maxDate } from '../helpers.js';
+import { getVar, minDate, maxDate, toymd } from '../helpers.js';
 import { SpanCache } from '../span-cache.js';
 
 export class TickerScene extends ChartScene {
@@ -13,14 +13,15 @@ export class TickerScene extends ChartScene {
 
 	settings = {
 		bar: {
-			colors: {
-				up: signal('green'),
-				down: signal('red'),
-				even: signal('gray'),
-			},
 			wickWidth: signal(3),
+			wickColor: {
+				val: signal('foreground'),
+				options: ['foreground', 'body'],
+			}
 		}
 	};
+
+	crosshair = signal<Aggregate | undefined>(undefined);
 
 	constructor(
 		renderer: Renderer,
@@ -33,7 +34,8 @@ export class TickerScene extends ChartScene {
 
 		// These are small and fine to load all of
 		lowLods.map(l => l.step).forEach(d => {
-			this.cache.ensure(d, minDate, maxDate).then(() => {
+			const { start, end } = getInterval(minDate, maxDate, d);
+			this.cache.ensure(d, start, end).then(() => {
 				if (!this.duration.value.eq(d)) return;
 
 				// Set axis range based on data
@@ -68,20 +70,34 @@ export class TickerScene extends ChartScene {
 			this.duration.value = dataLod;
 		});
 
-		Object.values(this.settings.bar.colors).forEach(v => v.subscribe(rerender));
+		this.xAxis.crosshair.subscribe(newCrosshair => {
+			if (!newCrosshair) {
+				this.crosshair.value = undefined;
+				return;
+			}
+			const axisVal = this.xAxis.toAxisSpace(newCrosshair);
+
+			const { start, end } = getInterval(axisVal, axisVal, this.duration.value);
+			const iter = this.cache.get(this.duration.value, start, end);
+			const first = iter.next().value;
+			if (first) this.crosshair.value = first;
+			else this.crosshair.value = undefined;
+		});
+
+		this.settings.bar.wickColor.val.subscribe(rerender);
 		this.settings.bar.wickWidth.subscribe(rerender);
 	}
 
 	getFill(agg: Aggregate) {
-		const { colors } = this.settings.bar;
-		if (agg.close > agg.open) return colors.up.value;
-		else if (agg.close < agg.open) return colors.down.value;
-		return colors.even.value;
+		let rgb = getVar('--bar-even-color');
+		if (agg.close > agg.open) rgb = getVar('--bar-up-color');
+		else if (agg.close < agg.open) rgb = getVar('--bar-down-color');
+		return `rgb(${rgb})`;
 	}
 
 	render(ctx: CanvasRenderingContext2D, ctxUI: CanvasRenderingContext2D) {
-		this.xAxis.render(ctx, ctxUI);
-		this.yAxis.render(ctx, ctxUI);
+		this.xAxis.render(ctx, ctxUI, this.duration.value);
+		this.yAxis.render(ctx, ctxUI, this.duration.value);
 
 		const xRange = this.xAxis.range.value;
 		const yRange = this.yAxis.range.value;
@@ -96,16 +112,36 @@ export class TickerScene extends ChartScene {
 		const start = xRange.from - this.duration.value.ms();
 		const end = xRange.to + this.duration.value.ms();
 		const wickWidth = this.settings.bar.wickWidth.value;
+		const barWidth = axisWidth * widthPerc;
 
 		const aggs = this.cache.get(aggDuration, start, end);
 		for (let agg of aggs) {
 			const xPerc = (agg.time - xRange.from) / xSpan + widthPerc / 2;
 			if (xPerc < -widthPerc || xPerc > 1 + widthPerc) continue;
+			if (agg.volume * agg.vwap) {
+				// shadow
+				const yPerc = 1 - (Math.min(agg.open, agg.close) - yRange.from) / ySpan;
+				const heightPerc = (agg.volume * agg.vwap / 1e7) / ySpan;
+
+				const x = xPerc * axisWidth;
+				const y = yPerc * axisHeight;
+				const gradient = ctx.createRadialGradient(x, y, 0, x, y, heightPerc * axisHeight);
+
+				// Add three color stops
+				gradient.addColorStop(0, "black");
+				gradient.addColorStop(1, "transparent");
+				ctx.fillStyle = `rgb(${getVar('--bar-shadow-color')})`;
+				ctx.fillRect(x - barWidth / 2, y, barWidth, heightPerc * axisHeight);
+			}
 			{
 				// wick
 				const yPerc = 1 - (agg.high - yRange.from) / ySpan;
 				const heightPerc = (agg.high - agg.low) / ySpan;
-				ctx.fillStyle = `rgb(${getVar('--fg') ?? '0, 0, 0'})`;
+				if (this.settings.bar.wickColor.val.value === 'foreground') {
+					ctx.fillStyle = `rgb(${getVar('--fg') ?? '0, 0, 0'})`;
+				} else {
+					ctx.fillStyle = this.getFill(agg);
+				}
 				ctx.fillRect(
 					xPerc * axisWidth - (wickWidth - 1) / 2,
 					yPerc * axisHeight,
@@ -115,20 +151,23 @@ export class TickerScene extends ChartScene {
 			}
 			{
 				// candle
-				const widthPx = axisWidth * widthPerc;
 				const yPerc = 1 - (agg.open - yRange.from) / ySpan;
 				const heightPerc = (agg.open - agg.close) / ySpan;
 				ctx.fillStyle = this.getFill(agg);
-
 				let height = heightPerc * axisHeight;
 				if (height >= 0 && height < 1) height = 1;
 				if (height < 0 && height > -1) height = -1;
+
+				ctx.save();
+				ctx.shadowBlur = 4;
+				ctx.shadowColor = 'black';
 				ctx.fillRect(
-					xPerc * axisWidth - widthPx / 2,
+					xPerc * axisWidth - barWidth / 2,
 					yPerc * axisHeight,
-					widthPx,
+					barWidth,
 					height
 				);
+				ctx.restore();
 			}
 		}
 	}

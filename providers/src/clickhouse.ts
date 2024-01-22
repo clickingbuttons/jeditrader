@@ -21,6 +21,7 @@ type ClickhouseAggregate = {
 	close: number;
 	volume: number;
 	vwap: number;
+	count: number;
 }
 
 type ClickhouseTrade = {
@@ -60,7 +61,8 @@ SELECT
 	min(low) AS low,
 	argMax(close, ts) AS close,
 	toFloat64(v) AS volume,
-	sum(liquidity) / v AS vwap
+	sum(liquidity) / v AS vwap,
+	sum(count) as count
 
 FROM us_equities.${timespans[duration.unit]} as t
 WHERE ticker='${ticker}' AND ts BETWEEN toDateTime(${from.getTime() / 1e3}) AND toDateTime(${to.getTime() / 1e3})

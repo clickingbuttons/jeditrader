@@ -9,9 +9,13 @@ import {
 	eachWeekOfInterval,
 	eachMonthOfInterval,
 	eachYearOfInterval,
-	format,
+	format as formatTime,
 	startOfWeek,
-	endOfWeek,
+	startOfYear,
+	startOfMonth,
+	startOfDay,
+	startOfHour,
+	startOfMinute,
 } from 'date-fns';
 
 export type Range<T> = { from: T, to: T };
@@ -53,7 +57,7 @@ export const lods = [
 	{ ms: new Duration(10, 'years').ms(), step: new Duration(5, 'years') },
 	{ ms: new Duration(5, 'years').ms(), step: new Duration(1, 'years') },
 	{ ms: new Duration(1, 'years').ms(), step: new Duration(6, 'months') },
-	{ ms: new Duration(8, 'months').ms(), step: new Duration(4, 'months') },
+	{ ms: new Duration(8, 'months').ms(), step: new Duration(3, 'months') },
 	{ ms: new Duration(2, 'months').ms(), step: new Duration(1, 'months') },
 	{ ms: new Duration(2, 'weeks').ms(), step: new Duration(1, 'weeks') },
 	{ ms: new Duration(2, 'days').ms(), step: new Duration(1, 'days') },
@@ -81,38 +85,46 @@ function truncate(n: number, step: number) {
 }
 
 export function getInterval(start: number, end: number, duration: Duration) {
-	const startDate = new Date(start);
-	const endDate = new Date(end);
 	let step = duration.count;
 
 	switch (duration.unit) {
 		case 'years': {
+			const startDate = startOfYear(start);
+			const endDate = startOfYear(end);
 			start = startDate.setFullYear(truncate(startDate.getFullYear(), step));
 			end = endDate.setFullYear(truncate(endDate.getFullYear(), step) + step);
 			break;
 		}
 		case 'months': {
-			start = startDate.setMonth(0);
-			end = endDate.setMonth(12);
+			const startDate = startOfMonth(start);
+			const endDate = startOfMonth(end);
+			start = startDate.setMonth(truncate(startDate.getMonth(), step));
+			end = endDate.setMonth(truncate(endDate.getMonth(), step) + step);
 			break;
 		}
 		case 'weeks': {
 			// week of month
-			start = startOfWeek(startDate).getTime();
-			end = endOfWeek(endDate).getTime() + step;
+			start = startOfWeek(start).getTime();
+			end = startOfWeek(end).getTime();
 			break;
 		}
 		case 'days': {
+			const startDate = startOfDay(start);
+			const endDate = startOfDay(end);
 			start = startDate.setDate(truncate(startDate.getDate(), step));
 			end = endDate.setDate(truncate(endDate.getDate(), step) + step);
 			break;
 		}
 		case 'hours': {
+			const startDate = startOfHour(start);
+			const endDate = startOfHour(end);
 			start = startDate.setHours(truncate(startDate.getHours(), step));
 			end = endDate.setHours(truncate(endDate.getHours(), step) + step);
 			break;
 		}
 		case 'minutes': {
+			const startDate = startOfMinute(start);
+			const endDate = startOfMinute(end);
 			start = startDate.setMinutes(truncate(startDate.getMinutes(), step));
 			end = endDate.setMinutes(truncate(endDate.getMinutes(), step) + step);
 			break;
@@ -267,14 +279,13 @@ export class Axis {
 			case 'minutes': return { format: 'HH:mm', formatCtx: 'yyyy-MM-dd' };
 			case 'seconds': return { format: ':ss', formatCtx: 'yyyy-MM-dd HH:mm' };
 			case 'milliseconds':
-			default:
-				return { format: '.SSS', formatCtx: 'yyyy-MM-dd HH:mm:ss' };
+			default: return { format: '.SSS', formatCtx: 'yyyy-MM-dd HH:mm:ss' };
 		}
 	}
 
 	label(n: number, formatStr: string): string {
 		switch (this.unit) {
-			case 'time': return format(n, formatStr);
+			case 'time': return formatTime(n, formatStr);
 			case 'dollars': return '$' + n.toFixed(2);
 			default: return n.toString();
 		}
@@ -343,7 +354,7 @@ export class Axis {
 		}
 	}
 
-	render(ctx: CanvasRenderingContext2D, ctxUI: CanvasRenderingContext2D) {
+	render(ctx: CanvasRenderingContext2D, ctxUI: CanvasRenderingContext2D, crosshairDuration?: Duration) {
 		const ticks = this.ticks.value;
 		const range = this.range.value.to - this.range.value.from
 
@@ -351,7 +362,7 @@ export class Axis {
 		const fgFill = `rgb(${getVar('--fg') ?? '0, 0, 0'})`;
 		const bgFill = `rgb(${getVar('--bg') ?? '255, 255, 255'})`;
 		ctxUI.fillStyle = fgFill;
-		const { format, formatCtx } = this.timeLabelFormat(this.duration.value.unit);
+		let { format, formatCtx } = this.timeLabelFormat(this.duration.value.unit);
 
 		const heightMetrics = ctxUI.measureText('0');
 		const height = heightMetrics.fontBoundingBoxAscent + heightMetrics.fontBoundingBoxDescent;
@@ -398,7 +409,7 @@ export class Axis {
 		}
 
 		// grid
-		ctx.strokeStyle = `rgb(${getVar('--horz-line-color') ?? '10, 10, 10, 0.5'})`;
+		ctx.strokeStyle = `rgb(${getVar('--grid-color') || '10, 10, 10'})`;
 		ctx.stroke();
 
 		// crosshair
@@ -423,6 +434,7 @@ export class Axis {
 
 			const axisVal = this.toAxisSpace(val);
 			const tickPerc = (axisVal - this.range.value.from) / range;
+			if (crosshairDuration) format = this.timeLabelFormat(crosshairDuration.unit).format;
 			const label = this.label(axisVal, format);
 			const metrics = ctxUI.measureText(label);
 
