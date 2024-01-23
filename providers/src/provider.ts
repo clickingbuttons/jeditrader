@@ -1,8 +1,7 @@
 import type { Duration } from './duration.js';
 
 export type Aggregate = {
-	/// epoch ms
-	time: number;
+	epochNs: bigint;
 	open: number;
 	high: number;
 	low: number;
@@ -12,7 +11,7 @@ export type Aggregate = {
 	count: number;
 }
 export type Trade = {
-	epochNS: number;
+	epochNs: bigint;
 	price: number;
 	size: number;
 	conditions: number[];
@@ -25,8 +24,8 @@ export type Ticker = {
 export interface Provider {
 	agg(
 		ticker: string,
-		from: Date,
-		to: Date,
+		startEpochNs: bigint,
+		toEpochNs: bigint,
 		duration: Duration,
 		onChunk: (aggs: Aggregate[]) => void,
 	): Promise<void>;

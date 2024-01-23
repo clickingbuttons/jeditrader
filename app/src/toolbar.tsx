@@ -42,7 +42,7 @@ export function Toolbar({
 
 			{agg &&
 				<div>
-					{new Date(agg.time).toISOString()}{' '}
+					{new Date(Number(agg.epochNs / 1_000_000n)).toISOString()}{' '}
 					O: {agg.open}{' '}
 					H: {agg.high}{' '}
 					L: {agg.low}{' '}

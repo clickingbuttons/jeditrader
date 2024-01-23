@@ -6,27 +6,28 @@
 [x] focus data on load
 [x] zoom in aspect ratio
 [x] hover
-	- [ ] show all candle data in tooltip
+	- [x] show all candle data in tooltip
 [x] ticker selector
 
-volume
-
-price multi decimal labels
-nanoseconds
+[x] price multi decimal labels
+[x] nanoseconds!!!!!!1
 trades
+
+low lod aggs client side (fixes polygon misalignment)
+fix crosshair
+[x] show LOD in toolbar
+zoom axes click and drag
+loading state (gray background?)
+css modules
 
 vwap
 drawings
+[?] volume
 
 clickhouse high lod aggs
 clickhouse pipeline
 
-show LOD in toolbar
-more settings
-settings a11y
-persistent settings
-zoom axes click and drag
-provider select
-loading state (gray background?)
-
-css modules
+settings
+	- a11y
+	- persistent
+	- provider

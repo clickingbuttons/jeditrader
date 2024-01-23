@@ -11,10 +11,10 @@ const timespans = {
 	seconds: 'agg1s',
 	milliseconds: 'agg1s',
 } as { [k in DurationUnit]: string };
-const clickhouseMinDate = new Date(0);
+const clickhouseMinDate = 0n;
 
 type ClickhouseAggregate = {
-	time: number;
+	epochNs: string;
 	open: number;
 	high: number;
 	low: number;
@@ -44,18 +44,18 @@ export class Clickhouse implements Provider {
 
 	async agg(
 		ticker: string,
-		from: Date,
-		to: Date,
+		startEpochNs: bigint,
+		endEpochNs: bigint,
 		duration: Duration,
 		onChunk: (aggs: Aggregate[]) => void
 	): Promise<void> {
-		if (from < clickhouseMinDate) from = clickhouseMinDate;
+		if (startEpochNs < clickhouseMinDate) startEpochNs = clickhouseMinDate;
 		const query = `
 WITH
 	toStartOfInterval(ts, INTERVAL ${duration.count} ${duration.unit.substring(0, duration.unit.length - 1)}) as timespan,
 	sum(t.volume) AS v
 SELECT
-	toUnixTimestamp(timespan) AS time,
+	toUnixTimestamp64Nano(timespan) AS epochNs,
 	argMin(open, ts) AS open,
 	max(high) AS high,
 	min(low) AS low,
@@ -65,16 +65,17 @@ SELECT
 	sum(count) as count
 
 FROM us_equities.${timespans[duration.unit]} as t
-WHERE ticker='${ticker}' AND ts BETWEEN toDateTime(${from.getTime() / 1e3}) AND toDateTime(${to.getTime() / 1e3})
+WHERE ticker='${ticker}' AND ts BETWEEN fromUnixTimestamp64Nano(${startEpochNs}) AND fromUnixTimestamp64Nano(${endEpochNs}, 9)
 GROUP BY timespan
 ORDER BY time ASC
 FORMAT JSON
 `;
 		const resp = await this.doQuery(query);
 		const json = await resp.json()
-		const data = json.data as ClickhouseAggregate[];
-		for (var i = 0; i < data.length; i++) data[i].time *= 1000;
-		onChunk(data);
+		let data = json.data as ClickhouseAggregate[];
+		let newData = data as unknown as Aggregate[];
+		for (var i = 0; i < newData.length; i++) newData[i].epochNs = BigInt(newData[i].epochNs);
+		onChunk(newData as Aggregate[]);
 	}
 
 	async tickers(like: string, limit: number): Promise<Ticker[]> {

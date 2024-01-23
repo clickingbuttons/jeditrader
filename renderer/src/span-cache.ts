@@ -1,29 +1,40 @@
-import { Duration, Provider, Aggregate } from '@jeditrader/providers';
-import { minDate, maxDate, toymd } from './helpers.js';
+import { Duration, Provider, Aggregate, ms_to_nanos } from '@jeditrader/providers';
+import { minDate, maxDate, toymd, clamp } from './helpers.js';
 export type AggDuration = 'years' | 'months' | 'weeks' | 'days' | 'hours' | 'minutes' | 'seconds';
 
 type Span<T> = {
-	from: number,
-	to: number,
+	from: bigint,
+	to: bigint,
 	data: T[],
 };
 
 export class SpanCache {
 	// Rule: no overlapping spans
 	aggs = {} as { [k: string]: Span<Aggregate>[] };
-	minAggFetchSize = 100;
+	minAggFetchSize = 100n;
 
-	min = minDate;
-	max = maxDate;
+	minEpochNs = BigInt(minDate) * ms_to_nanos;
+	maxEpochNs = BigInt(maxDate) * ms_to_nanos;
 
 	constructor(
 		public ticker: string,
 		public provider: Provider,
 	) {}
 
-	*get(duration: Duration, from: number = this.min, to: number = this.max): IterableIterator<Aggregate> {
-		if (from < this.min) from = this.min;
-		if (to > this.max) to = this.max;
+	clamp(epochNs: bigint) {
+		return clamp(epochNs, this.minEpochNs, this.maxEpochNs);
+	}
+
+	*get(
+		duration: Duration,
+		from: bigint = this.minEpochNs,
+		to: bigint = this.maxEpochNs
+	): IterableIterator<Aggregate> {
+		from = this.clamp(from);
+		to = this.clamp(to);
+
+		if (from < this.minEpochNs) from = this.minEpochNs;
+		if (to > this.maxEpochNs) to = this.maxEpochNs;
 
 		const spans = this.aggs[duration.toString()] ?? [];
 		for (let i = 0; i < spans.length; i++) {
@@ -37,17 +48,15 @@ export class SpanCache {
 				const lastIndex = span.data.length; // binarySearch(span.data, agg => agg.time < to);
 				for (let j = firstIndex; j < lastIndex; j++) {
 					const agg = span.data[j];
-					const ms = new Date(agg.time).getTime();
-					if (ms >= from && ms <= to) yield agg;
+					if (agg.epochNs >= from && agg.epochNs <= to) yield agg;
 				}
 			}
 		}
 	}
 
-	async ensure(duration: Duration, from: number, to: number): Promise<void> {
-		if (from < this.min) from = this.min;
-		if (to > this.max) to = this.max;
-		if (to > new Date().getTime()) to = new Date().getTime();
+	async ensure(duration: Duration, from: bigint, to: bigint): Promise<void> {
+		from = this.clamp(from);
+		to = this.clamp(to);
 
 		const key = duration.toString();
 		this.aggs[key] ??= [];
@@ -58,13 +67,14 @@ export class SpanCache {
 			if (to >= spans[i].from && to <= spans[i].to) to = spans[i].from;
 		}
 
-		const nExpected = (to - from) / duration.ms();
+		const duration_ns = BigInt(duration.ms()) * ms_to_nanos;
+		const nExpected = (to - from) / duration_ns;
 		const nMissing = this.minAggFetchSize - nExpected;
 		if (nMissing > 0) {
-			from -= duration.ms() * nMissing / 2;
-			to += duration.ms() * nMissing / 2;
-			if (from < this.min) from = this.min;
-			if (to > this.max) to = this.max;
+			from -= duration_ns * nMissing / 2n;
+			to += duration_ns * nMissing / 2n;
+			if (from < this.minEpochNs) from = this.minEpochNs;
+			if (to > this.maxEpochNs) to = this.maxEpochNs;
 		}
 
 		const contained: Span<Aggregate>[] = [];
@@ -85,16 +95,21 @@ export class SpanCache {
 				data: []
 			};
 			this.aggs[key].push(span);
-			console.log('ensure', duration, toymd(new Date(span.from)), toymd(new Date(span.to)));
+			console.log(
+				'ensure',
+				duration,
+				toymd(new Date(Number(span.from / ms_to_nanos))),
+				toymd(new Date(Number(span.to / ms_to_nanos))),
+			);
 			promises.push(
 				this.provider.agg(
 					this.ticker,
-					new Date(span.from),
-					new Date(span.to),
+					span.from,
+					span.to,
 					duration,
 					data => {
 						for (let i = 0; i < data.length; i++) {
-							if (data[i].time >= span.from && data[i].time < span.to) span.data.push(data[i]);
+							if (data[i].epochNs >= span.from && data[i].epochNs < span.to) span.data.push(data[i]);
 						}
 					}
 				)

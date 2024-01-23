@@ -1,3 +1,5 @@
+export { clamp } from '@jeditrader/providers';
+
 export function toymd(date: Date) {
 	return date.toISOString().substring(0, 10);
 }
@@ -14,6 +16,15 @@ export function getVar(cssVar: string): string {
 	return getComputedStyle(document.body).getPropertyValue(cssVar).replace('\n', ' ');
 }
 
-// We round to previous duration which may be up to 100_000 years
-export const maxDate = 8640000000000000 - 100_000 * 365 * 24 * 60 * 60 * 1000;
+// Max allowed by JS.
+export const maxDate = 8640000000000000;
 export const minDate = -maxDate;
+
+// Typescript stupidity: https://github.com/microsoft/TypeScript/issues/27808
+export function truncate(a: bigint, b: bigint): bigint;
+export function truncate(a: number, b: number): number;
+export function truncate<T extends number | bigint>(n: T, step: T): T {
+	// @ts-ignore
+	return n - (n % step);
+}
+

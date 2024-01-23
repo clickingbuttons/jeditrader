@@ -1,186 +1,54 @@
 import type { Renderer } from './renderer.js';
-import { Duration, DurationUnit } from '@jeditrader/providers';
+import { Duration, DurationUnit, ms_to_nanos } from '@jeditrader/providers';
 import { signal, Signal, computed } from '@preact/signals';
-import { getVar, minDate, maxDate } from './helpers.js';
-import {
-	eachMinuteOfInterval,
-	eachDayOfInterval,
-	eachHourOfInterval,
-	eachWeekOfInterval,
-	eachMonthOfInterval,
-	eachYearOfInterval,
-	format as formatTime,
-	startOfWeek,
-	startOfYear,
-	startOfMonth,
-	startOfDay,
-	startOfHour,
-	startOfMinute,
-} from 'date-fns';
+import { getVar, clamp } from './helpers.js';
+import { format as formatTime } from 'date-fns';
+import { lods } from './lods.js';
+import { TimeRange } from './TimeRange.js';
+import { NumberRange } from './NumberRange.js';
 
-export type Range<T> = { from: T, to: T };
-type Unit = 'time' | 'dollars';
 type Side = 'top' | 'bottom' | 'left' | 'right';
-
-function clamp(n: number, min: number, max: number): number {
-	if (n < min) return min;
-	else if (n > max) return max;
-	return n;
-}
-
-const year0 = new Date().setFullYear(0);
-
-function clampTimeRange(from: number, to: number) {
-	const res = {
-		from: clamp(from, minDate, maxDate),
-		to: clamp(to, minDate, maxDate),
-	};
-	return res;
-}
 
 const decimalCount = [1, 5, 10, 25, 50, 100, 250, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9];
 function closest(n: number, arr: number[]): number {
 	return arr.reduce((acc, cur) => Math.abs(cur - n) < Math.abs(acc - n) ? cur : acc);
 }
 
-export const lods = [
-	{ ms: new Duration(200_000, 'years').ms(), step: new Duration(100_000, 'years') },
-	{ ms: new Duration(100_000, 'years').ms(), step: new Duration(50_000, 'years') },
-	{ ms: new Duration(20_000, 'years').ms(), step: new Duration(10_000, 'years') },
-	{ ms: new Duration(10_000, 'years').ms(), step: new Duration(5_000, 'years') },
-	{ ms: new Duration(2_000, 'years').ms(), step: new Duration(1_000, 'years') },
-	{ ms: new Duration(1_000, 'years').ms(), step: new Duration(500, 'years') },
-	{ ms: new Duration(200, 'years').ms(), step: new Duration(100, 'years') },
-	{ ms: new Duration(100, 'years').ms(), step: new Duration(50, 'years') },
-	{ ms: new Duration(50, 'years').ms(), step: new Duration(25, 'years') },
-	{ ms: new Duration(20, 'years').ms(), step: new Duration(10, 'years') },
-	{ ms: new Duration(10, 'years').ms(), step: new Duration(5, 'years') },
-	{ ms: new Duration(5, 'years').ms(), step: new Duration(1, 'years') },
-	{ ms: new Duration(1, 'years').ms(), step: new Duration(6, 'months') },
-	{ ms: new Duration(8, 'months').ms(), step: new Duration(3, 'months') },
-	{ ms: new Duration(2, 'months').ms(), step: new Duration(1, 'months') },
-	{ ms: new Duration(2, 'weeks').ms(), step: new Duration(1, 'weeks') },
-	{ ms: new Duration(2, 'days').ms(), step: new Duration(1, 'days') },
-	{ ms: new Duration(12, 'hours').ms(), step: new Duration(6, 'hours') },
-	{ ms: new Duration(4, 'hours').ms(), step: new Duration(2, 'hours') },
-	{ ms: new Duration(2, 'hours').ms(), step: new Duration(1, 'hours') },
-	{ ms: new Duration(60, 'minutes').ms(), step: new Duration(30, 'minutes') },
-	{ ms: new Duration(30, 'minutes').ms(), step: new Duration(15, 'minutes') },
-	{ ms: new Duration(10, 'minutes').ms(), step: new Duration(5, 'minutes') },
-	{ ms: new Duration(5, 'minutes').ms(), step: new Duration(1, 'minutes') },
-	{ ms: new Duration(20, 'seconds').ms(), step: new Duration(10, 'seconds') },
-	{ ms: new Duration(10, 'seconds').ms(), step: new Duration(5, 'seconds') },
-	{ ms: new Duration(5, 'seconds').ms(), step: new Duration(1, 'seconds') },
-	{ ms: new Duration(200, 'milliseconds').ms(), step: new Duration(100, 'milliseconds') },
-	{ ms: new Duration(100, 'milliseconds').ms(), step: new Duration(50, 'milliseconds') },
-	{ ms: new Duration(50, 'milliseconds').ms(), step: new Duration(25, 'milliseconds') },
-	{ ms: new Duration(20, 'milliseconds').ms(), step: new Duration(10, 'milliseconds') },
-	{ ms: new Duration(10, 'milliseconds').ms(), step: new Duration(5, 'milliseconds') },
-	{ ms: 0, step: new Duration(1, 'milliseconds') },
-];
-export const lowLods = lods.filter(d => d.step.ms() >= new Duration(1, 'months').ms());
-
-function truncate(n: number, step: number) {
-	return Math.floor(n / step) * step;
-}
-
-export function getInterval(start: number, end: number, duration: Duration) {
-	let step = duration.count;
-
-	switch (duration.unit) {
-		case 'years': {
-			const startDate = startOfYear(start);
-			const endDate = startOfYear(end);
-			start = startDate.setFullYear(truncate(startDate.getFullYear(), step));
-			end = endDate.setFullYear(truncate(endDate.getFullYear(), step) + step);
-			break;
-		}
-		case 'months': {
-			const startDate = startOfMonth(start);
-			const endDate = startOfMonth(end);
-			start = startDate.setMonth(truncate(startDate.getMonth(), step));
-			end = endDate.setMonth(truncate(endDate.getMonth(), step) + step);
-			break;
-		}
-		case 'weeks': {
-			// week of month
-			start = startOfWeek(start).getTime();
-			end = startOfWeek(end).getTime();
-			break;
-		}
-		case 'days': {
-			const startDate = startOfDay(start);
-			const endDate = startOfDay(end);
-			start = startDate.setDate(truncate(startDate.getDate(), step));
-			end = endDate.setDate(truncate(endDate.getDate(), step) + step);
-			break;
-		}
-		case 'hours': {
-			const startDate = startOfHour(start);
-			const endDate = startOfHour(end);
-			start = startDate.setHours(truncate(startDate.getHours(), step));
-			end = endDate.setHours(truncate(endDate.getHours(), step) + step);
-			break;
-		}
-		case 'minutes': {
-			const startDate = startOfMinute(start);
-			const endDate = startOfMinute(end);
-			start = startDate.setMinutes(truncate(startDate.getMinutes(), step));
-			end = endDate.setMinutes(truncate(endDate.getMinutes(), step) + step);
-			break;
-		}
-		case 'seconds': {
-			step *= 1000;
-			start = truncate(start, step);
-			end = truncate(end, step) + step;
-			break;
-		}
-		case 'milliseconds': {
-			start = truncate(start, step);
-			end = truncate(end, step) + step;
-			break;
-		}
-	}
-
-	return { start, end };
-}
-
 export class Axis {
 	ctx: CanvasRenderingContext2D;
 	font = '14px Arial';
 	paddingPx = 4;
-	minPxBetweenLines = 128;
+	minPxBetweenTicks = 128;
 	clipTop = false;
 	clipBottom = false;
 	side: Side;
-	unit: Unit;
 
-	range: Signal<Range<number>>;
-	/// If unit === 'time'
-	duration: Signal<Duration>;
-	ticks: Signal<number[]>;
+	range: Signal<TimeRange | NumberRange>;
+	step: Signal<Duration | number>;
+	ticks: Signal<number[] | bigint[] | BigInt64Array>;
 
-	// In canvas space
-	crosshair = signal<number | undefined>(undefined);
+	crosshairPx = signal<number | undefined>(undefined);
 
-	constructor(renderer: Renderer, from: number, to: number, unit: Unit, side: Side) {
+	constructor(renderer: Renderer, range: TimeRange | NumberRange, side: Side) {
 		this.ctx = renderer.contextUI;
-		this.unit = unit;
 		this.side = side;
-		this.range = signal(this.clampRange(from, to));
-		this.duration = computed(this.getDuration.bind(this));
-		this.ticks = computed(this.getTicks.bind(this));
+		this.range = signal(range);
+		this.step = computed(() => this.getStep());
+		this.ticks = computed(() => this.range.value.ticks(this.step.value as any));
 		this.ticks.subscribe(() => renderer.flags.rerender = true);
-		this.crosshair.subscribe(() => renderer.flags.rerender = true);
+		this.crosshairPx.subscribe(() => renderer.flags.rerender = true);
+
+		renderer.width.subscribe(() => this.pan(0));
+		renderer.height.subscribe(() => this.pan(0));
 	}
 
-	clampRange(from: number, to: number) {
-		if (this.unit === 'time') return clampTimeRange(from, to);
-		return { from, to };
+	pan(px: number) {
+		const percentage = px / this.getPx();
+		this.range.value = this.range.value.pan(percentage);
 	}
 
-	setRange(from: number, to: number) {
-		this.range.value = this.clampRange(from, to);
+	zoom(percFrom: number, percTo: number) {
+		this.range.value = this.range.value.zoom(percFrom, percTo);
 	}
 
 	getPx(): number {
@@ -192,84 +60,44 @@ export class Axis {
 		}
 	}
 
-	private getDurationPercentUsage(duration: Duration) {
-		const start = this.range.value.from;
-		const end = this.range.value.to;
+	percentUsage(duration: Duration) {
 		const px = this.getPx();
-		const ms = duration.ms();
-		const nTicks = (end - start) / ms;
-		const pxPer = px / nTicks;
-		const res = this.minPxBetweenLines / pxPer;
-		return res;
+		const range = this.range.value as TimeRange;
+		const nTicks = (range.end - range.start) / duration.ns();
+		if (nTicks == 0n) return 0;
+		const pxPer = BigInt(px) / nTicks;
+		return this.minPxBetweenTicks / Number(pxPer);
 	}
 
-	private getDuration(): Duration {
-		const start = this.range.value.from;
-		const end = this.range.value.to;
-		const duration = Duration.fromInterval(start, end);
-		if (start == end || this.unit !== 'time') return duration
+	private getStep(): Duration | number {
+		if (this.range.value instanceof NumberRange) {
+			const start = this.range.value.start;
+			const end = this.range.value.end;
+			let step = 10 ** Math.round(Math.log10(end - start) - 2);
+			const pxPerTick = this.getPx() / ((end - start) / step);
+			const ratio = closest(this.minPxBetweenTicks / pxPerTick, decimalCount);
+			step *= ratio;
+			return step;
+		} else if (this.range.value instanceof TimeRange) {
+			const start = this.range.value.start;
+			const end = this.range.value.end;
+			const duration = Duration.fromInterval(start, end);
+			const duration_ms = duration.ms();
 
-		let lodIndex = 0;
-		for (let i = 0; i < lods.length; i++) {
-			const { ms } = lods[i];
-			if (duration.ms() >= ms) lodIndex = i;
-		}
-		while (this.getDurationPercentUsage(lods[lodIndex].step) > 1 && lodIndex > 0) lodIndex--;
-		return lods[lodIndex].step;
-	}
-
-	private getTimeTicks(): number[] {
-		const duration = this.duration.value;
-		const interval = getInterval(this.range.value.from, this.range.value.to, duration);
-		let step = duration.count;
-
-		switch (duration.unit) {
-			case 'years': return eachYearOfInterval(interval, { step }).map(d => d.getTime());
-			case 'months': return eachMonthOfInterval(interval, { step }).map(d => d.getTime());
-			case 'weeks': return eachWeekOfInterval(interval, { step }).map(d => d.getTime());
-			case 'days': return eachDayOfInterval(interval, { step }).map(d => d.getTime());
-			case 'hours': return eachHourOfInterval(interval, { step }).map(d => d.getTime());
-			case 'minutes': return eachMinuteOfInterval(interval, { step }).map(d => d.getTime());
-			case 'seconds':
-				step *= 1000;
-				// intentional fall-through
-			case 'milliseconds': {
-				let i = 0;
-				const res = Array((interval.end - interval.start) / step);
-				for (let v = interval.start; v < interval.end; v += step) res[i++] = v;
-				return res;
-			}
-			default: return [];
+			let lodIndex = Math.max(lods.findIndex(l => duration_ms >= l.ms), 0);
+			while (this.percentUsage(lods[lodIndex].step) > 1 && lodIndex > 0) lodIndex--;
+			const step = lods[lodIndex].step;
+			return step;
+		} else {
+			throw new Error('unknown range type' + typeof this.range);
 		}
 	}
 
-	private getPow10Ticks(): number[] {
-		const min = this.range.value.from;
-		const max = this.range.value.to;
-		let step = 10 ** Math.round(Math.log10(max - min) - 2);
-		const px = this.getPx();
-		const pxPer = px / ((max - min) / step);
-		const ratio = closest(this.minPxBetweenLines / pxPer, decimalCount);
-		step *= ratio;
-		const evenStart = Math.floor(min / step) * step;
-
-		const res: number[] = [];
-		for (let i = evenStart; i <= max; i += step) res.push(i);
-
-		return res;
-	}
-
-	getTicks(): number[] {
-		switch (this.unit) {
-			case 'time': return this.getTimeTicks();
-			default: return this.getPow10Ticks();
-		}
-	}
-
-	timeLabelFormat(duration?: DurationUnit): { format: string, formatCtx?: string } {
+	private timeLabelFormat(duration?: DurationUnit): { format: string, formatCtx?: string } {
 		switch (duration) {
 			case 'years': {
-				if (this.range.value.from < year0) return { format: 'yyyy GG' };
+				const bc = BigInt(new Date(-1, 0).getTime()) * ms_to_nanos;
+				if (this.range.value.start < bc) return { format: 'yyyy GG' };
 				return { format: 'yyyy' };
 			}
 			case 'months': return { format: 'yyyy-MM' };
@@ -278,17 +106,28 @@ export class Axis {
 			case 'hours':
 			case 'minutes': return { format: 'HH:mm', formatCtx: 'yyyy-MM-dd' };
 			case 'seconds': return { format: ':ss', formatCtx: 'yyyy-MM-dd HH:mm' };
-			case 'milliseconds':
-			default: return { format: '.SSS', formatCtx: 'yyyy-MM-dd HH:mm:ss' };
+			case 'milliseconds': return { format: '.SSS', formatCtx: 'yyyy-MM-dd HH:mm:ss' };
+			case 'microseconds': return { format: 'microseconds', formatCtx: 'yyyy-MM-dd HH:mm:ss.SSS' };
+			case 'nanoseconds': return { format: 'nanoseconds', formatCtx: 'yyyy-MM-dd HH:mm:ss.SSS' };
+			default: return { format: '', formatCtx: '' };
 		}
 	}
 
-	label(n: number, formatStr: string): string {
-		switch (this.unit) {
-			case 'time': return formatTime(n, formatStr);
-			case 'dollars': return '$' + n.toFixed(2);
-			default: return n.toString();
+	label(n: number | bigint, formatStr: string): string {
+		if (typeof n == 'bigint') {
+			if (formatStr === 'microseconds' || formatStr === 'nanoseconds') return (n % ms_to_nanos).toString();
+			return formatTime(Number(n / ms_to_nanos), formatStr);
+		} else if (typeof n == 'number') {
+			let dec = 2;
+			const step = this.step.value as number;
+			if (step < 0.01) dec = Math.ceil(-Math.log10(step));
+			if (step >= 10) dec = 0;
+			const res = n.toFixed(dec);
+			// if (this.range.unit == '$') return this.range.unit + res;
+			return res;
 		}
+
+		return n + '?';
 	}
 
 	isLeftToRight(): boolean {
@@ -300,14 +139,13 @@ export class Axis {
 		}
 	}
 
-	toAxisSpace(n: number) {
-		let perc = n / this.getPx();
-		if (!this.isLeftToRight()) perc = 1 - perc;
-		const range = this.range.value;
-		return range.from + perc * (range.to - range.from);
+	rangeValue(px: number): number | bigint {
+		let percentage = px / this.getPx();
+		if (!this.isLeftToRight()) percentage = 1 - percentage;
+		return this.range.value.value(percentage);
 	}
 
-	layoutVal(
+	layoutTick(
 		tickPerc: number,
 		heightMetrics: TextMetrics,
 		metrics: TextMetrics,
@@ -356,13 +194,12 @@ export class Axis {
 
 	render(ctx: CanvasRenderingContext2D, ctxUI: CanvasRenderingContext2D, crosshairDuration?: Duration) {
 		const ticks = this.ticks.value;
-		const range = this.range.value.to - this.range.value.from
 
 		ctxUI.font = this.font;
-		const fgFill = `rgb(${getVar('--fg') ?? '0, 0, 0'})`;
-		const bgFill = `rgb(${getVar('--bg') ?? '255, 255, 255'})`;
+		const fgFill = `rgb(${getVar('--fg')})`;
+		const bgFill = `rgb(${getVar('--bg')})`;
 		ctxUI.fillStyle = fgFill;
-		let { format, formatCtx } = this.timeLabelFormat(this.duration.value.unit);
+		let { format, formatCtx } = this.timeLabelFormat((this.step.value as Duration).unit);
 
 		const heightMetrics = ctxUI.measureText('0');
 		const height = heightMetrics.fontBoundingBoxAscent + heightMetrics.fontBoundingBoxDescent;
@@ -372,14 +209,14 @@ export class Axis {
 		let first: DOMRect | undefined;
 
 		for (let i = 0; i < ticks.length; i++) {
-			const tickPerc = (ticks[i] - this.range.value.from) / range;
+			const tickPerc = this.range.value.percentage(ticks[i] as never);
 			if (tickPerc < 0) continue;
 
 			let label = this.label(ticks[i], format);
 			if (!first && formatCtx) label = this.label(ticks[i], formatCtx);
 
 			const metrics = ctxUI.measureText(label);
-			let { lineX, lineY, textX, textY } = this.layoutVal(tickPerc, heightMetrics, metrics, ctxUI);
+			let { lineX, lineY, textX, textY } = this.layoutTick(tickPerc, heightMetrics, metrics, ctxUI);
 
 			// grid
 			switch (this.side) {
@@ -409,36 +246,31 @@ export class Axis {
 		}
 
 		// grid
-		ctx.strokeStyle = `rgb(${getVar('--grid-color') || '10, 10, 10'})`;
+		ctx.strokeStyle = `rgb(${getVar('--grid-color')})`;
 		ctx.stroke();
 
 		// crosshair
-		if (this.crosshair.value) {
-			const val = this.crosshair.value;
-			ctxUI.beginPath();
-			switch (this.side) {
-			case 'top':
-			case 'bottom':
-				ctxUI.moveTo(val, 0);
-				ctxUI.lineTo(val, ctxUI.canvas.height);
-				break;
-			case 'left':
-			case 'right':
-				ctxUI.moveTo(0, val);
-				ctxUI.lineTo(ctx.canvas.width, val);
-				break;
-			}
+		if (this.crosshairPx.value) {
+			const crosshairPx = this.crosshairPx.value;
 
+			ctxUI.beginPath();
+			if (this.isLeftToRight()) {
+				ctxUI.moveTo(crosshairPx, 0);
+				ctxUI.lineTo(crosshairPx, ctxUI.canvas.height);
+			} else {
+				ctxUI.moveTo(0, crosshairPx);
+				ctxUI.lineTo(ctx.canvas.width, crosshairPx);
+			}
 			ctxUI.strokeStyle = `rgb(${getVar('--fg')})`;
 			ctxUI.stroke();
 
-			const axisVal = this.toAxisSpace(val);
-			const tickPerc = (axisVal - this.range.value.from) / range;
+			const rangeValue = this.rangeValue(crosshairPx);
+			const tickPerc = this.range.value.percentage(rangeValue as never);
 			if (crosshairDuration) format = this.timeLabelFormat(crosshairDuration.unit).format;
-			const label = this.label(axisVal, format);
+			const label = this.label(rangeValue, format);
 			const metrics = ctxUI.measureText(label);
 
-			let { textX, textY } = this.layoutVal(tickPerc, heightMetrics, metrics, ctxUI);
+			let { textX, textY } = this.layoutTick(tickPerc, heightMetrics, metrics, ctxUI);
 			textX = clamp(textX, this.paddingPx, ctxUI.canvas.width - metrics.width - this.paddingPx);
 
 			ctxUI.fillStyle = bgFill;

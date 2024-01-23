@@ -1,5 +1,6 @@
 import { Aggregate, Provider, Ticker, Trade } from './provider.js';
 import type { Duration, DurationUnit } from './duration.js';
+import { clamp } from './helpers.js';
 
 type Timespan = 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year';
 
@@ -12,7 +13,9 @@ function toTimespan(d: DurationUnit): Timespan {
 	case 'hours': return 'hour';
 	case 'minutes': return 'minute';
 	case 'seconds':
-	case 'milliseconds': return 'second';
+	case 'milliseconds':
+	case 'microseconds':
+	case 'nanoseconds': return 'second';
 	}
 }
 
@@ -77,23 +80,29 @@ interface PolygonTickersResponse {
 
 export class Polygon implements Provider {
 	static baseUrl = 'https://api.polygon.io';
-	static minDate = new Date(0);
+	static minDate = 0;
+	static maxDate = new Date().setFullYear(new Date().getFullYear() + 1);
 
 	constructor(
 		public apiKey: string
 	) {}
 
+	static clamp(epochNs: bigint) {
+		return clamp(Number(epochNs / 1_000_000n), Polygon.minDate, Polygon.maxDate);
+	}
+
 	async agg(
 		ticker: string,
-		from: Date,
-		to: Date,
+		startEpochNs: bigint,
+		endEpochNs: bigint,
 		duration: Duration,
 		onChunk: (aggs: Aggregate[]) => void
 	): Promise<void> {
-		const timespan = toTimespan(duration.unit);
-		if (from < Polygon.minDate) from = Polygon.minDate;
+		let fromMs = Polygon.clamp(startEpochNs);
+		let toMs = Polygon.clamp(endEpochNs);
 
-		const url = `${Polygon.baseUrl}/v2/aggs/ticker/${ticker}/range/${duration.count}/${timespan}/${from.getTime()}/${to.getTime()}?`;
+		const timespan = toTimespan(duration.unit);
+		const url = `${Polygon.baseUrl}/v2/aggs/ticker/${ticker}/range/${duration.count}/${timespan}/${fromMs}/${toMs}?`;
 		const urlExtra = `&apiKey=${this.apiKey}&limit=10000`;
 		let resp: PolygonAggsResult = await fetch(url + urlExtra)
 			.then(res => res.json());
@@ -101,7 +110,7 @@ export class Polygon implements Provider {
 		do {
 			if (resp.results) {
 				const aggs = resp.results.map(agg => ({
-					time: agg.t,
+					epochNs: BigInt(agg.t) * 1_000_000n,
 					open: agg.o,
 					high: agg.h,
 					low: agg.l,
