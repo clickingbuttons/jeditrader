@@ -1,14 +1,15 @@
 import type { Input } from '../input.js';
 import type { Renderer } from '../renderer.js';
 import { Scene } from './scene.js';
-import { Axis } from '../axis.js';
+import { TimeAxis } from '../TimeAxis.js';
+import { NumberAxis } from '../NumberAxis.js';
 import { TimeRange } from '../TimeRange.js';
 import { NumberRange } from '../NumberRange.js';
 
 export class ChartScene extends Scene {
 	canvasUI: HTMLCanvasElement;
-	xAxis: Axis;
-	yAxis: Axis;
+	xAxis: TimeAxis;
+	yAxis: NumberAxis;
 
 	constructor(renderer: Renderer) {
 		super(renderer);
@@ -18,8 +19,8 @@ export class ChartScene extends Scene {
 		const from = new Date(to).setFullYear(to.getFullYear() - 10);
 		const timeRange = TimeRange.fromEpochMs(from, to.getTime());
 
-		this.xAxis = new Axis(renderer, timeRange, 'bottom');
-		this.yAxis = new Axis(renderer, new NumberRange(0, 10, '$'), 'left');
+		this.xAxis = new TimeAxis(renderer, timeRange, 'bottom');
+		this.yAxis = new NumberAxis(renderer, new NumberRange(0, 10, '$'), 'left');
 		this.yAxis.clipBottom = true;
 	}
 

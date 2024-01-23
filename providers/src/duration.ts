@@ -1,4 +1,13 @@
-import { intervalToDuration } from 'date-fns';
+import {
+	intervalToDuration,
+	startOfWeek,
+	startOfYear,
+	startOfMonth,
+	startOfDay,
+	startOfHour,
+	startOfMinute,
+} from 'date-fns';
+import { truncate } from './helpers.js';
 
 export const durations = {
 	year: undefined,
@@ -67,5 +76,54 @@ export class Duration {
 
 	eq(other: Duration): boolean {
 		return this.unit === other.unit && this.count === other.count;
+	}
+
+	truncate(epochNs: bigint, defaultIfNaN: bigint, offset: number = 0): bigint {
+		const epochMs = Number(epochNs / ms_to_nanos);
+		let date: Date;
+
+		offset *= this.count;
+		let bigMul = BigInt(this.count);
+
+		switch (this.unit) {
+		case 'year':
+			date = startOfYear(epochMs);
+			date.setFullYear(truncate(date.getFullYear(), this.count) + offset);
+			break;
+		case 'month':
+			date = startOfMonth(epochMs);
+			date.setMonth(truncate(date.getMonth(), this.count) + offset);
+			break;
+		case 'week':
+			date = startOfWeek(epochMs);
+			date.setDate(truncate(date.getDate(), this.count * 7) + offset * 7);
+			break;
+		case 'day':
+			date = startOfDay(epochMs);
+			date.setDate(truncate(date.getDate(), this.count) + offset);
+			break;
+		case 'hour':
+			date = startOfHour(epochMs);
+			date.setHours(truncate(date.getHours(), this.count) + offset);
+			break;
+		case 'minute':
+			date = startOfMinute(epochMs);
+			date.setMinutes(truncate(date.getMinutes(), this.count) + offset);
+			break;
+		case 'second':
+			bigMul *= 1_000_000_000n;
+			return truncate(epochNs, bigMul) + BigInt(offset) * bigMul;
+		case 'millisecond':
+			bigMul *= 1_000_000n;
+			return truncate(epochNs, bigMul) + BigInt(offset) * bigMul;
+		case 'microsecond':
+			bigMul *= 1_000n;
+			return truncate(epochNs, bigMul) + BigInt(offset) * bigMul;
+		case 'nanosecond':
+			return truncate(epochNs, bigMul) + BigInt(offset) * bigMul;
+		}
+
+		if (isNaN(date.getTime())) return defaultIfNaN;
+		return BigInt(date.getTime()) * ms_to_nanos;
 	}
 }

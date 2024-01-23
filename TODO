@@ -14,11 +14,14 @@
 trades
 
 [x] low lod aggs client side (fixes polygon misalignment)
-fix crosshair
+[x] fix crosshair
 [x] show LOD in toolbar
-zoom axes click and drag
+[NO] zoom axes click and drag
 loading state (gray background?)
 css modules
+timezones
+axis typescript cleanup (subclasses for time + value)
+better crosshair time context
 
 vwap
 drawings
@@ -26,6 +29,7 @@ drawings
 
 clickhouse high lod aggs
 clickhouse pipeline
+live
 
 settings
 	- provider

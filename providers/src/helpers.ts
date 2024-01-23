@@ -7,3 +7,11 @@ export function clamp<T extends number | bigint>(n: T, min: T, max: T): T {
 	return n;
 }
 
+// Typescript stupidity: https://github.com/microsoft/TypeScript/issues/27808
+export function truncate(a: bigint, b: bigint): bigint;
+export function truncate(a: number, b: number): number;
+export function truncate<T extends number | bigint>(n: T, step: T): T {
+	// @ts-ignore
+	return n - (n % step);
+}
+

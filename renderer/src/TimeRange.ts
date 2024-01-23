@@ -1,5 +1,5 @@
 import { Duration, ms_to_nanos } from '@jeditrader/providers';
-import { truncate, clampDate, minDate, maxDate } from './helpers.js';
+import { clampDate, minDate, maxDate } from './helpers.js';
 import {
 	eachMinuteOfInterval,
 	eachDayOfInterval,
@@ -7,12 +7,6 @@ import {
 	eachWeekOfInterval,
 	eachMonthOfInterval,
 	eachYearOfInterval,
-	startOfWeek,
-	startOfYear,
-	startOfMonth,
-	startOfDay,
-	startOfHour,
-	startOfMinute,
 } from 'date-fns';
 
 function toEpochNs(d: Date): bigint {
@@ -45,80 +39,12 @@ export class TimeRange {
 	}
 
 	interval(duration: Duration) {
-		let step = duration.count;
-		let bigStep = BigInt(step);
-
-		let start = Number(this.start / ms_to_nanos);
-		let end = Number(this.end / ms_to_nanos);
-
-		switch (duration.unit) {
-		case 'year': {
-			const startDate = startOfYear(start);
-			const endDate = startOfYear(end);
-			start = startDate.setFullYear(truncate(startDate.getFullYear(), step));
-			end = endDate.setFullYear(truncate(endDate.getFullYear(), step) + step);
-			break;
-		}
-		case 'month': {
-			const startDate = startOfMonth(start);
-			const endDate = startOfMonth(end);
-			start = startDate.setMonth(truncate(startDate.getMonth(), step));
-			end = endDate.setMonth(truncate(endDate.getMonth(), step) + step);
-			break;
-		}
-		case 'week': {
-			const startDate = startOfWeek(start);
-			const endDate = startOfWeek(end);
-			step *= 7;
-			start = startDate.setDate(truncate(startDate.getDate(), step));
-			end = endDate.setDate(truncate(endDate.getDate(), step) + step);
-			break;
-		}
-		case 'day': {
-			const startDate = startOfDay(start);
-			const endDate = startOfDay(end);
-			start = startDate.setDate(truncate(startDate.getDate(), step));
-			end = endDate.setDate(truncate(endDate.getDate(), step) + step);
-			break;
-		}
-		case 'hour': {
-			const startDate = startOfHour(start);
-			const endDate = startOfHour(end);
-			start = startDate.setHours(truncate(startDate.getHours(), step));
-			end = endDate.setHours(truncate(endDate.getHours(), step) + step);
-			break;
-		}
-		case 'minute': {
-			const startDate = startOfMinute(start);
-			const endDate = startOfMinute(end);
-			start = startDate.setMinutes(truncate(startDate.getMinutes(), step));
-			end = endDate.setMinutes(truncate(endDate.getMinutes(), step) + step);
-			break;
-		}
-		case 'second':
-			step *= 1000;
-		case 'millisecond':
-			start = truncate(start, step);
-			end = truncate(end, step) + step;
-			break;
-		case 'microsecond':
-			bigStep *= 1000n;
-		case 'nanosecond':
-			return {
-				start: truncate(this.start, bigStep),
-				end: truncate(this.end, bigStep) + bigStep,
-			};
-		}
-
+		let start = duration.truncate(this.start, minDate);
+		let end = duration.truncate(this.end, maxDate, 2);
 		start = clampDate(start);
 		end = clampDate(end);
-		if (isNaN(start)) start = minDate;
-		if (isNaN(end)) end = maxDate;
 
-		return {
-			start: BigInt(start) * ms_to_nanos,
-			end: BigInt(end) * ms_to_nanos,
-		};
+		return { start, end };
 	}
 
 	ticks(duration: Duration): bigint[] | BigInt64Array {

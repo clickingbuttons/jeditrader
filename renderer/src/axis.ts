@@ -1,18 +1,11 @@
 import type { Renderer } from './renderer.js';
-import { Duration, DurationUnit, ms_to_nanos } from '@jeditrader/providers';
+import { Duration } from '@jeditrader/providers';
 import { signal, Signal, computed } from '@preact/signals';
 import { getVar, clamp } from './helpers.js';
-import { format as formatTime } from 'date-fns';
-import { lods } from './lods.js';
 import { TimeRange } from './TimeRange.js';
 import { NumberRange } from './NumberRange.js';
 
-type Side = 'top' | 'bottom' | 'left' | 'right';
-
-const decimalCount = [1, 5, 10, 25, 50, 100, 250, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9];
-function closest(n: number, arr: number[]): number {
-	return arr.reduce((acc, cur) => Math.abs(cur - n) < Math.abs(acc - n) ? cur : acc);
-}
+export type Side = 'top' | 'bottom' | 'left' | 'right';
 
 export class Axis {
 	ctx: CanvasRenderingContext2D;
@@ -42,6 +35,14 @@ export class Axis {
 		renderer.height.subscribe(() => this.pan(0));
 	}
 
+	getStep(): Duration | number {
+		return 1;
+	}
+
+	label(tick: number | bigint, isFirst: boolean, isCrosshair: boolean): string {
+		return tick.toString();
+	}
+
 	pan(px: number) {
 		const percentage = px / this.getPx();
 		this.range.value = this.range.value.pan(percentage);
@@ -60,76 +61,6 @@ export class Axis {
 		}
 	}
 
-	percentUsage(duration: Duration) {
-		const px = this.getPx();
-		const range = this.range.value as TimeRange;
-		const nTicks = (range.end - range.start) / duration.ns();
-		if (nTicks == 0n) return 0;
-		const pxPer = BigInt(px) / nTicks;
-		return this.minPxBetweenTicks / Number(pxPer);
-	}
-
-	private getStep(): Duration | number {
-		if (this.range.value instanceof NumberRange) {
-			const start = this.range.value.start;
-			const end = this.range.value.end;
-			let step = 10 ** Math.round(Math.log10(end - start) - 2);
-			const pxPerTick = this.getPx() / ((end - start) / step);
-			const ratio = closest(this.minPxBetweenTicks / pxPerTick, decimalCount);
-			step *= ratio;
-			return step;
-		} else if (this.range.value instanceof TimeRange) {
-			const start = this.range.value.start;
-			const end = this.range.value.end;
-			const duration = Duration.fromInterval(start, end);
-			const duration_ms = duration.ms();
-
-			let lodIndex = Math.max(lods.findIndex(l => duration_ms >= l.ms), 0);
-			while (this.percentUsage(lods[lodIndex].step) > 1 && lodIndex > 0) lodIndex--;
-			const step = lods[lodIndex].step;
-			return step;
-		} else {
-			throw new Error('unknown range type' + typeof this.range);
-		}
-	}
-
-	private timeLabelFormat(duration?: DurationUnit): { format: string, formatCtx?: string } {
-		switch (duration) {
-			case 'year': {
-				const bc = BigInt(new Date(-1, 0).getTime()) * ms_to_nanos;
-				if (this.range.value.start < bc) return { format: 'yyyy GG' };
-				return { format: 'yyyy' };
-			}
-			case 'month': return { format: 'yyyy-MM' };
-			case 'week':
-			case 'day': return { format: 'yyyy-MM-dd' };
-			case 'hour':
-			case 'minute': return { format: 'HH:mm', formatCtx: 'yyyy-MM-dd' };
-			case 'second': return { format: ':ss', formatCtx: 'yyyy-MM-dd HH:mm' };
-			case 'millisecond': return { format: '.SSS', formatCtx: 'yyyy-MM-dd HH:mm:ss' };
-			case 'microsecond': return { format: 'microseconds', formatCtx: 'yyyy-MM-dd HH:mm:ss.SSS' };
-			case 'nanosecond': return { format: 'nanoseconds', formatCtx: 'yyyy-MM-dd HH:mm:ss.SSS' };
-			default: return { format: '', formatCtx: '' };
-		}
-	}
-
-	label(n: number | bigint, formatStr: string): string {
-		if (typeof n == 'bigint') {
-			if (formatStr === 'microseconds' || formatStr === 'nanoseconds') return (n % ms_to_nanos).toString();
-			return formatTime(Number(n / ms_to_nanos), formatStr);
-		} else if (typeof n == 'number') {
-			let dec = 2;
-			const step = this.step.value as number;
-			if (step < 0.01) dec = Math.ceil(-Math.log10(step));
-			if (step >= 10) dec = 0;
-			const res = n.toFixed(dec);
-			// if (this.range.unit == '$') return this.range.unit + res;
-			return res;
-		}
-
-		return n + '?';
-	}
-
 	isLeftToRight(): boolean {
 		switch (this.side) {
 			case 'top':
@@ -145,92 +76,142 @@ export class Axis {
 		return this.range.value.value(percentage);
 	}
 
-	layoutTick(
+	layoutLine(tickPerc: number, ctx: CanvasRenderingContext2D) {
+		switch (this.side) {
+		case 'top':
+		case 'bottom':
+			return {
+				x: tickPerc * ctx.canvas.width,
+				y: 0,
+			};
+		case 'left':
+		case 'right':
+			return {
+				x: 0,
+				y: (1 - tickPerc) * ctx.canvas.height,
+			};
+		}
+	}
+
+	layoutText(
 		tickPerc: number,
 		heightMetrics: TextMetrics,
 		metrics: TextMetrics,
 		ctxUI: CanvasRenderingContext2D
 	) {
-		var lineX, lineY;
 		switch (this.side) {
 		case 'top':
-			lineX = tickPerc * ctxUI.canvas.width;
-			lineY = metrics.fontBoundingBoxAscent;
 			return {
-				lineX,
-				lineY,
-				textX: lineX - metrics.width / 2,
-				textY: lineY + this.paddingPx,
+				x: tickPerc * ctxUI.canvas.width - metrics.width / 2,
+				y: metrics.fontBoundingBoxAscent + this.paddingPx,
 			};
 		case 'bottom':
-			lineX = tickPerc * ctxUI.canvas.width;
-			lineY = ctxUI.canvas.height;
 			return {
-				lineX,
-				lineY,
-				textX: lineX - metrics.width / 2,
-				textY: lineY - this.paddingPx * 2,
+				x: tickPerc * ctxUI.canvas.width - metrics.width / 2,
+				y: ctxUI.canvas.height - this.paddingPx * 2,
 			};
 		case 'left':
-			lineX = -metrics.width;
-			lineY = (1 - tickPerc) * ctxUI.canvas.height;
 			return {
-				lineX,
-				lineY,
-				textX: this.paddingPx,
-				textY: lineY + heightMetrics.fontBoundingBoxDescent,
+				x: this.paddingPx,
+				y: (1 - tickPerc) * ctxUI.canvas.height + heightMetrics.fontBoundingBoxDescent,
 			};
 		case 'right':
-			lineX = ctxUI.canvas.width;
-			lineY = (1 - tickPerc) * ctxUI.canvas.height;
 			return {
-				lineX,
-				lineY,
-				textX: lineX - metrics.width - this.paddingPx,
-				textY: lineY + heightMetrics.fontBoundingBoxDescent,
+				x: ctxUI.canvas.width - metrics.width - this.paddingPx,
+				y: (1 - tickPerc) * ctxUI.canvas.height + heightMetrics.fontBoundingBoxDescent,
 			};
 		}
 	}
 
-	render(ctx: CanvasRenderingContext2D, ctxUI: CanvasRenderingContext2D, crosshairDuration?: Duration) {
-		const ticks = this.ticks.value;
+	renderGrid(ctx: CanvasRenderingContext2D) {
+		ctx.beginPath();
 
-		ctxUI.font = this.font;
+		const ticks = this.ticks.value;
+		for (let i = 0; i < ticks.length; i++) {
+			const tickPerc = this.range.value.percentage(ticks[i] as never);
+			if (tickPerc < 0 || tickPerc > 1) continue;
+
+			const { x, y } = this.layoutLine(tickPerc, ctx);
+
+			switch (this.side) {
+			case 'top':
+			case 'bottom':
+				ctx.moveTo(x, 0);
+				ctx.lineTo(x, ctx.canvas.height);
+				break;
+			case 'left':
+			case 'right':
+				ctx.moveTo(0, y);
+				ctx.lineTo(ctx.canvas.width, y);
+				break;
+			}
+		}
+
+		ctx.strokeStyle = `rgb(${getVar('--grid-color')})`;
+		ctx.stroke();
+	}
+
+	renderCrosshair(ctxUI: CanvasRenderingContext2D) {
 		const fgFill = `rgb(${getVar('--fg')})`;
 		const bgFill = `rgb(${getVar('--bg')})`;
-		ctxUI.fillStyle = fgFill;
-		let { format, formatCtx } = this.timeLabelFormat((this.step.value as Duration).unit);
 
 		const heightMetrics = ctxUI.measureText('0');
 		const height = heightMetrics.fontBoundingBoxAscent + heightMetrics.fontBoundingBoxDescent;
 
-		ctx.beginPath();
+		if (this.crosshairPx.value) {
+			const crosshairPx = this.crosshairPx.value;
+
+			ctxUI.beginPath();
+			if (this.isLeftToRight()) {
+				ctxUI.moveTo(crosshairPx, 0);
+				ctxUI.lineTo(crosshairPx, ctxUI.canvas.height);
+			} else {
+				ctxUI.moveTo(0, crosshairPx);
+				ctxUI.lineTo(ctxUI.canvas.width, crosshairPx);
+			}
+			ctxUI.strokeStyle = fgFill;
+			ctxUI.stroke();
+
+			const rangeValue = this.rangeValue(crosshairPx);
+			const tickPerc = this.range.value.percentage(rangeValue as never);
+			const label = this.label(rangeValue, false, true);
+			const metrics = ctxUI.measureText(label);
+
+			let { x, y } = this.layoutText(tickPerc, heightMetrics, metrics, ctxUI);
+			x = clamp(x, this.paddingPx, ctxUI.canvas.width - metrics.width - this.paddingPx);
+
+			ctxUI.fillStyle = bgFill;
+			ctxUI.fillRect(
+				x - this.paddingPx,
+				y + metrics.fontBoundingBoxDescent + this.paddingPx,
+				metrics.width + this.paddingPx * 2,
+				-height - this.paddingPx * 2,
+			);
+
+			ctxUI.fillStyle = fgFill;
+			ctxUI.fillText(label, x, y);
+		}
+	}
+
+	renderText(ctxUI: CanvasRenderingContext2D) {
+		const ticks = this.ticks.value;
+		const heightMetrics = ctxUI.measureText('0');
+		const height = heightMetrics.fontBoundingBoxAscent + heightMetrics.fontBoundingBoxDescent;
+		const fgFill = `rgb(${getVar('--fg')})`;
 
 		let first: DOMRect | undefined;
+
+		ctxUI.font = this.font;
+		ctxUI.fillStyle = fgFill;
 
 		for (let i = 0; i < ticks.length; i++) {
 			const tickPerc = this.range.value.percentage(ticks[i] as never);
 			if (tickPerc < 0) continue;
 
-			let label = this.label(ticks[i], format);
-			if (!first && formatCtx) label = this.label(ticks[i], formatCtx);
+			const label = this.label(ticks[i], !first, false);
 
 			const metrics = ctxUI.measureText(label);
-			let { lineX, lineY, textX, textY } = this.layoutTick(tickPerc, heightMetrics, metrics, ctxUI);
-
-			// grid
-			switch (this.side) {
-			case 'top':
-			case 'bottom':
-				ctx.moveTo(lineX, 0);
-				ctx.lineTo(lineX, ctx.canvas.height);
-				break;
-			case 'left':
-			case 'right':
-				ctx.moveTo(0, lineY);
-				ctx.lineTo(ctx.canvas.width, lineY);
-				break;
-			}
+			let { x: textX, y: textY } = this.layoutText(tickPerc, heightMetrics, metrics, ctxUI);
 
 			if (
 				(this.isLeftToRight() && first && textX < first.x + first.width + this.paddingPx) ||
@@ -244,45 +225,11 @@ export class Axis {
 			}
 			ctxUI.fillText(label, textX, textY);
 		}
+	}
 
-		// grid
-		ctx.strokeStyle = `rgb(${getVar('--grid-color')})`;
-		ctx.stroke();
-
-		// crosshair
-		if (this.crosshairPx.value) {
-			const crosshairPx = this.crosshairPx.value;
-
-			ctxUI.beginPath();
-			if (this.isLeftToRight()) {
-				ctxUI.moveTo(crosshairPx, 0);
-				ctxUI.lineTo(crosshairPx, ctxUI.canvas.height);
-			} else {
-				ctxUI.moveTo(0, crosshairPx);
-				ctxUI.lineTo(ctx.canvas.width, crosshairPx);
-			}
-			ctxUI.strokeStyle = `rgb(${getVar('--fg')})`;
-			ctxUI.stroke();
-
-			const rangeValue = this.rangeValue(crosshairPx);
-			const tickPerc = this.range.value.percentage(rangeValue as never);
-			if (crosshairDuration) format = this.timeLabelFormat(crosshairDuration.unit).format;
-			const label = this.label(rangeValue, format);
-			const metrics = ctxUI.measureText(label);
-
-			let { textX, textY } = this.layoutTick(tickPerc, heightMetrics, metrics, ctxUI);
-			textX = clamp(textX, this.paddingPx, ctxUI.canvas.width - metrics.width - this.paddingPx);
-
-			ctxUI.fillStyle = bgFill;
-			ctxUI.fillRect(
-				textX - this.paddingPx,
-				textY + metrics.fontBoundingBoxDescent + this.paddingPx,
-				metrics.width + this.paddingPx * 2,
-				-height - this.paddingPx * 2,
-			);
-
-			ctxUI.fillStyle = fgFill;
-			ctxUI.fillText(label, textX, textY);
-		}
+	render(ctx: CanvasRenderingContext2D, ctxUI: CanvasRenderingContext2D) {
+		this.renderGrid(ctx);
+		this.renderText(ctxUI);
+		this.renderCrosshair(ctxUI);
 	}
 }

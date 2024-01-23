@@ -1,11 +1,13 @@
 import { Duration, Provider, Aggregate, ms_to_nanos } from '@jeditrader/providers';
-import { minDate, maxDate, toymd, clamp } from './helpers.js';
+import { TimeRange } from './TimeRange.js';
+import { minDate, maxDate, clamp } from './helpers.js';
 export type AggDuration = 'years' | 'months' | 'weeks' | 'days' | 'hours' | 'minutes' | 'seconds';
 
 type Span<T> = {
 	from: bigint,
 	to: bigint,
 	data: T[],
+	loading: boolean,
 };
 
 const minEpochNs = BigInt(minDate) * ms_to_nanos;
@@ -64,7 +66,7 @@ export class SpanCache {
 			if (to >= spans[i].from && to <= spans[i].to) to = spans[i].from;
 		}
 
-		const duration_ns = BigInt(duration.ms()) * ms_to_nanos;
+		const duration_ns = duration.ns();
 		const nExpected = (to - from) / duration_ns;
 		const nMissing = this.minAggFetchSize - nExpected;
 		if (nMissing > 0) {
@@ -83,19 +85,16 @@ export class SpanCache {
 		if (to - from < duration.ns() || from >= to) return;
 
 		const promises: Promise<void>[] = [];
+		const newSpans: Span<Aggregate>[] = [];
 		for (let i = 0; i < contained.length + 1; i++) {
 			const span: Span<Aggregate> = {
 				from: i == 0 ? from : contained[i - 1].to,
 				to: i == contained.length ? to : contained[i].from,
-				data: []
+				data: [],
+				loading: true,
 			};
+			newSpans.push(span);
 			this.aggs[key].push(span);
-			console.log(
-				'ensure',
-				duration,
-				toymd(new Date(Number(span.from / ms_to_nanos))),
-				toymd(new Date(Number(span.to / ms_to_nanos))),
-			);
 			promises.push(
 				this.provider.agg(
 					this.ticker,
@@ -111,6 +110,57 @@ export class SpanCache {
 			);
 		}
 
-		return Promise.all(promises).then(() => {});
+		return Promise.all(promises).then(() => {
+			newSpans.forEach(s => s.loading = false);
+		});
+	}
+
+	loadingSpans(duration: Duration) {
+		return (this.aggs[duration.toString()] ?? []).filter(a => a.loading);
+	}
+
+	aggregate(from: Duration, lowerDurations: Duration[]) {
+		const dailies = this.get(from);
+		// Create higher level aggs from daily aggs.
+		// This is needed because some sources misalign weeks, months, and years like Polygon
+		const span = this.aggs[from.toString()][0];
+		lowerDurations.forEach(duration => {
+			this.aggs[duration.toString()] = [{
+				from: span.from,
+				to: span.to,
+				data: [],
+				loading: false,
+			}];
+		});
+
+		for (let daily of dailies) {
+			lowerDurations.forEach(duration => {
+				const { start: aggStart } = new TimeRange(daily.epochNs, daily.epochNs).interval(duration);
+				const aggs = this.aggs[duration.toString()][0].data;
+				const lastStart = aggs[aggs.length - 1]?.epochNs;
+				if (lastStart != aggStart) {
+					aggs.push({
+						epochNs: aggStart,
+						open: daily.open,
+						high: daily.high,
+						low: daily.low,
+						close: daily.close,
+						volume: daily.volume,
+						vwap: daily.vwap,
+						count: daily.count,
+						liquidity: daily.vwap * daily.volume,
+					});
+				} else {
+					const agg = aggs[aggs.length - 1];
+					if (daily.high > agg.high) agg.high = daily.high;
+					if (daily.low < agg.low) agg.low = daily.low;
+					agg.close = daily.close;
+					agg.count += daily.count;
+					agg.volume += daily.volume;
+					agg.liquidity = (agg.liquidity ?? 0) + daily.vwap * daily.volume;
+					agg.vwap = agg.liquidity / agg.volume;
+				}
+			});
+		}
 	}
 }

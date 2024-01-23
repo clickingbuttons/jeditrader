@@ -33,66 +33,26 @@ export class TickerScene extends ChartScene {
 	) {
 		super(renderer);
 		this.cache = new SpanCache(ticker, provider);
+		this.xAxis.crosshairDuration = this.duration;
 		const rerender = () => renderer.flags.rerender = true;
 
 		// Dailes are small and fine to load all of.
-		const allTime = TimeRange.fromEpochMs(minDate, maxDate);
+		const allTime = new TimeRange(minDate, maxDate);
 		const daily = new Duration(1, 'day');
 		const { start, end } = allTime.interval(daily);
-		const lowLodDurations = lods.filter(l => l.step.ms() > daily.ms()).map(l => l.step);
+		const lowLodDurations = lods.map(l => l.step).filter(d => d.ms() > daily.ms());
 		this.cache.ensure(daily, start, end).then(() => {
-			const dailies = this.cache.get(daily);
-			// Create higher level aggs from daily aggs.
-			// This is needed because some sources misalign weeks, months, and years like Polygon
-			lowLodDurations.forEach(duration => {
-				this.cache.aggs[duration.toString()] = [{
-					from: start,
-					to: end,
-					data: []
-				}];
-			});
-
-			for (let daily of dailies) {
-				lowLodDurations.forEach(duration => {
-					const { start: aggStart } = new TimeRange(daily.epochNs, daily.epochNs).interval(duration);
-					const aggs = this.cache.aggs[duration.toString()][0].data;
-					const lastStart = aggs[aggs.length - 1]?.epochNs;
-					if (lastStart != aggStart) {
-						aggs.push({
-							epochNs: aggStart,
-							open: daily.open,
-							high: daily.high,
-							low: daily.low,
-							close: daily.close,
-							volume: daily.volume,
-							vwap: daily.vwap,
-							count: daily.count,
-							liquidity: daily.vwap * daily.volume,
-						});
-					} else {
-						const agg = aggs[aggs.length - 1];
-						if (daily.high > agg.high) agg.high = daily.high;
-						if (daily.low < agg.low) agg.low = daily.low;
-						agg.close = daily.close;
-						agg.count += daily.count;
-						agg.volume += daily.volume;
-						agg.liquidity = (agg.liquidity ?? 0) + daily.vwap * daily.volume;
-						agg.vwap = agg.liquidity / agg.volume;
-					}
-				});
-			}
-
+			this.cache.aggregate(daily, lowLodDurations);
 			this.fit();
+		});
+		this.cache.loadingSpans(daily).forEach(s => {
+			// TODO: loading animation
 		});
 
 		(this.xAxis.range as Signal<TimeRange>).subscribe(newRange => {
 			const axisLod = this.xAxis.step.value as Duration;
 			const axisLodIndex = lods.findIndex(l => l.step.unit == axisLod.unit && l.step.count == axisLod.count);
-
-			let dataLod = lods[Math.min(axisLodIndex + 2, lods.length - 1)].step.clone();
-			if (['millisecond', 'microsecond', 'nanosecond'].includes(dataLod.unit)) {
-				dataLod = new Duration(1, 'second');
-			}
+			const dataLod = lods[Math.min(axisLodIndex + 2, lods.length - 1)].step.clone();
 
 			const bufferNs = dataLod.ns() * 20n;
 			const interval = new TimeRange(newRange.start - bufferNs, newRange.end + bufferNs).interval(dataLod);
@@ -122,7 +82,7 @@ export class TickerScene extends ChartScene {
 	fit() {
 		// Set axis range based on data
 		const duration = this.duration.value;
-		const timeRange = TimeRange.fromEpochMs(maxDate, minDate);
+		const timeRange = new TimeRange(maxDate, minDate);
 		const priceRange = new NumberRange(Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, '$');
 		const aggs = this.cache.get(duration);
 		const d_ns = duration.ns();
@@ -147,8 +107,7 @@ export class TickerScene extends ChartScene {
 	}
 
 	render(ctx: CanvasRenderingContext2D, ctxUI: CanvasRenderingContext2D) {
-		this.xAxis.render(ctx, ctxUI, this.duration.value);
-		this.yAxis.render(ctx, ctxUI, this.duration.value);
+		super.render(ctx, ctxUI);
 
 		const xRange = this.xAxis.range.value as TimeRange;
 		const yRange = this.yAxis.range.value as NumberRange;
