@@ -1,6 +1,6 @@
 import type { Renderer } from '../renderer.js';
 import { signal } from '@preact/signals-core';
-import { Provider, Aggregate, Duration, ms_to_nanos } from '@jeditrader/providers';
+import { Provider, Aggregate, Duration } from '@jeditrader/providers';
 import { ChartScene } from './chart.js';
 import { lods } from '../lods.js';
 import { getVar, minDate, maxDate } from '../helpers.js';
@@ -11,7 +11,7 @@ import { Signal } from '@preact/signals-core';
 
 export class TickerScene extends ChartScene {
 	minPxBetweenPoints = 4;
-	duration = signal(new Duration(1, 'years'));
+	duration = signal(new Duration(1, 'year'));
 	cache: SpanCache;
 
 	settings = {
@@ -35,29 +35,54 @@ export class TickerScene extends ChartScene {
 		this.cache = new SpanCache(ticker, provider);
 		const rerender = () => renderer.flags.rerender = true;
 
-		// These are small and fine to load all of
+		// Dailes are small and fine to load all of.
 		const allTime = TimeRange.fromEpochMs(minDate, maxDate);
-		const lowLods = lods.filter(l => l.ms >= new Duration(1, 'days').ms());
-		lowLods.map(l => l.step).forEach(d => {
-			const { start, end } = allTime.interval(d);
-			this.cache.ensure(d, start, end).then(() => {
-				if (!this.duration.value.eq(d)) return;
+		const daily = new Duration(1, 'day');
+		const { start, end } = allTime.interval(daily);
+		const lowLodDurations = lods.filter(l => l.step.ms() > daily.ms()).map(l => l.step);
+		this.cache.ensure(daily, start, end).then(() => {
+			const dailies = this.cache.get(daily);
+			// Create higher level aggs from daily aggs.
+			// This is needed because some sources misalign weeks, months, and years like Polygon
+			lowLodDurations.forEach(duration => {
+				this.cache.aggs[duration.toString()] = [{
+					from: start,
+					to: end,
+					data: []
+				}];
+			});
 
-				// Set axis range based on data
-				const timeRange = TimeRange.fromEpochMs(maxDate, minDate);
-				const priceRange = new NumberRange(Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, '$');
-				const aggs = this.cache.get(d);
-				const d_ns = d.ns();
-				for (let agg of aggs) {
-					if (agg.epochNs < timeRange.start) timeRange.start = agg.epochNs;
-					if (agg.epochNs + d_ns > timeRange.end) timeRange.end = agg.epochNs + d_ns;
+			for (let daily of dailies) {
+				lowLodDurations.forEach(duration => {
+					const { start: aggStart } = new TimeRange(daily.epochNs, daily.epochNs).interval(duration);
+					const aggs = this.cache.aggs[duration.toString()][0].data;
+					const lastStart = aggs[aggs.length - 1]?.epochNs;
+					if (lastStart != aggStart) {
+						aggs.push({
+							epochNs: aggStart,
+							open: daily.open,
+							high: daily.high,
+							low: daily.low,
+							close: daily.close,
+							volume: daily.volume,
+							vwap: daily.vwap,
+							count: daily.count,
+							liquidity: daily.vwap * daily.volume,
+						});
+					} else {
+						const agg = aggs[aggs.length - 1];
+						if (daily.high > agg.high) agg.high = daily.high;
+						if (daily.low < agg.low) agg.low = daily.low;
+						agg.close = daily.close;
+						agg.count += daily.count;
+						agg.volume += daily.volume;
+						agg.liquidity = (agg.liquidity ?? 0) + daily.vwap * daily.volume;
+						agg.vwap = agg.liquidity / agg.volume;
+					}
+				});
+			}
 
-					if (agg.low < priceRange.start) priceRange.start = agg.low;
-					if (agg.high > priceRange.end) priceRange.end = agg.high;
-				}
-				this.xAxis.range.value = timeRange;
-				this.yAxis.range.value = priceRange;
-			})
+			this.fit();
 		});
 
 		(this.xAxis.range as Signal<TimeRange>).subscribe(newRange => {
@@ -65,14 +90,14 @@ export class TickerScene extends ChartScene {
 			const axisLodIndex = lods.findIndex(l => l.step.unit == axisLod.unit && l.step.count == axisLod.count);
 
 			let dataLod = lods[Math.min(axisLodIndex + 2, lods.length - 1)].step.clone();
-			if (['milliseconds', 'microseconds', 'nanoseconds'].includes(dataLod.unit)) {
-				dataLod = new Duration(1, 'seconds');
+			if (['millisecond', 'microsecond', 'nanosecond'].includes(dataLod.unit)) {
+				dataLod = new Duration(1, 'second');
 			}
 
 			const bufferNs = dataLod.ns() * 20n;
 			const interval = new TimeRange(newRange.start - bufferNs, newRange.end + bufferNs).interval(dataLod);
 
-			this.cache.ensure(dataLod, interval.start, interval.end).then(rerender);
+			if (dataLod.ms() < daily.ms()) this.cache.ensure(dataLod, interval.start, interval.end).then(rerender);
 			this.duration.value = dataLod;
 		});
 
@@ -92,6 +117,26 @@ export class TickerScene extends ChartScene {
 
 		this.settings.bar.wickColor.val.subscribe(rerender);
 		this.settings.bar.wickWidth.subscribe(rerender);
+	}
+
+	fit() {
+		// Set axis range based on data
+		const duration = this.duration.value;
+		const timeRange = TimeRange.fromEpochMs(maxDate, minDate);
+		const priceRange = new NumberRange(Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, '$');
+		const aggs = this.cache.get(duration);
+		const d_ns = duration.ns();
+		for (let agg of aggs) {
+			if (agg.epochNs < timeRange.start) timeRange.start = agg.epochNs;
+			if (agg.epochNs + d_ns > timeRange.end) timeRange.end = agg.epochNs + d_ns;
+
+			if (agg.low < priceRange.start) priceRange.start = agg.low;
+			if (agg.high > priceRange.end) priceRange.end = agg.high;
+		}
+		timeRange.start -= d_ns;
+		timeRange.end += d_ns;
+		this.xAxis.range.value = timeRange;
+		this.yAxis.range.value = priceRange;
 	}
 
 	getFill(agg: Aggregate) {

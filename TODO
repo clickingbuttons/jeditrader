@@ -13,7 +13,7 @@
 [x] nanoseconds!!!!!!1
 trades
 
-low lod aggs client side (fixes polygon misalignment)
+[x] low lod aggs client side (fixes polygon misalignment)
 fix crosshair
 [x] show LOD in toolbar
 zoom axes click and drag
@@ -28,6 +28,6 @@ clickhouse high lod aggs
 clickhouse pipeline
 
 settings
-	- a11y
-	- persistent
 	- provider
+	- persistent
+	- a11y

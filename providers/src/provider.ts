@@ -9,6 +9,8 @@ export type Aggregate = {
 	volume: number;
 	vwap: number;
 	count: number;
+	// For intermediate vwap
+	liquidity?: number;
 }
 export type Trade = {
 	epochNs: bigint;

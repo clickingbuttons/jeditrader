@@ -8,13 +8,13 @@ type Span<T> = {
 	data: T[],
 };
 
+const minEpochNs = BigInt(minDate) * ms_to_nanos;
+const maxEpochNs = BigInt(maxDate) * ms_to_nanos;
+
 export class SpanCache {
 	// Rule: no overlapping spans
 	aggs = {} as { [k: string]: Span<Aggregate>[] };
 	minAggFetchSize = 100n;
-
-	minEpochNs = BigInt(minDate) * ms_to_nanos;
-	maxEpochNs = BigInt(maxDate) * ms_to_nanos;
 
 	constructor(
 		public ticker: string,
@@ -22,19 +22,16 @@ export class SpanCache {
 	) {}
 
 	clamp(epochNs: bigint) {
-		return clamp(epochNs, this.minEpochNs, this.maxEpochNs);
+		return clamp(epochNs, minEpochNs, maxEpochNs);
 	}
 
 	*get(
 		duration: Duration,
-		from: bigint = this.minEpochNs,
-		to: bigint = this.maxEpochNs
+		from: bigint = minEpochNs,
+		to: bigint = maxEpochNs
 	): IterableIterator<Aggregate> {
 		from = this.clamp(from);
 		to = this.clamp(to);
-
-		if (from < this.minEpochNs) from = this.minEpochNs;
-		if (to > this.maxEpochNs) to = this.maxEpochNs;
 
 		const spans = this.aggs[duration.toString()] ?? [];
 		for (let i = 0; i < spans.length; i++) {
@@ -71,10 +68,8 @@ export class SpanCache {
 		const nExpected = (to - from) / duration_ns;
 		const nMissing = this.minAggFetchSize - nExpected;
 		if (nMissing > 0) {
-			from -= duration_ns * nMissing / 2n;
-			to += duration_ns * nMissing / 2n;
-			if (from < this.minEpochNs) from = this.minEpochNs;
-			if (to > this.maxEpochNs) to = this.maxEpochNs;
+			from = this.clamp(from - duration_ns * nMissing / 2n);
+			to = this.clamp(to + duration_ns * nMissing / 2n);
 		}
 
 		const contained: Span<Aggregate>[] = [];
@@ -85,7 +80,7 @@ export class SpanCache {
 			if (from <= spans[i].from && to >= spans[i].to) contained.push(spans[i]);
 		}
 
-		if (to - from < duration.ms() || from >= to) return;
+		if (to - from < duration.ns() || from >= to) return;
 
 		const promises: Promise<void>[] = [];
 		for (let i = 0; i < contained.length + 1; i++) {

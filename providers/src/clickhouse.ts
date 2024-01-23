@@ -1,17 +1,28 @@
 import { Duration, DurationUnit } from './duration.js';
 import { Aggregate, Provider, Ticker, Trade } from './provider.js';
+import { clamp } from './helpers.js';
 
 const timespans = {
-	years: 'agg1y',
-	months: 'agg1mo',
-	weeks: 'agg1w',
-	days: 'agg1d',
-	hours: 'agg1h',
-	minutes: 'agg1m',
-	seconds: 'agg1s',
-	milliseconds: 'agg1s',
+	year: 'agg1y',
+	month: 'agg1mo',
+	week: 'agg1w',
+	day: 'agg1d',
+	hour: 'agg1h',
+	minute: 'agg1m',
+	second: 'agg1s',
+	millisecond: 'agg1s',
 } as { [k in DurationUnit]: string };
-const clickhouseMinDate = 0n;
+
+// Clickhouse date types:
+// 1. Date [1970-01-01, 2149-06-06]
+// 2. Date32, Date64 [1900-01-01 00:00:00, 2262-04-11 23:47:16]
+//
+// Since we don't know which is being used, use max min and min max
+const clickhouseMinDate = 18000000000000n; // 1970-01-01
+const clickhouseMaxDate = 9223300800000000000n; // 2262-04-10 to avoid dealing with timezones
+function clampDate(date: bigint): bigint {
+	return clamp(date, clickhouseMinDate, clickhouseMaxDate);
+}
 
 type ClickhouseAggregate = {
 	epochNs: string;
@@ -49,13 +60,14 @@ export class Clickhouse implements Provider {
 		duration: Duration,
 		onChunk: (aggs: Aggregate[]) => void
 	): Promise<void> {
-		if (startEpochNs < clickhouseMinDate) startEpochNs = clickhouseMinDate;
+		startEpochNs = clampDate(startEpochNs);
+		endEpochNs = clampDate(endEpochNs);
 		const query = `
 WITH
-	toStartOfInterval(ts, INTERVAL ${duration.count} ${duration.unit.substring(0, duration.unit.length - 1)}) as timespan,
+	toStartOfInterval(ts, INTERVAL ${duration.count} ${duration.unit}) as timespan,
 	sum(t.volume) AS v
 SELECT
-	toUnixTimestamp64Nano(timespan) AS epochNs,
+	toUnixTimestamp64Nano(toDateTime64(timespan, 9)) AS epochNs,
 	argMin(open, ts) AS open,
 	max(high) AS high,
 	min(low) AS low,
@@ -65,9 +77,9 @@ SELECT
 	sum(count) as count
 
 FROM us_equities.${timespans[duration.unit]} as t
-WHERE ticker='${ticker}' AND ts BETWEEN fromUnixTimestamp64Nano(${startEpochNs}) AND fromUnixTimestamp64Nano(${endEpochNs}, 9)
+WHERE ticker='${ticker}' AND ts BETWEEN fromUnixTimestamp64Nano(${startEpochNs}) AND fromUnixTimestamp64Nano(${endEpochNs})
 GROUP BY timespan
-ORDER BY time ASC
+ORDER BY epochNs ASC
 FORMAT JSON
 `;
 		const resp = await this.doQuery(query);

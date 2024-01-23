@@ -6,16 +6,16 @@ type Timespan = 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quart
 
 function toTimespan(d: DurationUnit): Timespan {
 	switch (d) {
-	case 'years': return 'year';
-	case 'months': return 'month';
-	case 'weeks': return 'week';
-	case 'days': return 'day';
-	case 'hours': return 'hour';
-	case 'minutes': return 'minute';
-	case 'seconds':
-	case 'milliseconds':
-	case 'microseconds':
-	case 'nanoseconds': return 'second';
+	case 'year': return 'year';
+	case 'month': return 'month';
+	case 'week': return 'week';
+	case 'day': return 'day';
+	case 'hour': return 'hour';
+	case 'minute': return 'minute';
+	case 'second':
+	case 'millisecond':
+	case 'microsecond':
+	case 'nanosecond': return 'second';
 	}
 }
 

@@ -95,20 +95,20 @@ export class Axis {
 
 	private timeLabelFormat(duration?: DurationUnit): { format: string, formatCtx?: string } {
 		switch (duration) {
-			case 'years': {
+			case 'year': {
 				const bc = BigInt(new Date(-1, 0).getTime()) * ms_to_nanos;
 				if (this.range.value.start < bc) return { format: 'yyyy GG' };
 				return { format: 'yyyy' };
 			}
-			case 'months': return { format: 'yyyy-MM' };
-			case 'weeks':
-			case 'days': return { format: 'yyyy-MM-dd' };
-			case 'hours':
-			case 'minutes': return { format: 'HH:mm', formatCtx: 'yyyy-MM-dd' };
-			case 'seconds': return { format: ':ss', formatCtx: 'yyyy-MM-dd HH:mm' };
-			case 'milliseconds': return { format: '.SSS', formatCtx: 'yyyy-MM-dd HH:mm:ss' };
-			case 'microseconds': return { format: 'microseconds', formatCtx: 'yyyy-MM-dd HH:mm:ss.SSS' };
-			case 'nanoseconds': return { format: 'nanoseconds', formatCtx: 'yyyy-MM-dd HH:mm:ss.SSS' };
+			case 'month': return { format: 'yyyy-MM' };
+			case 'week':
+			case 'day': return { format: 'yyyy-MM-dd' };
+			case 'hour':
+			case 'minute': return { format: 'HH:mm', formatCtx: 'yyyy-MM-dd' };
+			case 'second': return { format: ':ss', formatCtx: 'yyyy-MM-dd HH:mm' };
+			case 'millisecond': return { format: '.SSS', formatCtx: 'yyyy-MM-dd HH:mm:ss' };
+			case 'microsecond': return { format: 'microseconds', formatCtx: 'yyyy-MM-dd HH:mm:ss.SSS' };
+			case 'nanosecond': return { format: 'nanoseconds', formatCtx: 'yyyy-MM-dd HH:mm:ss.SSS' };
 			default: return { format: '', formatCtx: '' };
 		}
 	}
