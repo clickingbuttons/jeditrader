@@ -1,10 +1,8 @@
 import type { Input } from '../input.js';
 import type { Renderer } from '../renderer.js';
 import { Scene } from './scene.js';
-import { TimeAxis } from '../TimeAxis.js';
-import { NumberAxis } from '../NumberAxis.js';
-import { TimeRange } from '../TimeRange.js';
-import { NumberRange } from '../NumberRange.js';
+import { TimeAxis, NumberAxis } from '../axis/index.js';
+import { TimeRange, NumberRange } from '../range/index.js';
 
 export class ChartScene extends Scene {
 	canvasUI: HTMLCanvasElement;

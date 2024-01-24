@@ -1,6 +1,7 @@
-import { truncate } from './helpers.js';
+import { truncate } from '../helpers.js';
+import { Range } from './Range.js';
 
-export class NumberRange {
+export class NumberRange implements Range<number, number> {
 	constructor(
 		public start: number,
 		public end: number,

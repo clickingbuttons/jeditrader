@@ -1,17 +1,13 @@
-import type { Renderer } from './renderer.js';
+import type { Renderer } from '../renderer.js';
 import { Duration, DurationUnit, ms_to_nanos } from '@jeditrader/providers';
 import { Signal} from '@preact/signals';
 import { format as formatTime } from 'date-fns';
-import { lods } from './lods.js';
-import { TimeRange } from './TimeRange.js';
+import { lods } from '../lods.js';
+import { TimeRange } from '../range/TimeRange.js';
 
 import { Axis, Side } from './axis.js';
 
-export class TimeAxis extends Axis {
-	declare range: Signal<TimeRange>;
-	declare step: Signal<Duration>;
-	declare ticks: Signal<bigint[] | BigInt64Array>;
-
+export class TimeAxis extends Axis<bigint, Duration> {
 	crosshairDuration: Signal<Duration> | undefined;
 
 	constructor(
@@ -43,7 +39,7 @@ export class TimeAxis extends Axis {
 		return step;
 	}
 
-	timeLabelFormat(duration: DurationUnit, isFirst: boolean) {
+	timeLabelFormat(duration: DurationUnit, isCtx: boolean) {
 		switch (duration) {
 			case 'year': {
 				const bc = BigInt(new Date(-1, 0).getTime()) * ms_to_nanos;
@@ -54,19 +50,42 @@ export class TimeAxis extends Axis {
 			case 'week':
 			case 'day': return 'yyyy-MM-dd';
 			case 'hour':
-			case 'minute': return isFirst ? 'yyyy-MM-dd' : 'HH:mm';
-			case 'second': return isFirst ? 'yyyy-MM-dd HH:mm' : ':ss';
-			case 'millisecond': return isFirst ? 'yyyy-MM-dd HH:mm:ss' : '.SSS';
-			case 'microsecond': return isFirst ? 'yyyy-MM-dd HH:mm:ss.SSS' : 'microseconds';
-			case 'nanosecond': return isFirst ? 'yyyy-MM-dd HH:mm:ss.SSS' : 'nanoseconds';
+			case 'minute': return isCtx ? 'yyyy-MM-dd' : 'HH:mm';
+			case 'second': return isCtx ? 'yyyy-MM-dd HH:mm' : ':ss';
+			case 'millisecond': return isCtx ? 'yyyy-MM-dd HH:mm:ss' : '.SSS';
+			case 'microsecond': return isCtx ? 'yyyy-MM-dd HH:mm:ss.SSS' : 'microseconds';
+			case 'nanosecond': return isCtx ? 'yyyy-MM-dd HH:mm:ss.SSS' : 'nanoseconds';
 		}
 	}
 
-	label(n: bigint, isFirst: boolean, isCrosshair: boolean): string {
-		const duration = (isCrosshair && this.crosshairDuration?.value) || this.step.value;
-		const format = this.timeLabelFormat(duration.unit, isFirst);
-
+	formatTime(n: bigint, format: string) {
 		if (format === 'microseconds' || format === 'nanoseconds') return (n % ms_to_nanos).toString();
 		return formatTime(Number(n / ms_to_nanos), format);
+	}
+
+	label(n: bigint, isFirst: boolean, isCrosshair: boolean): string {
+		if (isCrosshair && this.crosshairDuration) {
+			const unit = this.crosshairDuration.value.unit;
+			switch (unit) {
+				case 'year':
+				case 'month':
+				case 'week':
+				case 'day': return this.formatTime(n, this.timeLabelFormat(unit, true));
+				case 'hour':
+				case 'minute':
+				case 'second':
+				case 'millisecond':
+				case 'microsecond':
+				case 'nanosecond': {
+					var res = this.formatTime(n, this.timeLabelFormat(unit, true));
+					if (unit == 'hour' || unit == 'minute') res += ' ';
+					res += this.formatTime(n, this.timeLabelFormat(unit, false));
+					return res;
+				}
+			}
+		}
+
+		const format = this.timeLabelFormat(this.step.value.unit, isFirst);
+		return this.formatTime(n, format);
 	}
 }

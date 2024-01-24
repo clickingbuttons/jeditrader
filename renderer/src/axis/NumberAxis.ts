@@ -1,6 +1,5 @@
-import type { Renderer } from './renderer.js';
-import { Signal } from '@preact/signals';
-import { NumberRange } from './NumberRange.js';
+import type { Renderer } from '../renderer.js';
+import { NumberRange } from '../range/NumberRange.js';
 import { Axis, Side } from './axis.js';
 
 const decimalCount = [1, 5, 10, 25, 50, 100, 250, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9];
@@ -8,11 +7,7 @@ function closest(n: number, arr: number[]): number {
 	return arr.reduce((acc, cur) => Math.abs(cur - n) < Math.abs(acc - n) ? cur : acc);
 }
 
-export class NumberAxis extends Axis {
-	declare range: Signal<NumberRange>;
-	declare step: Signal<number>;
-	declare ticks: Signal<number[]>;
-
+export class NumberAxis extends Axis<number, number> {
 	constructor(
 		renderer: Renderer,
 		range: NumberRange,

@@ -5,8 +5,7 @@ import { ChartScene } from './chart.js';
 import { lods } from '../lods.js';
 import { getVar, minDate, maxDate } from '../helpers.js';
 import { SpanCache } from '../span-cache.js';
-import { TimeRange }  from '../TimeRange.js';
-import { NumberRange } from '../NumberRange.js';
+import { TimeRange, NumberRange }  from '../range/index.js';
 import { Signal } from '@preact/signals-core';
 
 export class TickerScene extends ChartScene {

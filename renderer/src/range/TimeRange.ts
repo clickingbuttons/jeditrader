@@ -1,5 +1,5 @@
 import { Duration, ms_to_nanos } from '@jeditrader/providers';
-import { clampDate, minDate, maxDate } from './helpers.js';
+import { clampDate, minDate, maxDate } from '../helpers.js';
 import {
 	eachMinuteOfInterval,
 	eachDayOfInterval,
@@ -8,6 +8,7 @@ import {
 	eachMonthOfInterval,
 	eachYearOfInterval,
 } from 'date-fns';
+import { Range } from './Range.js';
 
 function toEpochNs(d: Date): bigint {
 	return BigInt(d.getTime()) * ms_to_nanos;
@@ -19,7 +20,7 @@ function toOne(n: number): bigint {
 	return 0n;
 }
 
-export class TimeRange {
+export class TimeRange implements Range<bigint, Duration> {
 	/// start and end are epoch ns
 	constructor(
 		public start: bigint,
@@ -47,7 +48,7 @@ export class TimeRange {
 		return { start, end };
 	}
 
-	ticks(duration: Duration): bigint[] | BigInt64Array {
+	ticks(duration: Duration): bigint[] {
 		let step = duration.count;
 		const interval = this.interval(duration);
 		const smallInterval = {
@@ -76,7 +77,7 @@ export class TimeRange {
 		}
 
 		const bigStep = BigInt(step);
-		const res = new BigInt64Array(Number((interval.end - interval.start) / bigStep));
+		const res = new Array(Number((interval.end - interval.start) / bigStep));
 
 		let i = 0;
 		for (let v = interval.start; v < interval.end; v += bigStep) res[i++] = v;
@@ -95,7 +96,6 @@ export class TimeRange {
 		const percStart1e9 = BigInt(Math.round(percStart * 1e9));
 		const percEnd1e9 = BigInt(Math.round(percEnd * 1e9));
 		const range = this.end - this.start;
-		if (range <= 1n) return this.clone();
 
 		let movedStart = range * percStart1e9 / 1_000_000_000n;
 		if (movedStart == 0n) movedStart = toOne(percStart);
@@ -103,9 +103,13 @@ export class TimeRange {
 		let movedEnd = range * percEnd1e9 / 1_000_000_000n;
 		if (movedEnd == 0n) movedEnd = toOne(percEnd);
 
-		if (this.start - movedStart > this.end + movedEnd) debugger;
+		const start = this.start - movedStart;
+		let end = this.end + movedEnd;
+		if (end - start <= 0) end = start + 1n;
 
-		return new TimeRange(this.start - movedStart, this.end + movedEnd);
+		if (start > end) debugger;
+
+		return new TimeRange(start, end);
 	}
 
 	value(percentage: number): bigint {

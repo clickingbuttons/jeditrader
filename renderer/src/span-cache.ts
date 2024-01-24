@@ -1,5 +1,5 @@
 import { Duration, Provider, Aggregate, ms_to_nanos } from '@jeditrader/providers';
-import { TimeRange } from './TimeRange.js';
+import { TimeRange } from './range/TimeRange.js';
 import { minDate, maxDate, clamp } from './helpers.js';
 export type AggDuration = 'years' | 'months' | 'weeks' | 'days' | 'hours' | 'minutes' | 'seconds';
 

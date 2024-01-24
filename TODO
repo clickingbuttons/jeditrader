@@ -17,11 +17,11 @@ trades
 [x] fix crosshair
 [x] show LOD in toolbar
 [NO] zoom axes click and drag
+[x] axis typescript cleanup (subclasses for time + value)
+[x] better crosshair time context
 loading state (gray background?)
-css modules
 timezones
-axis typescript cleanup (subclasses for time + value)
-better crosshair time context
+css modules
 
 vwap
 drawings

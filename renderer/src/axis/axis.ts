@@ -1,13 +1,12 @@
-import type { Renderer } from './renderer.js';
-import { Duration } from '@jeditrader/providers';
+import type { Renderer } from '../renderer.js';
 import { signal, Signal, computed } from '@preact/signals';
-import { getVar, clamp } from './helpers.js';
-import { TimeRange } from './TimeRange.js';
-import { NumberRange } from './NumberRange.js';
+import { getVar, clamp } from '../helpers.js';
+import { Range } from '../range/Range.js';
 
 export type Side = 'top' | 'bottom' | 'left' | 'right';
 
-export class Axis {
+
+export abstract class Axis<T, Step> {
 	ctx: CanvasRenderingContext2D;
 	font = '14px Arial';
 	paddingPx = 4;
@@ -16,13 +15,13 @@ export class Axis {
 	clipBottom = false;
 	side: Side;
 
-	range: Signal<TimeRange | NumberRange>;
-	step: Signal<Duration | number>;
-	ticks: Signal<number[] | bigint[] | BigInt64Array>;
+	range: Signal<Range<T, Step>>;
+	step: Signal<Step>;
+	ticks: Signal<T[]>;
 
 	crosshairPx = signal<number | undefined>(undefined);
 
-	constructor(renderer: Renderer, range: TimeRange | NumberRange, side: Side) {
+	constructor(renderer: Renderer, range: Range<T, Step>, side: Side) {
 		this.ctx = renderer.contextUI;
 		this.side = side;
 		this.range = signal(range);
@@ -35,13 +34,8 @@ export class Axis {
 		renderer.height.subscribe(() => this.pan(0));
 	}
 
-	getStep(): Duration | number {
-		return 1;
-	}
-
-	label(tick: number | bigint, isFirst: boolean, isCrosshair: boolean): string {
-		return tick.toString();
-	}
+	abstract getStep(): Step;
+	abstract label(tick: T, isFirst: boolean, isCrosshair: boolean): string;
 
 	pan(px: number) {
 		const percentage = px / this.getPx();
@@ -70,7 +64,7 @@ export class Axis {
 		}
 	}
 
-	rangeValue(px: number): number | bigint {
+	rangeValue(px: number): T {
 		let percentage = px / this.getPx();
 		if (!this.isLeftToRight()) percentage = 1 - percentage;
 		return this.range.value.value(percentage);
