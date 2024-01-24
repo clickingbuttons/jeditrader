@@ -127,17 +127,12 @@ export abstract class Axis<T, Step> {
 
 			const { x, y } = this.layoutLine(tickPerc, ctx);
 
-			switch (this.side) {
-			case 'top':
-			case 'bottom':
+			if (this.isLeftToRight()) {
 				ctx.moveTo(x, 0);
 				ctx.lineTo(x, ctx.canvas.height);
-				break;
-			case 'left':
-			case 'right':
+			} else {
 				ctx.moveTo(0, y);
 				ctx.lineTo(ctx.canvas.width, y);
-				break;
 			}
 		}
 

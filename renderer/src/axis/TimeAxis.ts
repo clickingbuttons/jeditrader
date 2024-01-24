@@ -1,10 +1,9 @@
 import type { Renderer } from '../renderer.js';
 import { Duration, DurationUnit, ms_to_nanos } from '@jeditrader/providers';
-import { Signal} from '@preact/signals';
+import { Signal } from '@preact/signals';
 import { format as formatTime } from 'date-fns';
 import { lods } from '../lods.js';
 import { TimeRange } from '../range/TimeRange.js';
-
 import { Axis, Side } from './axis.js';
 
 export class TimeAxis extends Axis<bigint, Duration> {

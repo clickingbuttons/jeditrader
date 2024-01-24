@@ -15,6 +15,7 @@
 	--bar-down-color: 205, 42, 20;
 	--bar-even-color: 60, 57, 57;
 	--bar-shadow-color: 207, 203, 216;
+	--loading-color: 40, 40, 40, 0.4;
 }
 
 .dark {
@@ -27,6 +28,7 @@
 	--bar-down-color: 221, 59, 26;
 	--bar-even-color: 160, 160, 160;
 	--bar-shadow-color: 100, 100, 100;
+	--loading-color: 150, 150, 150, 0.8;
 }
 
 html, body, div[id='root'] {

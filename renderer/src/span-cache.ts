@@ -38,6 +38,7 @@ export class SpanCache {
 		const spans = this.aggs[duration.toString()] ?? [];
 		for (let i = 0; i < spans.length; i++) {
 			const span = spans[i];
+			if (span.loading) continue;
 			if (
 				(from >= span.from && from <= span.to) ||
 				(to >= span.from && to <= span.to) ||
@@ -53,7 +54,7 @@ export class SpanCache {
 		}
 	}
 
-	async ensure(duration: Duration, from: bigint, to: bigint): Promise<void> {
+	ensure(duration: Duration, from: bigint, to: bigint) {
 		from = this.clamp(from);
 		to = this.clamp(to);
 
@@ -61,7 +62,7 @@ export class SpanCache {
 		this.aggs[key] ??= [];
 		const spans = this.aggs[key];
 		for (let i = 0; i < spans.length; i++) {
-			if (from >= spans[i].from && to <= spans[i].to) return;
+			if (from >= spans[i].from && to <= spans[i].to) return [];
 			if (from >= spans[i].from && from <= spans[i].to) from = spans[i].to;
 			if (to >= spans[i].from && to <= spans[i].to) to = spans[i].from;
 		}
@@ -76,16 +77,15 @@ export class SpanCache {
 
 		const contained: Span<Aggregate>[] = [];
 		for (let i = 0; i < spans.length; i++) {
-			if (from >= spans[i].from && to <= spans[i].to) return;
+			if (from >= spans[i].from && to <= spans[i].to) return [];
 			if (from >= spans[i].from && from <= spans[i].to) from = spans[i].to;
 			if (to >= spans[i].from && to <= spans[i].to) to = spans[i].from;
 			if (from <= spans[i].from && to >= spans[i].to) contained.push(spans[i]);
 		}
 
-		if (to - from < duration.ns() || from >= to) return;
+		if (to - from < duration_ns || from >= to) return [];
 
-		const promises: Promise<void>[] = [];
-		const newSpans: Span<Aggregate>[] = [];
+		const newSpans: { fetch: Promise<void>, span: Span<Aggregate> }[] = [];
 		for (let i = 0; i < contained.length + 1; i++) {
 			const span: Span<Aggregate> = {
 				from: i == 0 ? from : contained[i - 1].to,
@@ -93,30 +93,25 @@ export class SpanCache {
 				data: [],
 				loading: true,
 			};
-			newSpans.push(span);
 			this.aggs[key].push(span);
-			promises.push(
-				this.provider.agg(
-					this.ticker,
-					span.from,
-					span.to,
-					duration,
-					data => {
-						for (let i = 0; i < data.length; i++) {
-							if (data[i].epochNs >= span.from && data[i].epochNs < span.to) span.data.push(data[i]);
-						}
+
+			const fetch = this.provider.agg(
+				this.ticker,
+				span.from,
+				span.to,
+				duration,
+				data => {
+					for (let i = 0; i < data.length; i++) {
+						if (data[i].epochNs >= span.from && data[i].epochNs < span.to) span.data.push(data[i]);
 					}
-				)
-			);
+				}
+			).then(() => {
+				span.loading = false;
+			});
+			newSpans.push({ span, fetch });
 		}
 
-		return Promise.all(promises).then(() => {
-			newSpans.forEach(s => s.loading = false);
-		});
-	}
-
-	loadingSpans(duration: Duration) {
-		return (this.aggs[duration.toString()] ?? []).filter(a => a.loading);
+		return newSpans;
 	}
 
 	aggregate(from: Duration, lowerDurations: Duration[]) {
