@@ -53,6 +53,23 @@ export class Clickhouse implements Provider {
 		return resp;
 	}
 
+	async tickers(like: string, limit: number): Promise<Ticker[]> {
+		const query = `
+SELECT DISTINCT
+	ticker,
+	name
+FROM tickers
+WHERE name LIKE '%${like}%' OR ticker LIKE '%${like}%'
+LIMIT ${limit}
+FORMAT JSON
+`;
+		const resp = await this.doQuery(query);
+
+		const json = await resp.json()
+		const data = json.data as Ticker[];
+		return data;
+	}
+
 	async agg(
 		ticker: string,
 		startEpochNs: bigint,
@@ -90,50 +107,30 @@ FORMAT JSON
 		onChunk(newData as Aggregate[]);
 	}
 
-	async tickers(like: string, limit: number): Promise<Ticker[]> {
+	async trade(
+		ticker: string,
+		startEpochNs: bigint,
+		endEpochNs: bigint,
+		onChunk: (trades: Trade[]) => void
+	): Promise<void> {
+		startEpochNs = clampDate(startEpochNs);
+		endEpochNs = clampDate(endEpochNs);
 		const query = `
-SELECT DISTINCT
-	ticker,
-	name
-FROM tickers
-WHERE name LIKE '%${like}%' OR ticker LIKE '%${like}%'
-LIMIT ${limit}
+SELECT toUnixTimestamp64Nano(ts) as epochNS,
+	price,
+	size,
+	conditions
+FROM us_equities.trades
+WHERE ticker='${ticker}' AND ts BETWEEN fromUnixTimestamp64Nano(${startEpochNs}) AND fromUnixTimestamp64Nano(${endEpochNs})
+ORDER BY ts
 FORMAT JSON
-`;
+		`;
+
 		const resp = await this.doQuery(query);
-
 		const json = await resp.json()
-		const data = json.data as Ticker[];
-		return data;
+		let data = json.data as ClickhouseTrade[];
+		let newData = data as unknown as Trade[];
+		for (var i = 0; i < newData.length; i++) newData[i].epochNs = BigInt(newData[i].epochNs);
+		onChunk(newData as Trade[]);
 	}
-
-	// trade(ticker: string, from: Date, to: Date, onData: (trades: Trade[]) => void) {
-	// 	if (from < clickhouseMinDate) from = clickhouseMinDate;
-	// 	const query = `SELECT toUnixTimestamp64Nano(ts) as epochNS,
-	// 			price,
-	// 			size,
-	// 			conditions
-	// 		 FROM us_equities.trades
-	// 		 WHERE ticker='${ticker}' AND ts BETWEEN toDateTime(${from.getTime() / 1e3}) AND toDateTime(${to.getTime() / 1e3})
-	// 		 ORDER BY ts
-	// 		 FORMAT JSON
-	// 	`;
-
-	// 	fetch(`${this.url}/?query=${query}&add_http_cors_header=1`)
-	// 		.then(res => res.json())
-	// 		.then(res => res.data as ClickhouseTrade[])
-	// 		.then(res => {
-	// 			var trades: Trade[] = [];
-	// 			var newTrade: Trade;
-	// 			for (var i = 0; i < res.length; i++) {
-	// 				var trade = res[i];
-	// 				newTrade = {
-	// 					...trade,
-	// 					epochNS: +trade.epochNS,
-	// 				} as Trade;
-	// 				trades.push(newTrade);
-	// 			}
-	// 			onData(trades);
-	// 		});
-	// }
 }

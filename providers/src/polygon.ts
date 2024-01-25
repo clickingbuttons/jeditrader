@@ -1,5 +1,5 @@
 import { Aggregate, Provider, Ticker, Trade } from './provider.js';
-import type { Duration, DurationUnit } from './duration.js';
+import { Duration, DurationUnit, ms_to_nanos } from './duration.js';
 import { clamp } from './helpers.js';
 
 type Timespan = 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year';
@@ -44,8 +44,8 @@ interface PolygonAggsResult {
 
 interface PolygonTrade {
 	sip_timestamp: number;
-	size?: number;
-	price?: number;
+	size: number;
+	price: number;
 	conditions?: number[];
 }
 
@@ -87,8 +87,19 @@ export class Polygon implements Provider {
 		public apiKey: string
 	) {}
 
-	static clamp(epochNs: bigint) {
+	static clampToEpochMs(epochNs: bigint) {
 		return clamp(Number(epochNs / 1_000_000n), Polygon.minDate, Polygon.maxDate);
+	}
+
+	static clamp(epochNs: bigint) {
+		return clamp(epochNs, BigInt(Polygon.minDate) * ms_to_nanos, BigInt(Polygon.maxDate) * ms_to_nanos);
+	}
+
+	async tickers(like: string, limit: number): Promise<Ticker[]> {
+		const url = `${Polygon.baseUrl}/v3/reference/tickers?search=${like}&limit=${limit}&apiKey=${this.apiKey}`;
+		let resp: PolygonTickersResponse = await fetch(url)
+			.then(res => res.json());
+		return resp.results;
 	}
 
 	async agg(
@@ -98,14 +109,12 @@ export class Polygon implements Provider {
 		duration: Duration,
 		onChunk: (aggs: Aggregate[]) => void
 	): Promise<void> {
-		let fromMs = Polygon.clamp(startEpochNs);
-		let toMs = Polygon.clamp(endEpochNs);
-
+		const fromMs = Polygon.clampToEpochMs(startEpochNs);
+		const toMs = Polygon.clampToEpochMs(endEpochNs);
 		const timespan = toTimespan(duration.unit);
 		const url = `${Polygon.baseUrl}/v2/aggs/ticker/${ticker}/range/${duration.count}/${timespan}/${fromMs}/${toMs}?`;
 		const urlExtra = `&apiKey=${this.apiKey}&limit=10000`;
-		let resp: PolygonAggsResult = await fetch(url + urlExtra)
-			.then(res => res.json());
+		let resp: PolygonAggsResult = await fetch(url + urlExtra).then(res => res.json());
 
 		do {
 			if (resp.results) {
@@ -129,43 +138,33 @@ export class Polygon implements Provider {
 		} while(resp.next_url);
 	}
 
-	async tickers(like: string, limit: number): Promise<Ticker[]> {
-		const url = `${Polygon.baseUrl}/v3/reference/tickers?search=${like}&limit=${limit}&apiKey=${this.apiKey}`;
-		let resp: PolygonTickersResponse = await fetch(url)
-			.then(res => res.json());
-		return resp.results;
+	async trade(
+		ticker: string,
+		startEpochNs: bigint,
+		endEpochNs: bigint,
+		onChunk: (trades: Trade[]) => void
+	): Promise<void> {
+		const from = Polygon.clamp(startEpochNs);
+		const to = Polygon.clamp(endEpochNs);
+		const url = `${Polygon.baseUrl}/v3/trades/${ticker}?timestamp.gte=${from}&timestamp.lt=${to}`;
+		const urlExtra = `&apiKey=${this.apiKey}&limit=10000`;
+		let resp: PolygonTradesResult = await fetch(url + urlExtra).then(res => res.json());
+
+		do {
+			if (resp.results) {
+				const trades = resp.results.map(trade => ({
+					epochNs: BigInt(trade.sip_timestamp),
+					price: trade.price,
+					size: trade.size,
+					conditions: trade.conditions
+				}) as Trade);
+				onChunk(trades);
+			}
+			if (resp.next_url) {
+				resp = await fetch(resp.next_url + urlExtra).then(res => res.json())
+			} else {
+				return;
+			}
+		} while(resp.next_url);
 	}
-
-	// trade(ticker: string, from: Date, to: Date, onChunk: (trades: Trade[]) => void) {
-	// 	if (from < polygonMinDate) from = polygonMinDate;
-
-	// 	const apiKey = this.apiKey;
-	// 	function handleResp(res: PolygonTradesResult) {
-	// 		if (res.results) {
-	// 			var trades: Trade[] = [];
-	// 			var newTrade: Trade;
-	// 			for (var i = 0; i < res.results.length; i++) {
-	// 				var agg = res.results[i];
-	// 				newTrade = {
-	// 					epochNS: agg.sip_timestamp,
-	// 					price: agg.price || 0,
-	// 					size: agg.size || 0,
-	// 					conditions: agg.conditions || [],
-	// 				} as Trade;
-	// 				trades.push(newTrade);
-	// 			}
-	// 			onChunk(trades);
-	// 		}
-	// 		if (res.next_url) {
-	// 			fetch(res.next_url + `&apiKey=${apiKey}&limit=10000`)
-	// 				.then(res => res.json() as Promise<PolygonTradesResult>)
-	// 				.then(handleResp);
-	// 		}
-	// 	}
-
-	// 	let url = `${Polygon.baseUrl}/v3/trades/${ticker}?timestamp.gte=${from.getTime() * 1e6}&timestamp.lte=${to.getTime() * 1e6}`;
-	// 	fetch(url + `&apiKey=${this.apiKey}&limit=50000`)
-	// 		.then(res => res.json())
-	// 		.then(handleResp);
-	// }
 }

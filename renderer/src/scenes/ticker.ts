@@ -1,6 +1,6 @@
 import type { Renderer } from '../renderer.js';
 import { signal } from '@preact/signals-core';
-import { Provider, Aggregate, Duration, ms_to_nanos } from '@jeditrader/providers';
+import { Provider, Aggregate, Duration } from '@jeditrader/providers';
 import { ChartScene } from './chart.js';
 import { lods } from '../lods.js';
 import { getVar, minDate, maxDate } from '../helpers.js';
@@ -54,7 +54,7 @@ export class TickerScene extends ChartScene {
 
 		this.ensure(daily, start, end, false).then(() => {
 			this.cache.aggregate(daily, lowLodDurations);
-			this.fit();
+			this.fit(daily);
 		});
 
 		(this.xAxis.range as Signal<TimeRange>).subscribe(newRange => {
@@ -79,9 +79,8 @@ export class TickerScene extends ChartScene {
 			const axisVal = this.xAxis.rangeValue(newCrosshair) as bigint;
 
 			const { start, end } = new TimeRange(axisVal, axisVal).interval(this.duration.value);
-			const iter = this.cache.get(this.duration.value, start, end - 1n);
-			const first = iter.next().value;
-			if (first) this.crosshair.value = first;
+			const aggs = this.cache.getAggs(this.duration.value, start, end - 1n);
+			if (aggs.length) this.crosshair.value = aggs[0];
 			else this.crosshair.value = undefined;
 		});
 
@@ -96,7 +95,11 @@ export class TickerScene extends ChartScene {
 	}
 
 	async ensure(duration: Duration, from: bigint, to: bigint, showLoading: boolean = true): Promise<void> {
-		const spans = this.cache.ensure(duration, from, to);
+		const spans = this.cache.ensureAggs(duration, from, to);
+		if (duration.ms() < new Duration(1, 'second').ms()) {
+			const tradeSpans = this.cache.ensureTrades(from, to);
+			spans.push(...tradeSpans);
+		}
 		if (showLoading) {
 			spans.forEach(s => {
 				const loading: Loading = {
@@ -115,12 +118,11 @@ export class TickerScene extends ChartScene {
 		return Promise.all(spans.map(s => s.fetch)).then(() => {});
 	}
 
-	fit() {
+	fit(duration: Duration) {
 		// Set axis range based on data
-		const duration = this.duration.value;
 		const timeRange = new TimeRange(maxDate, minDate);
 		const priceRange = new NumberRange(Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, '$');
-		const aggs = this.cache.get(duration);
+		const aggs = this.cache.getAggs(duration);
 		const d_ns = duration.ns();
 		for (let agg of aggs) {
 			if (agg.epochNs < timeRange.start) timeRange.start = agg.epochNs;
@@ -135,16 +137,16 @@ export class TickerScene extends ChartScene {
 		this.yAxis.range.value = priceRange;
 	}
 
-	getFill(agg: Aggregate) {
+	aggFill(agg: Aggregate) {
 		let rgb = getVar('--bar-even-color');
 		if (agg.close > agg.open) rgb = getVar('--bar-up-color');
 		else if (agg.close < agg.open) rgb = getVar('--bar-down-color');
 		return `rgb(${rgb})`;
 	}
 
-	renderAggs(
+	renderData(
 		ctx: CanvasRenderingContext2D,
-		aggDuration: Duration,
+		duration: Duration,
 		start: bigint,
 		end: bigint,
 		loading: boolean = false
@@ -156,7 +158,7 @@ export class TickerScene extends ChartScene {
 		const axisWidth = this.xAxis.getPx();
 		const axisHeight = this.yAxis.getPx();
 
-		const duration_ns = aggDuration.ns();
+		const duration_ns = duration.ns();
 		const widthPerc = Number(duration_ns) / xSpan;
 
 		const wickWidth = this.settings.bar.wickWidth.value;
@@ -164,7 +166,7 @@ export class TickerScene extends ChartScene {
 
 		const volumeSettings = this.settings.bar.volume;
 
-		const aggs = this.cache.get(aggDuration, start, end);
+		const aggs = this.cache.getAggs(duration, start, end);
 		for (let agg of aggs) {
 			const xPerc = Number(agg.epochNs - xRange.start) / xSpan + widthPerc / 2;
 			if (xPerc < -widthPerc || xPerc > 1 + widthPerc) continue;
@@ -190,7 +192,7 @@ export class TickerScene extends ChartScene {
 				if (this.settings.bar.wickColor.val.value === 'foreground') {
 					ctx.fillStyle = `rgb(${getVar('--fg') ?? '0, 0, 0'})`;
 				} else {
-					ctx.fillStyle = this.getFill(agg);
+					ctx.fillStyle = this.aggFill(agg);
 				}
 				ctx.fillRect(
 					xPerc * axisWidth - (wickWidth - 1) / 2,
@@ -203,7 +205,7 @@ export class TickerScene extends ChartScene {
 				// candle
 				const yPerc = 1 - (agg.open - yRange.start) / ySpan;
 				const heightPerc = (agg.open - agg.close) / ySpan;
-				ctx.fillStyle = this.getFill(agg);
+				ctx.fillStyle = this.aggFill(agg);
 				let height = heightPerc * axisHeight;
 				if (height >= 0 && height < 1) height = 1;
 				if (height < 0 && height > -1) height = -1;
@@ -220,6 +222,7 @@ export class TickerScene extends ChartScene {
 				ctx.restore();
 			}
 			if (loading) {
+				// loading overlay
 				const xStartPerc = xRange.percentage(agg.epochNs);
 				const xEndPerc = xRange.percentage(agg.epochNs + duration_ns);
 
@@ -235,6 +238,21 @@ export class TickerScene extends ChartScene {
 				);
 			}
 		}
+
+		ctx.fillStyle = 'pink';
+		const trades = this.cache.getTrades(start, end);
+		for (let trade of trades) {
+			const radius = trade.size / 200;
+			const x = Number(trade.epochNs - xRange.start) / xSpan * axisWidth;
+
+			if (x + radius < 0 || x - radius > axisWidth) continue;
+
+			const y = (1 - Number(trade.price - yRange.start) / ySpan) * axisHeight;
+
+			ctx.beginPath();
+			ctx.arc(x, y, radius, 0, 2 * Math.PI);
+			ctx.fill();
+		}
 	}
 
 	renderLoading(ctx: CanvasRenderingContext2D) {
@@ -242,7 +260,7 @@ export class TickerScene extends ChartScene {
 		for (let i = 0; i < zones.length; i++) {
 			const zone = zones[i];
 
-			this.renderAggs(ctx, zone.biggerDuration, zone.range.start, zone.range.end, true);
+			this.renderData(ctx, zone.biggerDuration, zone.range.start, zone.range.end, true);
 		}
 	}
 
@@ -255,6 +273,6 @@ export class TickerScene extends ChartScene {
 		const duration_ns = aggDuration.ns();
 		const start = xRange.start - duration_ns;
 		const end = xRange.end;
-		this.renderAggs(ctx, aggDuration, start, end);
+		this.renderData(ctx, aggDuration, start, end);
 	}
 };

@@ -16,7 +16,7 @@ export type Trade = {
 	epochNs: bigint;
 	price: number;
 	size: number;
-	conditions: number[];
+	conditions?: number[];
 }
 export type Ticker = {
 	ticker: string,
@@ -24,6 +24,8 @@ export type Ticker = {
 };
 
 export interface Provider {
+	tickers(like: string, limit: number): Promise<Ticker[]>;
+
 	agg(
 		ticker: string,
 		startEpochNs: bigint,
@@ -31,7 +33,10 @@ export interface Provider {
 		duration: Duration,
 		onChunk: (aggs: Aggregate[]) => void,
 	): Promise<void>;
-
-	tickers(like: string, limit: number): Promise<Ticker[]>;
-	// trade(ticker: string, from: Date, to: Date): Stream<Trade[]>;
+	trade(
+		ticker: string,
+		startEpochNs: bigint,
+		toEpochNs: bigint,
+		onChunk: (trades: Trade[]) => void,
+	): Promise<void>;
 }

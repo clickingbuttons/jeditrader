@@ -20,7 +20,7 @@ trades
 [x] axis typescript cleanup (subclasses for time + value)
 [x] better crosshair time context
 [x] loading state (gray background?)
-timezones
+[x] timezones
 css modules
 
 vwap
