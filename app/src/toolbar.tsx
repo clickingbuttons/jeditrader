@@ -22,7 +22,7 @@ export function Toolbar({
 }: ToolbarProps) {
 	const scene = renderer?.scene;
 	const chart: TickerScene | null = scene instanceof TickerScene ? scene : null;
-	const agg = chart?.crosshair.value;
+	const hover = chart?.hover.value;
 
 	return (
 		<div class="toolbar" style={style}>
@@ -40,17 +40,7 @@ export function Toolbar({
 
 			<div class="toolbar-spacer" />
 
-			{agg &&
-				<div>
-					{new Date(Number(agg.epochNs / 1_000_000n)).toISOString()}{' '}
-					O: {agg.open}{' '}
-					H: {agg.high}{' '}
-					L: {agg.low}{' '}
-					C: {agg.close}{' '}
-					V: {agg.volume}{' '}
-					LQ: {agg.volume * agg.vwap}
-				</div>
-			}
+			{hover && <div>{hover}</div>}
 
 			{chart &&
 				<div>

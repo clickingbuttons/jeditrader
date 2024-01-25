@@ -147,7 +147,7 @@ export class Polygon implements Provider {
 		const from = Polygon.clamp(startEpochNs);
 		const to = Polygon.clamp(endEpochNs);
 		const url = `${Polygon.baseUrl}/v3/trades/${ticker}?timestamp.gte=${from}&timestamp.lt=${to}`;
-		const urlExtra = `&apiKey=${this.apiKey}&limit=10000`;
+		const urlExtra = `&apiKey=${this.apiKey}&limit=50000`;
 		let resp: PolygonTradesResult = await fetch(url + urlExtra).then(res => res.json());
 
 		do {

@@ -72,7 +72,7 @@ export class Renderer {
 		const key = apiKey('Polygon');
 		const provider = new Polygon(key);
 		// const provider = new Clickhouse('http://localhost:8123');
-		this.scene = new TickerScene(this, 'F', provider); // Init last
+		this.scene = new TickerScene(this, 'F', provider);
 	}
 
 	onResize(ev: any) {

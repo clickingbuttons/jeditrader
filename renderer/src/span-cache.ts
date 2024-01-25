@@ -62,11 +62,7 @@ export class SpanCache {
 		return res;
 	}
 
-	getAggs(
-		duration: Duration,
-		from: bigint = minEpochNs,
-		to: bigint = maxEpochNs
-	): Aggregate[] {
+	getAggs(duration: Duration, from: bigint = minEpochNs, to: bigint = maxEpochNs): Aggregate[] {
 		const spans = this.aggs[duration.toString()] ?? [];
 		return this.getSpansData<'aggregate'>(spans, from, to);
 	}

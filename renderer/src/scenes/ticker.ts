@@ -1,7 +1,7 @@
 import type { Renderer } from '../renderer.js';
 import { signal } from '@preact/signals-core';
 import { Provider, Aggregate, Duration } from '@jeditrader/providers';
-import { ChartScene } from './chart.js';
+import { ChartScene, Shape, Rectangle, Circle } from './chart.js';
 import { lods } from '../lods.js';
 import { getVar, minDate, maxDate } from '../helpers.js';
 import { SpanCache } from '../span-cache.js';
@@ -35,8 +35,6 @@ export class TickerScene extends ChartScene {
 		xAxis: this.xAxis.settings,
 	};
 
-	crosshair = signal<Aggregate | undefined>(undefined);
-
 	constructor(
 		public renderer: Renderer,
 		public ticker: string,
@@ -69,19 +67,6 @@ export class TickerScene extends ChartScene {
 				this.ensure(dataLod, interval.start, interval.end);
 			}
 			this.duration.value = dataLod;
-		});
-
-		this.xAxis.crosshairPx.subscribe(newCrosshair => {
-			if (!newCrosshair) {
-				this.crosshair.value = undefined;
-				return;
-			}
-			const axisVal = this.xAxis.rangeValue(newCrosshair) as bigint;
-
-			const { start, end } = new TimeRange(axisVal, axisVal).interval(this.duration.value);
-			const aggs = this.cache.getAggs(this.duration.value, start, end - 1n);
-			if (aggs.length) this.crosshair.value = aggs[0];
-			else this.crosshair.value = undefined;
 		});
 
 		this.settings.bar.wickColor.val.subscribe(() => this.rerender());
@@ -170,6 +155,30 @@ export class TickerScene extends ChartScene {
 		for (let agg of aggs) {
 			const xPerc = Number(agg.epochNs - xRange.start) / xSpan + widthPerc / 2;
 			if (xPerc < -widthPerc || xPerc > 1 + widthPerc) continue;
+
+			const xStartPerc = xRange.percentage(agg.epochNs);
+			const xEndPerc = xRange.percentage(agg.epochNs + duration_ns);
+
+			const yStart = (1 - yRange.percentage(agg.high)) * ctx.canvas.height;
+			const yEnd = (1 - yRange.percentage(agg.low)) * ctx.canvas.height;
+
+			const caption = `${agg.epochNs}
+O: ${agg.open}
+H: ${agg.high}
+L: ${agg.low}
+C: ${agg.close}
+V: ${agg.volume}`;
+
+			const rect = new Rectangle(
+				xStartPerc * ctx.canvas.width,
+				yStart,
+				(xEndPerc - xStartPerc) * ctx.canvas.width,
+				yEnd - yStart,
+				caption
+			);
+
+			this.shapes.push(rect);
+
 			if (volumeSettings.enabled.value && agg.volume * agg.vwap) {
 				// shadow
 				const yPerc = 1 - (Math.min(agg.open, agg.close) - yRange.start) / ySpan;
@@ -222,20 +231,8 @@ export class TickerScene extends ChartScene {
 				ctx.restore();
 			}
 			if (loading) {
-				// loading overlay
-				const xStartPerc = xRange.percentage(agg.epochNs);
-				const xEndPerc = xRange.percentage(agg.epochNs + duration_ns);
-
-				const yStart = (1 - yRange.percentage(agg.high)) * ctx.canvas.height;
-				const yEnd = (1 - yRange.percentage(agg.low)) * ctx.canvas.height;
-
 				ctx.fillStyle = `rgba(${getVar('--loading-color')})`;
-				ctx.fillRect(
-					xStartPerc * ctx.canvas.width,
-					yStart,
-					(xEndPerc - xStartPerc) * ctx.canvas.width,
-					yEnd - yStart
-				);
+				ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
 			}
 		}
 
@@ -244,10 +241,16 @@ export class TickerScene extends ChartScene {
 		for (let trade of trades) {
 			const radius = trade.size / 200;
 			const x = Number(trade.epochNs - xRange.start) / xSpan * axisWidth;
+			const y = (1 - Number(trade.price - yRange.start) / ySpan) * axisHeight;
 
 			if (x + radius < 0 || x - radius > axisWidth) continue;
 
-			const y = (1 - Number(trade.price - yRange.start) / ySpan) * axisHeight;
+			const caption = `${trade.epochNs}
+${trade.size}@${trade.price}
+${trade.conditions ? trade.conditions.toString() : ''}
+`;
+			const circle = new Circle(x, y, radius, caption);
+			this.shapes.push(circle);
 
 			ctx.beginPath();
 			ctx.arc(x, y, radius, 0, 2 * Math.PI);

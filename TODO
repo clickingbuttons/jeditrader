@@ -11,7 +11,8 @@
 
 [x] price multi decimal labels
 [x] nanoseconds!!!!!!1
-trades
+[x] trades
+	- [x] scene graph for hover
 
 [x] low lod aggs client side (fixes polygon misalignment)
 [x] fix crosshair
@@ -27,8 +28,8 @@ vwap
 drawings
 [?] volume
 
-clickhouse high lod aggs
 clickhouse pipeline
+clickhouse high lod aggs
 live
 
 settings
