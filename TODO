@@ -19,7 +19,7 @@ trades
 [NO] zoom axes click and drag
 [x] axis typescript cleanup (subclasses for time + value)
 [x] better crosshair time context
-loading state (gray background?)
+[x] loading state (gray background?)
 timezones
 css modules
 

@@ -20,7 +20,7 @@ export function getVar(cssVar: string): string {
 // JS allows up to 8640000000000000 but this number aligns with axes.
 export const maxDate = BigInt(new Date(200_000, 0).getTime()) * ms_to_nanos;
 export const minDate = BigInt(new Date(-200_000, 0).getTime()) * ms_to_nanos;
-export function clampDate(d: bigint): bigint {
-	return clamp(d, minDate, maxDate);
+export function clampDate(epochNs: bigint): bigint {
+	return clamp(epochNs, minDate, maxDate);
 }
 

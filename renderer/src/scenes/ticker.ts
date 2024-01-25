@@ -1,6 +1,6 @@
 import type { Renderer } from '../renderer.js';
 import { signal } from '@preact/signals-core';
-import { Provider, Aggregate, Duration } from '@jeditrader/providers';
+import { Provider, Aggregate, Duration, ms_to_nanos } from '@jeditrader/providers';
 import { ChartScene } from './chart.js';
 import { lods } from '../lods.js';
 import { getVar, minDate, maxDate } from '../helpers.js';
@@ -26,8 +26,13 @@ export class TickerScene extends ChartScene {
 			wickColor: {
 				val: signal('foreground'),
 				options: ['foreground', 'body'],
-			}
-		}
+			},
+			volume: {
+				enabled: signal(false),
+				multiplier: signal(1e10),
+			},
+		},
+		xAxis: this.xAxis.settings,
 	};
 
 	crosshair = signal<Aggregate | undefined>(undefined);
@@ -82,6 +87,8 @@ export class TickerScene extends ChartScene {
 
 		this.settings.bar.wickColor.val.subscribe(() => this.rerender());
 		this.settings.bar.wickWidth.subscribe(() => this.rerender());
+		this.settings.bar.volume.enabled.subscribe(() => this.rerender());
+		this.settings.bar.volume.multiplier.subscribe(() => this.rerender());
 	}
 
 	rerender() {
@@ -155,25 +162,27 @@ export class TickerScene extends ChartScene {
 		const wickWidth = this.settings.bar.wickWidth.value;
 		const barWidth = axisWidth * widthPerc;
 
+		const volumeSettings = this.settings.bar.volume;
+
 		const aggs = this.cache.get(aggDuration, start, end);
 		for (let agg of aggs) {
 			const xPerc = Number(agg.epochNs - xRange.start) / xSpan + widthPerc / 2;
 			if (xPerc < -widthPerc || xPerc > 1 + widthPerc) continue;
-			// if (agg.volume * agg.vwap) {
-			// 	// shadow
-			// 	const yPerc = 1 - (Math.min(agg.open, agg.close) - yRange.from) / ySpan;
-			// 	const heightPerc = (agg.volume * agg.vwap / 1e7) / ySpan;
+			if (volumeSettings.enabled.value && agg.volume * agg.vwap) {
+				// shadow
+				const yPerc = 1 - (Math.min(agg.open, agg.close) - yRange.start) / ySpan;
+				const heightPerc = (agg.volume * agg.vwap / volumeSettings.multiplier.value) / ySpan;
 
-			// 	const x = xPerc * axisWidth;
-			// 	const y = yPerc * axisHeight;
-			// 	// const gradient = ctx.createRadialGradient(x, y, 0, x, y, heightPerc * axisHeight);
+				const x = xPerc * axisWidth;
+				const y = yPerc * axisHeight;
+				// const gradient = ctx.createRadialGradient(x, y, 0, x, y, heightPerc * axisHeight);
 
-			// 	// Add three color stops
-			// 	// gradient.addColorStop(0, "black");
-			// 	// gradient.addColorStop(1, "transparent");
-			// 	ctx.fillStyle = `rgb(${getVar('--bar-shadow-color')})`;
-			// 	ctx.fillRect(x - barWidth / 2, y, barWidth, heightPerc * axisHeight);
-			// }
+				// Add three color stops
+				// gradient.addColorStop(0, "black");
+				// gradient.addColorStop(1, "transparent");
+				ctx.fillStyle = `rgb(${getVar('--bar-shadow-color')})`;
+				ctx.fillRect(x - barWidth / 2, y, barWidth, heightPerc * axisHeight);
+			}
 			{
 				// wick
 				const yPerc = 1 - (agg.high - yRange.start) / ySpan;

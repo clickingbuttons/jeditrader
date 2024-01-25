@@ -1,13 +1,36 @@
 import type { Renderer } from '../renderer.js';
 import { Duration, DurationUnit, ms_to_nanos } from '@jeditrader/providers';
-import { Signal } from '@preact/signals';
+import { Signal, signal } from '@preact/signals';
 import { format as formatTime } from 'date-fns';
 import { lods } from '../lods.js';
 import { TimeRange } from '../range/TimeRange.js';
 import { Axis, Side } from './axis.js';
 
+function timeZoneOffset(ianaTimeZone: string): number {
+	const now = new Date();
+	now.setSeconds(0, 0);
+
+	// Format current time in `ianaTimeZone` as `M/DD/YYYY, HH:MM:SS`:
+	const tzDateString = now.toLocaleString('en-US', {
+		timeZone: ianaTimeZone,
+		hourCycle: 'h23',
+	});
+
+	const match = /(\d+)\/(\d+)\/(\d+), (\d+):(\d+)/.exec(tzDateString);
+	if (!match) return 0;
+	const [_, month, day, year, hour, min] = match.map(Number);
+
+	const tzTime = Date.UTC(year, month - 1, day, hour, min);
+
+	return (tzTime - now.getTime()) + now.getTimezoneOffset() * 60 * 1000;
+}
+
 export class TimeAxis extends Axis<bigint, Duration> {
 	crosshairDuration: Signal<Duration> | undefined;
+
+	settings = {
+		timezone: signal<string>('America/New_York'),
+	}
 
 	constructor(
 		renderer: Renderer,
@@ -15,6 +38,7 @@ export class TimeAxis extends Axis<bigint, Duration> {
 		side: Side,
 	) {
 		super(renderer, range, side);
+		this.settings.timezone.subscribe(() => renderer.flags.rerender = true);
 	}
 
 	percentUsage(duration: Duration) {
@@ -59,7 +83,9 @@ export class TimeAxis extends Axis<bigint, Duration> {
 
 	formatTime(n: bigint, format: string) {
 		if (format === 'microseconds' || format === 'nanoseconds') return (n % ms_to_nanos).toString();
-		return formatTime(Number(n / ms_to_nanos), format);
+		let date = Number(n / ms_to_nanos);
+		date -= timeZoneOffset(this.settings.timezone.value);
+		return formatTime(date, format);
 	}
 
 	label(n: bigint, isFirst: boolean, isCrosshair: boolean): string {

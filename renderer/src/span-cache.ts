@@ -70,9 +70,9 @@ export class SpanCache {
 		const duration_ns = duration.ns();
 		const nExpected = (to - from) / duration_ns;
 		const nMissing = this.minAggFetchSize - nExpected;
-		if (nMissing > 0) {
-			from = this.clamp(from - duration_ns * nMissing / 2n);
-			to = this.clamp(to + duration_ns * nMissing / 2n);
+		if (nMissing > 0n) {
+			from = duration.truncate(from - duration_ns * nMissing / 2n, minEpochNs);
+			to = duration.truncate(to + duration_ns * nMissing / 2n, maxEpochNs, 1);
 		}
 
 		const contained: Span<Aggregate>[] = [];
